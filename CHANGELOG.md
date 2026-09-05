@@ -2,6 +2,24 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.023] — 2026-09-05
+
+### Added
+
+- **Historical FX backfill**: `POST /api/fx/history` downloads the full ECB
+  series (eurofxref-hist.xml, ~8 MB, since 1999) and stores **month-end
+  rates only** (last ECB day of each month per currency, ~10k rows,
+  idempotent INSERT OR REPLACE — daily recent rates untouched). Deep
+  histories are now converted with the actual month-end rate at or before
+  the valuation date instead of the oldest-rate fallback. Settings panel:
+  « 🗓️ Charger l'historique BCE » button + note (i18n ×4), audited.
+- Tests: `tests/test_fx.py` extended — parser keeps the max day per month
+  (intermediate days dropped, single-day months kept), mocked backfill
+  route, old valuation (2020) converted at its month-end rate in both the
+  summary and the monthly history. 47/47 green. Real-file check: 10 364
+  month-end rows for the 7 supported currencies (USD 1999-01-29 →
+  2026-09-04).
+
 ## [2026.09.022] — 2026-09-05
 
 ### Added

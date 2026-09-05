@@ -1605,6 +1605,9 @@ FX_META = {
     "AUD": {"symbol": "A$", "label": "Dollar australien"},
 }
 FX_ECB_URL = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml"
+# Historique complet BCE (depuis 1999) : backfill des fins de mois pour les
+# conversions des historiques anciens (le fichier fait ~8 Mo, une seule passe)
+FX_ECB_HIST_URL = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist.xml"
 
 
 def _fx_lookup(conn: sqlite3.Connection, ccy: str, d: str | None, override: float | None = None) -> dict | None:
@@ -1700,6 +1703,66 @@ async def fx_refresh(request: Request):
         return JSONResponse({"detail": "BCE injoignable — réessayez plus tard"}, status_code=502)
     _audit(u["username"], "Mise à jour des taux", f"{n} devises")
     return {"updated": n, "asof": day}
+
+
+def _parse_ecb_hist(xml_text: str) -> list[tuple[str, str, float]]:
+    """Fins de mois (dernier jour BCE dispo du mois) sur l'historique complet :
+    (ccy, YYYY-MM-DD, rate) — un seul taux par devise et par mois."""
+    import xml.etree.ElementTree as ET
+
+    root = ET.fromstring(xml_text)
+    ns = "{http://www.ecb.int/vocabulary/2002-08-01/eurofxref}"
+    last: dict[tuple[str, str], tuple[str, float]] = {}  # (ccy, ym) -> (day, rate)
+    day = None
+    for cube in root.iter(ns + "Cube"):
+        if "time" in cube.attrib:
+            day = cube.attrib["time"]
+        elif "currency" in cube.attrib and day:
+            ccy = cube.attrib["currency"]
+            try:
+                rate = float(cube.attrib["rate"])
+            except (ValueError, KeyError):
+                continue
+            ym = day[:7]
+            prev = last.get((ccy, ym))
+            if prev is None or day > prev[0]:
+                last[(ccy, ym)] = (day, rate)
+    return [(ccy, d, r) for (ccy, _ym), (d, r) in last.items()]
+
+
+def _ecb_fetch_hist_http() -> list[tuple[str, str, float]]:
+    """Fins de mois BCE (historique depuis 1999) — BLOQUANT, threadpool."""
+    req = urllib.request.Request(FX_ECB_HIST_URL, headers={**YAHOO_UA, "Accept": "application/xml"})
+    with urllib.request.urlopen(req, timeout=45) as r:
+        return _parse_ecb_hist(r.read().decode("utf-8"))
+
+
+@app.post("/api/fx/history")
+async def fx_history_backfill(request: Request):
+    """Backfill idempotent des fins de mois BCE (conversions historiques
+    exactes au lieu du repli 'taux le plus ancien'). ~8 Mo téléchargés une
+    fois ; INSERT OR REPLACE, aucune donnée existante touchée."""
+    u = _need(request)
+    try:
+        rates = await run_in_threadpool(_ecb_fetch_hist_http)
+    except Exception:
+        return JSONResponse({"detail": "BCE injoignable — réessayez plus tard"}, status_code=502)
+    if not rates:
+        return JSONResponse({"detail": "BCE injoignable — réessayez plus tard"}, status_code=502)
+    conn = db()
+    try:
+        for ccy, day, rate in rates:
+            if ccy in FX_SUPPORTED:
+                conn.execute(
+                    "INSERT OR REPLACE INTO fx_rates (ccy, rate_date, rate, source) VALUES (?,?,?, 'ecb')",
+                    (ccy, day, rate),
+                )
+        conn.commit()
+        months = len({day[:7] for ccy, day, _ in rates if ccy in FX_SUPPORTED})
+    finally:
+        conn.close()
+    _audit(u["username"], "Taux historiques", f"backfill {months} mois")
+    return {"months": months, "currencies": FX_SUPPORTED[1:]}
 
 
 # ---------------------------------------------------------------- synthèse

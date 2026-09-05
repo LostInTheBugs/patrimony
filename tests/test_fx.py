@@ -166,6 +166,50 @@ def test_fx_benchmarks_and_ecb_parser_and_refresh(admin_c, monkeypatch):
     assert b["user"]["value"] == round(108.42 / 1.0842, 2) == 100.0
 
 
+def test_fx_history_backfill_month_ends_and_deep_conversion(admin_c, monkeypatch):
+    """Backfill /api/fx/history : une seule fin de mois par devise/mois, et
+    une valorisation ancienne convertie avec le taux de fin de mois <= sa date
+    (plus de repli 'taux le plus ancien' pour les historiques profonds)."""
+    from src.app import _parse_ecb_hist
+
+    sample = """<?xml version="1.0" encoding="UTF-8"?>
+<gesmes:Envelope xmlns:gesmes="http://www.gesmes.org/xml/2002-08-01" xmlns="http://www.ecb.int/vocabulary/2002-08-01/eurofxref">
+<Cube><Cube time="2020-01-15"><Cube currency="USD" rate="1.1100"/><Cube currency="GBP" rate="0.8500"/></Cube>
+<Cube time="2020-01-31"><Cube currency="USD" rate="1.1000"/><Cube currency="GBP" rate="0.8600"/></Cube>
+<Cube time="2020-02-15"><Cube currency="USD" rate="1.0800"/><Cube currency="GBP" rate="0.8400"/></Cube></Cube></gesmes:Envelope>"""
+    rows = _parse_ecb_hist(sample)
+    by = {(c, d) for c, d, _ in rows}
+    assert ("USD", "2020-01-31") in by  # le MAX du mois gagne, pas le 15
+    assert ("USD", "2020-01-15") not in by
+    assert ("USD", "2020-02-15") in by  # jour unique du mois → retenu
+    assert len(rows) == 4
+
+    monkeypatch.setattr(app, "_ecb_fetch_hist_http",
+                         lambda: [("USD", "2020-01-31", 1.10), ("GBP", "2020-01-31", 0.86),
+                                  ("USD", "2020-02-15", 1.08)])
+    c = _member(admin_c, "fx-hist2")
+    r = c.post("/api/fx/history")
+    assert r.status_code == 200, r.text
+    d = r.json()
+    assert d["months"] == 2
+    assert d["currencies"] == ["USD", "CHF", "GBP", "JPY", "CAD", "AUD"]
+
+    # actif USD valorisé une 1re fois AVANT le plus ancien taux backfillé puis
+    # une 2e fois après : le summary (valeur la plus récente, 2020-02-20) doit
+    # convertir au 15/02 (taux <= date) → 1080/1.08 = 1000 € exacts
+    a = _mk_acc(c, "PEA US deep", "bourse", currency="USD")
+    c.post(f"/api/accounts/{a}/valuation", json={"value": 1100.0, "val_date": "2020-01-10"})
+    assert c.post(f"/api/accounts/{a}/valuation",
+                  json={"value": 1080.0, "val_date": "2020-02-20"}).status_code == 200
+    s = c.get("/api/summary").json()
+    assert s["fx_asof"] == "2020-02-15"
+    assert s["total_value"] == 1000.0
+    # l'ancienne valeur (2020-01-10) convertie au 31/01 dans l'historique
+    h = c.get("/api/history?months=84").json()
+    jan20 = h["labels"].index("2020-01")
+    assert abs(h["series"]["bourse"][jan20] - 1000.0) < 0.01  # 1100/1.10
+
+
 def test_fx_account_validation_and_legacy_default(admin_c):
     c = _member(admin_c, "fx-val")
     # devise inconnue → 400 (création comme édition)
