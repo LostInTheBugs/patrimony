@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Patrimony Capture — Options</title>
+<style>
+  :root{--bg:#0d1117;--panel:#161b22;--panel2:#1c2430;--border:#232b36;--text:#e6edf3;--muted:#8b949e;--gold:#e3b341}
+  *{box-sizing:border-box;margin:0;font-family:system-ui,-apple-system,sans-serif}
+  body{background:var(--bg);color:var(--text);font-size:14px;padding:32px;display:flex;justify-content:center}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:22px 26px;width:640px;margin-bottom:24px}
+  h1{color:var(--gold);font-size:18px;margin-bottom:6px}
+  h2{color:var(--gold);font-size:15px;margin:4px 0 8px}
+  .sub{color:var(--muted);font-size:12px;margin-bottom:14px}
+  label{display:block;color:var(--muted);font-size:12px;margin:12px 0 4px}
+  input,select{width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 10px}
+  .row{display:flex;gap:10px;margin-top:14px}
+  button{flex:1;background:var(--gold);color:#1a1300;border:0;border-radius:9px;padding:10px;font-weight:700;cursor:pointer}
+  button.ghost{background:transparent;color:var(--text);border:1px solid var(--border)}
+  button.mini{flex:0;padding:5px 10px;font-size:12px;border-radius:7px;background:transparent;color:#f85149;border:1px solid #f8514933}
+  #status{margin-top:12px;font-size:13px}
+  .ok{color:#3fb950}.err{color:#f85149}.note{color:var(--muted);font-size:12px;margin-top:10px;line-height:1.5}
+  table{width:100%;border-collapse:collapse;margin-top:8px}
+  th{color:var(--muted);font-size:11px;text-align:left;padding:4px 6px;border-bottom:1px solid var(--border)}
+  td{padding:6px;border-bottom:1px solid #1a212b;vertical-align:top;font-size:13px}
+  td.mono{font-family:ui-monospace,monospace;font-size:11.5px;word-break:break-all}
+  .st{font-size:11px;color:var(--muted)}
+  .st.ok{color:#3fb950}.st.err{color:#f85149}
+  .newline{display:grid;grid-template-columns:1.1fr 1.4fr 1fr auto;gap:8px;align-items:end}
+  .newline label{font-size:11px;margin:0 0 3px}
+</style>
+</head>
+<body>
+<div>
+  <div class="card">
+    <h1>🔑 Patrimony Capture</h1>
+    <div class="sub">Envoie vos captures vers votre instance Patrimony — LAN ou HTTPS. Le jeton n'est stocké que dans votre navigateur (chrome.storage), jamais ailleurs.</div>
+    <label>URL de l'instance (ex. http://192.0.2.10:8020 ou https://patrimony.example.net)</label>
+    <input id="oUrl" placeholder="http://192.0.2.10:8020">
+    <label>Jeton API (Paramètres → « Accès API (extension) » → Nouveau jeton)</label>
+    <input id="oToken" type="password" autocomplete="off">
+    <label>Note par défaut (optionnel)</label>
+    <input id="oNote" placeholder="saisie extension">
+    <div class="row">
+      <button class="ghost" id="oTest">Tester la connexion</button>
+      <button id="oSave">Enregistrer</button>
+    </div>
+    <div id="status"></div>
+  </div>
+
+  <div class="card">
+    <h2>📡 Captures automatiques (mappings CSS)</h2>
+    <div class="sub">Sur les sites mappés, l'extension lit le <b>1er élément</b> correspondant au sélecteur et envoie une valorisation à l'actif choisi — <b>une fois par jour max</b>, uniquement si la valeur change. Aucun identifiant : l'extension lit la page que vous avez déjà ouverte.</div>
+    <table>
+      <thead><tr><th style="width:16%">Site (hôte)</th><th style="width:34%">Sélecteur CSS</th><th style="width:22%">Actif</th><th style="width:16%">Dernière capture</th><th></th></tr></thead>
+      <tbody id="mapBody"></tbody>
+    </table>
+    <div style="margin-top:12px" class="newline">
+      <div><label>Site</label><input id="mHost" placeholder="ex. boursorama.com"></div>
+      <div><label>Sélecteur CSS</label><input id="mSel" placeholder="ex. .solde-positif, #total b"></div>
+      <div><label>Actif cible</label><select id="mAcc"></select></div>
+      <button id="mAdd" style="padding:9px 12px">➕</button>
+    </div>
+    <div class="note">💡 Astuce pour trouver le sélecteur : clic droit sur le montant → « Inspecter » → copier le sélecteur CSS (`.classe` ou `#id`). L'extension ne lit que cet élément. Éditez un mapping : double-clic sur la ligne (ou cliquez sur ✎), puis « Enregistrer ». Testez avec « ▶ » sur la ligne (site ouvert requis).</div>
+    <div class="note">⚠️ L'ajout d'un mapping demande l'autorisation d'accès au site (optionnelle, révocable dans chrome://extensions → détails → accès aux sites).</div>
+  </div>
+</div>
+<script src="options.js"></script>
+</body>
+</html>

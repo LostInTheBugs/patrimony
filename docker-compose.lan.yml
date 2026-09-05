@@ -1,0 +1,19 @@
+# Compose pour déploiement LAN privé (SANS Traefik, SANS exposition internet).
+# Usage : docker compose -f docker-compose.lan.yml up -d --build
+# (docker-compose.yml garde les labels Traefik pour la démo cloud)
+services:
+  patrimony:
+    build: .
+    image: patrimony:latest
+    container_name: patrimony
+    restart: unless-stopped
+    environment:
+      - PORT=${PORT:-8020}
+      - ADMIN_USER=${ADMIN_USER:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-change-me}
+      - COOKIE_SECURE=${COOKIE_SECURE:-0}
+      - SEED_DEMO=${SEED_DEMO:-0}
+    volumes:
+      - ./data:/app/data
+    ports:
+      - "${PORT:-8020}:8020"

@@ -1,0 +1,36 @@
+# Compose for the public DEMO deployment (Traefik + Let's Encrypt) — demo data only.
+# Usage : docker compose up -d --build   (after the Cloudflare DNS record exists)
+services:
+  patrimony:
+    build: .
+    image: patrimony:latest
+    container_name: patrimony-demo
+    restart: unless-stopped
+    environment:
+      - PORT=8020
+      - ADMIN_USER=${ADMIN_USER:-demo}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-change-me}
+      - COOKIE_SECURE=1
+      - SEED_DEMO=1
+      - DISCLAIMER=${DISCLAIMER:-Démo publique — données fictives à but d’illustration. Aucun compte réel n’est connecté.}
+    volumes:
+      - ./data:/app/data
+    networks:
+      - traefik-public
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik-public
+      - traefik.http.middlewares.patrimony-redirect.redirectscheme.permanent=true
+      - traefik.http.middlewares.patrimony-redirect.redirectscheme.scheme=https
+      - traefik.http.routers.patrimony-web.rule=Host(`${DOMAIN:-your-domain.example.com}`)
+      - traefik.http.routers.patrimony-web.entrypoints=web
+      - traefik.http.routers.patrimony-web.middlewares=patrimony-redirect
+      - traefik.http.routers.patrimony-web-secure.rule=Host(`${DOMAIN:-your-domain.example.com}`)
+      - traefik.http.routers.patrimony-web-secure.entrypoints=websecure
+      - traefik.http.routers.patrimony-web-secure.tls=true
+      - traefik.http.routers.patrimony-web-secure.tls.certresolver=letsencrypt
+      - traefik.http.services.patrimony-web.loadbalancer.server.port=8020
+
+networks:
+  traefik-public:
+    external: true
