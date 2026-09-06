@@ -343,6 +343,7 @@ def init_db() -> None:
             username TEXT NOT NULL,
             name TEXT NOT NULL,
             token_hash TEXT NOT NULL,
+            scope TEXT DEFAULT 'full',
             created_at TEXT DEFAULT (datetime('now')),
             expires_at TEXT,
             last_used_at TEXT
@@ -382,6 +383,10 @@ def init_db() -> None:
         conn.execute("ALTER TABLE vaults ADD COLUMN canary TEXT DEFAULT ''")
     except sqlite3.OperationalError:
         pass  # colonne déjà présente (v2026.09.011)
+    try:
+        conn.execute("ALTER TABLE api_tokens ADD COLUMN scope TEXT DEFAULT 'full'")
+    except sqlite3.OperationalError:
+        pass  # colonne déjà présente (v2026.09.024)
     admin = _admin_username()
     # migration mono-utilisateur → famille : l'utilisateur existant devient l'admin
     conn.execute(
@@ -688,6 +693,10 @@ class VaultLocked(Exception):
     pass
 
 
+class TokenScopeDenied(Exception):
+    """Jeton API à portée 'capture' utilisé hors de ses deux appels autorisés."""
+
+
 def _copy_rows(src: sqlite3.Connection, dst: sqlite3.Connection, table: str, where: str, args: tuple) -> None:
     """Copie les lignes d'une table (base principale → base du coffre)."""
     cols = [r["name"] for r in src.execute(f"PRAGMA table_info({table})").fetchall()]
@@ -723,7 +732,7 @@ def _me(request: Request) -> sqlite3.Row | None:
         finally:
             conn.close()
         return row
-    # Jeton API (extension) : Authorization: Bearer <token> — hash en base,
+    # Jeton API (extension) : Authorization: Bearer *** — hash en base,
     # jamais le jeton lui-même. Les comptes protégés ne peuvent pas en créer :
     # leur coffre exige une session interactive.
     auth = request.headers.get("authorization", "")
@@ -732,10 +741,28 @@ def _me(request: Request) -> sqlite3.Row | None:
         conn = db_main()
         try:
             row = conn.execute(
-                "SELECT u.* FROM api_tokens t JOIN users u ON u.username = t.username"
+                "SELECT u.*, t.scope AS token_scope FROM api_tokens t"
+                " JOIN users u ON u.username = t.username"
                 " WHERE t.token_hash = ? AND (t.expires_at IS NULL OR t.expires_at > ?)",
                 (h, datetime.now(timezone.utc).isoformat()),
             ).fetchone()
+            # Portée 'capture' (extension Patrimony Capture) : SEULEMENT
+            # GET /api/accounts et POST /api/accounts/{id}/valuation — rien
+            # d'autre (ni exports/imports, ni CRUD, ni admin famille, ni
+            # /api/auth/me). Réduit le jeton de « clé du coffre-fort » à
+            # « clé de la boîte aux lettres ».
+            if row is not None and row["token_scope"] == "capture":
+                p = request.url.path
+                allowed = (
+                    request.method == "GET" and p == "/api/accounts"
+                ) or (
+                    request.method == "POST"
+                    and p.startswith("/api/accounts/")
+                    and p.endswith("/valuation")
+                    and p[len("/api/accounts/"):-len("/valuation")].isdigit()
+                )
+                if not allowed:
+                    raise TokenScopeDenied()
             if row is not None:
                 conn.execute("UPDATE api_tokens SET last_used_at=datetime('now') WHERE token_hash=?", (h,))
                 conn.commit()
@@ -801,6 +828,14 @@ async def _perm(_req, _exc):
 @app.exception_handler(VaultLocked)
 async def _vl_h(_req, _exc):
     return JSONResponse({"detail": "Coffre verrouillé", "code": "vault_locked"}, status_code=403)
+
+
+@app.exception_handler(TokenScopeDenied)
+async def _ts_h(_req, _exc):
+    return JSONResponse(
+        {"detail": "Jeton à portée limitée — action non autorisée", "code": "scope_denied"},
+        status_code=403,
+    )
 
 
 # ---------------------------------------------------------------- auth routes
@@ -995,6 +1030,7 @@ async def me(request: Request):
 class TokenIn(BaseModel):
     name: str = "extension"
     expires_days: int | None = None
+    scope: str = "full"  # full | capture (extension : 2 appels seulement)
 
 
 @app.get("/api/tokens")
@@ -1003,7 +1039,7 @@ async def tokens_list(request: Request):
     conn = db_main()
     try:
         rows = conn.execute(
-            "SELECT id, name, created_at, expires_at, last_used_at FROM api_tokens"
+            "SELECT id, name, scope, created_at, expires_at, last_used_at FROM api_tokens"
             " WHERE username=? ORDER BY id", (u["username"],)
         ).fetchall()
     finally:
@@ -1018,6 +1054,9 @@ async def tokens_create(body: TokenIn, request: Request):
     u = _need(request)
     if u["mode"] == "protected":
         return JSONResponse({"detail": "Non disponible pour les comptes protégés"}, status_code=403)
+    scope = body.scope
+    if scope not in ("full", "capture"):
+        return JSONResponse({"detail": "Portée invalide (full|capture)"}, status_code=400)
     name = (body.name or "").strip()[:40] or "extension"
     if body.expires_days is not None and not (1 <= body.expires_days <= 3650):
         return JSONResponse({"detail": "Expiration invalide (1-3650 jours)"}, status_code=400)
@@ -1030,15 +1069,15 @@ async def tokens_create(body: TokenIn, request: Request):
     conn = db_main()
     try:
         cur = conn.execute(
-            "INSERT INTO api_tokens (username, name, token_hash, expires_at) VALUES (?,?,?,?)",
-            (u["username"], name, h, exp),
+            "INSERT INTO api_tokens (username, name, token_hash, scope, expires_at) VALUES (?,?,?,?,?)",
+            (u["username"], name, h, scope, exp),
         )
         conn.commit()
         tid = cur.lastrowid
     finally:
         conn.close()
-    _audit(u["username"], "Création de jeton API", name)
-    return {"id": tid, "name": name, "token": raw, "expires_at": exp}
+    _audit(u["username"], "Création de jeton API", f"{name} ({scope})")
+    return {"id": tid, "name": name, "scope": scope, "token": raw, "expires_at": exp}
 
 
 @app.delete("/api/tokens/{tid}")

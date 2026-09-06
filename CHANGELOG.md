@@ -2,6 +2,24 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.024] — 2026-09-06
+
+### Added
+
+- **API token scopes** (`full` | `capture`): a `capture` token only grants
+  `GET /api/accounts` and `POST /api/accounts/{id}/valuation` — everything
+  else (exports, imports, CRUD, family admin, even `/api/auth/me`) answers
+  `403 scope_denied`, never 401: the token *is* authenticated, it is merely
+  out of scope. An authenticated capture token is reduced from a vault key
+  to a mailbox key (external review finding). Existing tokens migrate to
+  `full` (idempotent `ALTER TABLE api_tokens ADD COLUMN scope TEXT DEFAULT
+  'full'`); `POST /api/tokens` accepts `scope` (default `full`, invalid
+  values → 400) and returns/audits it (`"name (scope)"`); token list exposes
+  the scope. UI: scope select in the token modal (capture preselected —
+  the panel is for the extension) and a scope badge in the token list, i18n
+  ×4. The Patrimony Capture extension is unaffected: it only uses the two
+  allowed calls.
+
 ## [2026.09.023] — 2026-09-05
 
 ### Added

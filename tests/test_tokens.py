@@ -104,3 +104,55 @@ def test_token_forbidden_for_protected_and_isolated(admin_c):
     m1.post("/api/accounts", json={"name": "Compte m1", "asset_class": "comptes"})
     acc = b.get("/api/accounts", headers={"Authorization": "Bearer " + r["token"]}).json()["accounts"]
     assert len(acc) == 1 and acc[0]["name"] == "Compte m1"
+
+
+def test_token_scope_capture_only_two_endpoints(admin_c):
+    """v2026.09.024 — un jeton 'capture' (extension) n'ouvre que
+    GET /api/accounts + POST /api/accounts/{id}/valuation ; tout le reste
+    (exports, imports, CRUD, admin famille, /api/auth/me) → 403, jamais 401
+    (le jeton EST authentifié, il est juste hors de sa portée)."""
+    # compte admin : créer un actif via la session cookie pour le POST valuation
+    acc = admin_c.post("/api/accounts", json={"name": "Scopé", "asset_class": "comptes"}).json()
+    aid = acc["id"]
+
+    # création : défaut = full, capture explicite, invalide → 400
+    dflt = admin_c.post("/api/tokens", json={"name": "scope-dflt"}).json()
+    assert dflt["scope"] == "full"
+    assert admin_c.post("/api/tokens", json={"name": "scope-bad", "scope": "admin"}).status_code == 400
+
+    cap = admin_c.post("/api/tokens", json={"name": "ext-cap", "scope": "capture"}).json()
+    assert cap["scope"] == "capture"
+    hdrs = {"Authorization": "Bearer " + cap["token"]}
+    b = TestClient(app.app)
+
+    # les DEUX appels autorisés
+    assert b.get("/api/accounts", headers=hdrs).status_code == 200
+    assert b.post(f"/api/accounts/{aid}/valuation", headers=hdrs, json={"value": 42}).status_code == 200
+    # id inexistant : la PORTÉE passe, c'est l'ownership qui répond 404
+    assert b.post("/api/accounts/999999/valuation", headers=hdrs, json={"value": 1}).status_code == 404
+
+    # tout le reste : 403 scope_denied (pas 401)
+    for meth, url, kw in (
+        ("get", "/api/export", {}),
+        ("post", "/api/import", {"json": {"accounts": [], "transactions": [], "income_rules": []}}),
+        ("post", "/api/accounts", {"json": {"name": "X", "asset_class": "comptes"}}),
+        ("delete", f"/api/accounts/{aid}", {}),
+        ("get", "/api/tokens", {}),
+    ):
+        r = getattr(b, meth)(url, headers=hdrs, **kw)
+        assert r.status_code == 403, (meth, url, r.status_code)
+        assert r.json().get("code") == "scope_denied"
+    assert b.get("/api/auth/me", headers=hdrs).status_code == 403
+    assert b.post("/api/family", headers=hdrs,
+                  json={"username": "scope-evil", "password": PWD, "mode": "standard"}).status_code == 403
+
+    # la liste expose la portée ; l'audit note le scope à la création
+    names = {t["name"]: t["scope"] for t in admin_c.get("/api/tokens").json()["tokens"]}
+    assert names["ext-cap"] == "capture" and names["scope-dflt"] == "full"
+    evs = admin_c.get("/api/audit").json()["events"]
+    assert any("ext-cap (capture)" in e["detail"] for e in evs)
+
+    # un jeton full garde l'accès étendu (contre-épreuve, créé via cookie admin)
+    full = admin_c.post("/api/tokens", json={"name": "full-cap", "scope": "full"}).json()
+    fh = {"Authorization": "Bearer " + full["token"]}
+    assert b.get("/api/export", headers=fh).status_code == 200
