@@ -437,6 +437,22 @@
           <div class="note" data-i18n="fxHistNote">Une fois : taux de fin de mois depuis 1999 pour des conversions exactes sur les historiques anciens (téléchargement ~8 Mo, quelques secondes).</div>
           <div style="margin-top:10px" id="fxWrap"><span class="muted" data-i18n="loading">Chargement…</span></div>
         </div>
+        <div class="panel hidden" id="taxPanel">
+          <h3>⚖️ <span data-i18n="txSettTitle">Hypothèses fiscales</span></h3>
+          <p class="note" data-i18n="txSettNote">Utilisées par les estimations 🧮 « si liquidation aujourd'hui » — le moteur ne connaît pas le revenu de votre foyer : ces hypothèses le remplacent (modifiables à tout moment, chaque estimation rappelle les siennes).</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;margin-top:6px">
+            <div><label data-i18n="txTmiLu">Taux marginal LU (%)</label><input id="taxTmiLu" type="number" min="0" max="100" step="0.1" style="width:100%"></div>
+            <div><label data-i18n="txTmiFr">Taux marginal FR (%)</label><input id="taxTmiFr" type="number" min="0" max="100" step="0.1" style="width:100%"></div>
+          </div>
+          <label style="display:flex;gap:6px;align-items:center;margin-top:8px;font-size:13px"><input type="checkbox" id="taxMarried" style="width:auto"> <span data-i18n="txMarried">Imposition collective (abattements doublés)</span></label>
+          <label style="display:flex;gap:6px;align-items:center;margin-top:6px;font-size:13px"><input type="checkbox" id="taxAv150" style="width:auto"> <span data-i18n="txAv150">Assurance-vie FR : primes versées ≤ 150 000 €</span></label>
+          <label style="display:flex;gap:6px;align-items:center;margin-top:6px;font-size:13px"><input type="checkbox" id="taxSub" style="width:auto"> <span data-i18n="txSubstantial">Luxembourg : détention ≥ 10 % du capital (demi-taux au lieu de l'exonération)</span></label>
+          <div class="btns" style="margin-top:10px">
+            <button class="btn small primary" style="background:#1f6feb" onclick="saveTaxSettings()"><span data-i18n="txSettSave">Enregistrer</span></button>
+            <span id="taxStatus" class="muted" style="font-size:12px"></span>
+          </div>
+          <div style="margin-top:6px" id="taxWrap"></div>
+        </div>
         <div class="panel hidden" id="tokPanel">
           <h3>🔑 <span data-i18n="tokTitle">Accès API (extension)</span></h3>
           <p class="note" data-i18n="tokNote">Jeton personnel pour l'extension « Patrimony Capture » (clique-droit sur un montant → capture). Jamais stocké en clair, affiché une seule fois, révocable.</p>
@@ -498,7 +514,7 @@ fr: {
   txBtn:'Estimation fiscale (si liquidation aujourd\'hui)', txEstTitle:'Estimation fiscale', txEstSub:'« Si je liquide aujourd\'hui » — {name}',
   txNotEst:'Aucune estimation pour cet actif (périmètre v1 : titres/PEA/AV, immobilier, crypto — métaux et autres classes suivront).',
   txClose:'Fermer', txGross:'PV brute', txLosses:'Moins-values', txAllowance:'Abattement / ajustement', txTaxable:'PV nette fiscale',
-  txTaxablePs:'Base prélèvements sociaux', txIr:'Impôt sur le revenu (estimé)', txPs:'Prélèvements sociaux', txExtra:'Taxe / contribution additionnelle', txExempt:'Exonération', txNet:'PV nette estimée', txMisc:'Ligne',
+  txTaxablePs:'Base prélèvements sociaux', txIr:'Impôt sur le revenu (estimé)', txPs:'Prélèvements sociaux', txExtra:'Taxe / contribution additionnelle', txExempt:'Exonération', txNet:'PV nette estimée', txMisc:'Ligne', txOpt2op:'Simuler l\'option barème (2OP)', txOpt3cn:'Simuler l\'option barème (3CN)', txOptSub:'Détention ≥ 10 % (LU)', txSettTitle:'Hypothèses fiscales', txSettNote:'Utilisées par les estimations 🧮 « si liquidation aujourd\'hui » — le moteur ne connaît pas le revenu de votre foyer : ces hypothèses le remplacent (modifiables à tout moment, chaque estimation rappelle les siennes).', txTmiLu:'Taux marginal LU (%)', txTmiFr:'Taux marginal FR (%)', txMarried:'Imposition collective (abattements doublés)', txAv150:'Assurance-vie FR : primes versées ≤ 150 000 €', txSubstantial:'Luxembourg : détention ≥ 10 % du capital (demi-taux au lieu de l\'exonération)', txSettSave:'Enregistrer', txSettReady:'Hypothèses chargées — appliquées à vos prochaines estimations.', txSettSaved:'hypothèses enregistrées — appliquées à vos prochaines estimations.',
   txwNeg:'Perte : aucun impôt — imputation/report non simulés (estimation mono-actif).', txwPeaHist:'PS estimés à 18,6 % (taux en vigueur au retrait) — stratification historique des gains non implémentée (⚠️ plan ouvert avant 2018).',
   txwAv2017:'Contrat ouvert avant le 27/09/2017 : ancien régime non modélisé — ordre de grandeur seulement.', txwLuImmo:'Coefficients de réévaluation monétaire LU non appliqués — impôt surestimé pour les détentions longues.',
   txwLuAv:'Rachat très précoce (< 6 mois) : imposition au barème possible selon doctrine — non confirmé officiellement.', txwMissDate:'Date d\'acquisition manquante — renseignez-la pour estimer.',
@@ -616,7 +632,7 @@ en: {
   txBtn:'Tax estimate (if liquidated today)', txEstTitle:'Tax estimate', txEstSub:'"If I liquidate today" — {name}',
   txNotEst:'No estimate for this asset (v1 scope: securities/PEA/life insurance, real estate, crypto — metals and others to follow).',
   txClose:'Close', txGross:'Gross capital gain', txLosses:'Capital losses', txAllowance:'Allowance / adjustment', txTaxable:'Taxable gain',
-  txTaxablePs:'Social contributions base', txIr:'Income tax (estimated)', txPs:'Social contributions', txExtra:'Additional tax / contribution', txExempt:'Exemption', txNet:'Estimated net gain', txMisc:'Line',
+  txTaxablePs:'Social contributions base', txIr:'Income tax (estimated)', txPs:'Social contributions', txExtra:'Additional tax / contribution', txExempt:'Exemption', txNet:'Estimated net gain', txMisc:'Line', txOpt2op:'Simulate the flat-rate option (2OP)', txOpt3cn:'Simulate the progressive option (3CN)', txOptSub:'Holding ≥ 10% (LU)', txSettTitle:'Tax assumptions', txSettNote:'Used by the 🧮 "if I liquidate today" estimates — the engine does not know your household income: these assumptions stand in for it (editable at any time; each estimate recalls its own).', txTmiLu:'LU marginal rate (%)', txTmiFr:'FR marginal rate (%)', txMarried:'Joint taxation (doubled allowances)', txAv150:'FR life insurance: premiums paid ≤ €150,000', txSubstantial:'Luxembourg: holding ≥ 10% of the capital (half-rate instead of exemption)', txSettSave:'Save', txSettReady:'Assumptions loaded — applied to your next estimates.', txSettSaved:'assumptions saved — applied to your next estimates.',
   txwNeg:'Loss: no tax — offset/carryover not simulated (single-asset estimate).', txwPeaHist:'Social contributions estimated at 18.6% (rate at withdrawal) — historical layering not implemented (⚠️ plan opened before 2018).',
   txwAv2017:'Contract opened before 27/09/2017: former regime not modelled — order of magnitude only.', txwLuImmo:'LU monetary revaluation coefficients not applied — tax overestimated for long holdings.',
   txwLuAv:'Very early redemption (< 6 months): progressive taxation possible per doctrine — not officially confirmed.', txwMissDate:'Missing acquisition date — set it to estimate.',
@@ -734,7 +750,7 @@ de: {
   txBtn:'Steuerschätzung (bei Liquidation heute)', txEstTitle:'Steuerschätzung', txEstSub:'« Liquidiere ich heute » — {name}',
   txNotEst:'Keine Schätzung für diesen Vermögenswert (v1-Umfang: Wertpapiere/PEA/Lebensversicherung, Immobilien, Krypto — Metalle u. a. folgen).',
   txClose:'Schließen', txGross:'Brutto-Kursgewinn', txLosses:'Verluste', txAllowance:'Freibetrag / Anpassung', txTaxable:'Steuerpflichtiger Gewinn',
-  txTaxablePs:'Bemessungsgrundlage Sozialabgaben', txIr:'Einkommensteuer (geschätzt)', txPs:'Sozialabgaben', txExtra:'Zusatzsteuer / Beitrag', txExempt:'Steuerbefreiung', txNet:'Geschätzter Nettogewinn', txMisc:'Zeile',
+  txTaxablePs:'Bemessungsgrundlage Sozialabgaben', txIr:'Einkommensteuer (geschätzt)', txPs:'Sozialabgaben', txExtra:'Zusatzsteuer / Beitrag', txExempt:'Steuerbefreiung', txNet:'Geschätzter Nettogewinn', txMisc:'Zeile', txOpt2op:'Abgeltungsoption simulieren (2OP)', txOpt3cn:'Tarifoption simulieren (3CN)', txOptSub:'Beteiligung ≥ 10 % (LU)', txSettTitle:'Steuerannahmen', txSettNote:'Von den 🧮-Schätzungen « wenn ich heute liquidiere » verwendet — das Modul kennt das Haushaltseinkommen nicht: diese Annahmen ersetzen es (jederzeit änderbar, jede Schätzung nennt ihre eigenen).', txTmiLu:'LU-Grenzsteuersatz (%)', txTmiFr:'FR-Grenzsteuersatz (%)', txMarried:'Gemeinsame Veranlagung (doppelte Freibeträge)', txAv150:'FR-Lebensversicherung: Prämien ≤ 150 000 €', txSubstantial:'Luxemburg: Beteiligung ≥ 10 % des Kapitals (halber Satz statt Befreiung)', txSettSave:'Speichern', txSettReady:'Annahmen geladen — für Ihre nächsten Schätzungen.', txSettSaved:'Annahmen gespeichert — für Ihre nächsten Schätzungen.',
   txwNeg:'Verlust: keine Steuer — Verrechnung/Vortrag nicht simuliert (Einzelvermögen-Schätzung).', txwPeaHist:'Sozialabgaben mit 18,6 % geschätzt (Satz bei Abhebung) — historische Schichtung nicht implementiert (⚠️ Plan vor 2018 eröffnet).',
   txwAv2017:'Vertrag vor dem 27.09.2017 eröffnet: altes Regime nicht modelliert — nur Größenordnung.', txwLuImmo:'LU-Geldentwertungsfaktoren nicht angewendet — Steuer bei langen Haltedauern überschätzt.',
   txwLuAv:'Sehr früher Rückkauf (< 6 Monate): Besteuerung nach Tarif möglich (Lehre) — nicht offiziell bestätigt.', txwMissDate:'Erwerbsdatum fehlt — bitte angeben.',
@@ -851,7 +867,7 @@ lu: {
   txBtn:'Steierschätzung (wann haut liquidéiert)', txEstTitle:'Steierschätzung', txEstSub:'« Wann ech haut liquidéieren » — {name}',
   txNotEst:'Keng Schätzung méiglech fir dësen Actif (v1-Ëmfang: Wäertpabeieren/PEA/Liewensversécherung, Immobilien, Krypto — Metaller an anerer kommen duerno).',
   txClose:'Zoumaachen', txGross:'Brutto-Capitalgain', txLosses:'Verloschter', txAllowance:'Fréibetrag / Upassung', txTaxable:'Besteierbare Gewënn',
-  txTaxablePs:'Bemessungsgrondlag Sozialbäiträg', txIr:'Akommessteier (geschat)', txPs:'Sozialbäiträg', txExtra:'Zousazsteier / Bäitrag', txExempt:'Steierbefreiung', txNet:'Geschate Nettogewënn', txMisc:'Zeil',
+  txTaxablePs:'Bemessungsgrondlag Sozialbäiträg', txIr:'Akommessteier (geschat)', txPs:'Sozialbäiträg', txExtra:'Zousazsteier / Bäitrag', txExempt:'Steierbefreiung', txNet:'Geschate Nettogewënn', txMisc:'Zeil', txOpt2op:'Abgeltungsoptioun simuléieren (2OP)', txOpt3cn:'Tarifsoptioun simuléieren (3CN)', txOptSub:'Beteilegung ≥ 10 % (LU)', txSettTitle:'Steierannahmen', txSettNote:'Benotzt vun de 🧮-Schätzungen « wann ech haut liquidéieren » — de Moteur kennt d\'Akommes vum Stot net: dës Annahmen ersetzen et (all Moment änderbar, all Schätzung nennt déi hir).', txTmiLu:'LU-Marginalsteiersaz (%)', txTmiFr:'FR-Marginalsteiersaz (%)', txMarried:'Gemeinsam Besteierung (duebel Fräibeträg)', txAv150:'FR-Liewensversécherung: Primen ≤ 150 000 €', txSubstantial:'Lëtzebuerg: Beteilegung ≥ 10 % vum Kapital (hallefen Tarif amplaz vun der Befreiung)', txSettSave:'Späicheren', txSettReady:'Annahme gelueden — fir Är nächst Schätzungen.', txSettSaved:'Annahme gespäichert — fir Är nächst Schätzungen.',
   txwNeg:'Verloscht: keng Steier — Verrechnung/Virdro net simuléiert (Schätzung eenzel Actif).', txwPeaHist:'Sozialbäiträg mat 18,6 % geschat (Saz bei Retrait) — historesch Schichtung net implementéiert (⚠️ Plan virun 2018 opgemaach).',
   txwAv2017:'Kontrakt virum 27.09.2017 opgemaach: aalt Regime net modelliséiert — nëmme Gréisstenuerdnung.', txwLuImmo:'LU-Geldentwäertungsfaktoren net applizéiert — Steier bei laange Besëtzdauer iwwerschat.',
   txwLuAv:'Ganz fréie Réckkaf (< 6 Méint): Besteierung nom Tarif méiglech (Doctrine) — net offiziell confirméiert.', txwMissDate:'Acquisitiounsdatum feelt — gitt et un fir ze schätzen.',
@@ -1037,6 +1053,7 @@ function switchPage(p) {
     api('/api/version').then(d => $('verApp').textContent = d.version).catch(()=>{});
     if (ME && ME.role === 'admin') { loadFamily(); loadAudit(); }
     if (ME && ME.mode !== 'protected') { loadTokens(); loadFx(); }
+    loadTaxSettings();  // hypothèses fiscales — tous les membres (coffre routé)
   }
 }
 function setScope(f) {
@@ -1074,6 +1091,8 @@ async function boot() {
       $('tokPanel').classList.toggle('hidden', ME.mode === 'protected');
       $('fxPanel').classList.toggle('hidden', ME.mode === 'protected');
       $('recPanel').classList.toggle('hidden', ME.mode !== 'protected');
+      $('taxPanel').classList.toggle('hidden', false);
+      loadTaxSettings();
       if (ME.mode === 'protected') renderRecStatus();
       $('pageLogin').classList.add('hidden'); $('app').classList.remove('hidden'); applyI18n(); switchPage('dash'); return;
     }
@@ -1661,20 +1680,50 @@ function countryBadge(c) {
   return '';
 }
 function txMoney(v, ccy) { return (v<0?'−':'')+mon(Math.abs(v), ccy||'EUR'); }
+let TX_LAST_ID = 0;  // actif dont la modale ⚖️ est ouverte (toggles → refetch)
+
 async function taxModal(id) {
   const a = ACCOUNTS.find(x => x.id===id);
   if (!a) return;
+  TX_LAST_ID = id;
+  const fr = a.tax_country==='fr', lu = a.tax_country==='lu';
+  const cls = a.asset_class;
+  // options pertinentes : barème 2OP (CTO/PEA/AV FR) ou 3CN (crypto FR) ;
+  // détention ≥ 10 % pour les titres LU
+  const optV = fr && (cls==='bourse' || (cls==='epargne' && (a.wrapper||'')==='av') || cls==='crypto')
+    ? (cls==='crypto' ? '3cn' : '2op') : '';
+  const subOn = lu && cls==='bourse';
+  const toggles = (optV || subOn)
+    ? '<div style="display:flex;flex-wrap:wrap;gap:8px 16px;margin:8px 0 10px;font-size:12px">'+
+      (optV ? '<label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="txOpt" data-v="'+optV+'" onchange="taxFetch()"> '+esc(t(optV==='3cn'?'txOpt3cn':'txOpt2op'))+'</label>' : '')+
+      (subOn ? '<label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="txSub" onchange="taxFetch()"> '+esc(t('txOptSub'))+'</label>' : '')+
+      '</div>'
+    : '';
+  openModal(
+    '<h2>🧮 '+esc(t('txEstTitle'))+'</h2>'+
+    '<div class="sub">'+esc(tF('txEstSub',{name:esc(a.name)}))+'</div>'+
+    toggles+
+    '<div id="txBody" style="margin-top:2px"><span class="muted">'+esc(t('loading'))+'…</span></div>'+
+    '<div class="modal-actions"><button class="btn primary" onclick="closeModal()">'+esc(t('txClose'))+'</button></div>');
+  await taxFetch();
+}
+
+async function taxFetch() {
+  const id = TX_LAST_ID;
+  const a = ACCOUNTS.find(x => x.id===id);
+  if (!a) return;
+  const body = $('txBody'); if (!body) return;
+  let q = '/api/tax-estimate?account_id='+id;
+  const optE = $('txOpt'), subE = $('txSub');
+  if (optE && optE.checked) q += '&opt='+optE.dataset.v;
+  if (subE) q += '&sub='+(subE.checked ? '1' : '0');
   let d;
-  try { d = await api('/api/tax-estimate?account_id='+id); }
-  catch(e) { alert(e.message); return; }  // pays manquant, pas de valorisation…
+  try { d = await api(q); }
+  catch(e) { body.innerHTML = '<div class="note">'+esc(e.message)+'</div>'; return; }
   const ccy = d.currency || 'EUR';
   if (d.regime==='not_estimated') {
     const warns = (d.warnings||[]).map(w => '⚠️ '+esc(txCodeLabel(TXW,w))).join('<br>');
-    openModal(
-      '<h2>🧮 '+esc(t('txEstTitle'))+'</h2>'+
-      '<div class="sub">'+esc(tF('txEstSub',{name:esc(a.name)}))+'</div>'+
-      '<div class="note">'+esc(t('txNotEst'))+(warns?'<br>'+warns:'')+'</div>'+
-      '<div class="modal-actions"><button class="btn primary" onclick="closeModal()">'+esc(t('txClose'))+'</button></div>');
+    body.innerHTML = '<div class="note">'+esc(t('txNotEst'))+(warns?'<br>'+warns:'')+'</div>';
     return;
   }
   const rows = d.lines.map(l => {
@@ -1686,13 +1735,40 @@ async function taxModal(id) {
   }).join('');
   const warns = (d.warnings||[]).map(w => '⚠️ '+esc(txCodeLabel(TXW,w))).join('<br>');
   const assums = (d.assumptions||[]).map(x => 'ℹ️ '+esc(txCodeLabel(TXA,x))).join('<br>');
-  openModal(
-    '<h2>🧮 '+esc(t('txEstTitle'))+'</h2>'+
-    '<div class="sub">'+esc(tF('txEstSub',{name:esc(a.name)}))+' · '+esc(d.ruleset_version)+'</div>'+
+  body.innerHTML =
+    '<div class="muted" style="font-size:10px;margin-bottom:4px">'+esc(d.ruleset_version)+'</div>'+
     '<table style="width:100%;border-collapse:collapse">'+rows+'</table>'+
     (warns?'<div class="note">'+warns+'</div>':'')+
-    (assums?'<div class="note" style="border-left-color:#39c5cf">'+assums+'</div>':'')+
-    '<div class="modal-actions"><button class="btn primary" onclick="closeModal()">'+esc(t('txClose'))+'</button></div>');
+    (assums?'<div class="note" style="border-left-color:#39c5cf">'+assums+'</div>':'');
+}
+
+/* ---------- hypothèses fiscales du foyer (v2026.09.032) ---------- */
+async function loadTaxSettings() {
+  const w = $('taxWrap'); if (!w) return;
+  try {
+    const s = await api('/api/settings');
+    if ($('taxTmiLu')) $('taxTmiLu').value = s.tax_tmi_lu;
+    if ($('taxTmiFr')) $('taxTmiFr').value = s.tax_tmi_fr;
+    if ($('taxMarried')) $('taxMarried').checked = !!s.tax_married;
+    if ($('taxAv150')) $('taxAv150').checked = !!s.tax_av_150k;
+    if ($('taxSub')) $('taxSub').checked = !!s.tax_substantial;
+    w.innerHTML = '<span class="muted">'+esc(t('txSettReady'))+'</span>';
+  } catch(e) {
+    w.innerHTML = '<span class="muted">'+esc(e.message)+'</span>';
+  }
+}
+async function saveTaxSettings() {
+  const body = {
+    tax_tmi_lu: parseFloat($('taxTmiLu').value) || 0,
+    tax_tmi_fr: parseFloat($('taxTmiFr').value) || 0,
+    tax_married: $('taxMarried').checked ? 1 : 0,
+    tax_av_150k: $('taxAv150').checked ? 1 : 0,
+    tax_substantial: $('taxSub').checked ? 1 : 0,
+  };
+  try {
+    await api('/api/settings', {method:'PUT', body: JSON.stringify(body)});
+    $('taxStatus').textContent = '✅ '+t('txSettSaved');
+  } catch(e) { $('taxStatus').textContent = '❌ '+e.message; }
 }
 
 
@@ -2261,9 +2337,9 @@ function renderFamily() {
     const total = prot ? '<span class="muted" title="'+esc(t('famProtOnly'))+'">'+esc(t('famNoTotal'))+'</span>'
       : (x.totals && x.totals.total_value != null ? monShort(x.totals.total_value) : '—');
     const actions = prot
-      ? '<button class="btn small danger" title="'+esc(t('famDelete'))+'" onclick="famDelete(\''+x.username+'\', \''+x.mode+'\', \''+esc(x.display_name||x.username).replace(/'/g,"\\'")+'\')">🗑️</button>'
-      : '<button class="btn small" title="'+esc(t('famReset'))+'" onclick="famResetModal(\''+x.username+'\', \''+esc(x.display_name||x.username).replace(/'/g,"\\'")+'\')">🔑</button>'+
-        '<button class="btn small danger" title="'+esc(t('famDelete'))+'" onclick="famDelete(\''+x.username+'\', \''+x.mode+'\', \''+esc(x.display_name||x.username).replace(/'/g,"\\'")+'\')">🗑️</button>';
+      ? '<button class="btn small danger" title="'+esc(t('famDelete'))+'" onclick="famDelete(\''+x.username+'\', \''+x.mode+'\', \''+esc(x.display_name||x.username).replace(/'/g,"\'")+'\')">🗑️</button>'
+      : '<button class="btn small" title="'+esc(t('famReset'))+'" onclick="famResetModal(\''+x.username+'\', \''+esc(x.display_name||x.username).replace(/'/g,"\'")+'\')">🔑</button>'+
+        '<button class="btn small danger" title="'+esc(t('famDelete'))+'" onclick="famDelete(\''+x.username+'\', \''+x.mode+'\', \''+esc(x.display_name||x.username).replace(/'/g,"\'")+'\')">🗑️</button>';
     return '<tr>'+
       '<td><div class="mrow"><span class="aname">'+esc(x.display_name||x.username)+'</span>'+badge+'</div>'+
       '<div class="ainst">'+esc(x.username)+(x.is_self?' '+esc(t('famYou')):'')+'</div></td>'+

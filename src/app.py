@@ -317,6 +317,12 @@ def _schema_data(conn: sqlite3.Connection) -> None:
             created_at TEXT DEFAULT (datetime('now')),
             UNIQUE (position_id, ex_date)
         );
+        CREATE TABLE IF NOT EXISTS settings (
+            member TEXT NOT NULL,
+            key TEXT NOT NULL,
+            value REAL NOT NULL,
+            PRIMARY KEY (member, key)
+        );
         """
     )
     for col, ddl in (
@@ -1248,6 +1254,7 @@ async def vault_init(body: VaultInitIn, request: Request):
         _copy_rows(src, mem, "dividend_events",
                    "position_id IN (SELECT p.id FROM positions p"
                    " JOIN accounts a ON a.id=p.account_id WHERE a.owner=?)", (u["username"],))
+        _copy_rows(src, mem, "settings", "member=?", (u["username"],))
     finally:
         src.close()
     # 2) le coffre est ouvert pour cette session
@@ -1756,12 +1763,16 @@ async def list_accounts(request: Request):
 
 
 @app.get("/api/tax-estimate")
-async def tax_estimate(account_id: int, request: Request, year: int = 2026):
+async def tax_estimate(account_id: int, request: Request, year: int = 2026,
+                       opt: str = "", sub: int = -1):
     """Estimation fiscale « si liquidation aujourd'hui » d'un actif
     (v2026.09.031) : appelle le moteur PUR src/tax (règles FR/LU versionnées)
     avec le profil de l'actif — coût effectif, dernière valorisation,
     date d'ouverture, enveloppe, pays fiscal. Réponse = breakdown complet
-    (lignes à ids de règles auditable, warnings/assumptions explicites)."""
+    (lignes à ids de règles auditable, warnings/assumptions explicites).
+    v2026.09.032 : les hypothèses du foyer viennent des settings du membre
+    (GET/PUT /api/settings) ; opt=2op|3cn et sub=0|1 surchargent la
+    simulation pour CET appel (options barème / détention substantielle LU)."""
     u = _need(request)
     conn = db()
     try:
@@ -1786,6 +1797,9 @@ async def tax_estimate(account_id: int, request: Request, year: int = 2026):
         txn = _txn_summary(conn).get(account_id)
         if txn and txn["has_tx"]:
             cost = txn["cost"]
+        s = _get_settings(conn, u["username"])
+        if opt not in ("", "2op", "3cn"):
+            return JSONResponse({"detail": "Option invalide (2op|3cn)"}, status_code=400)
         try:
             res = tax_compute(TaxInput(
                 country=(row["tax_country"] or "").strip().lower(),
@@ -1795,6 +1809,13 @@ async def tax_estimate(account_id: int, request: Request, year: int = 2026):
                 acquisition_cost=round(cost, 2),
                 current_value=round(latest["value"], 2),
                 year=year,
+                tmi_lu=s["tax_tmi_lu"] / 100.0,
+                tmi_fr=s["tax_tmi_fr"] / 100.0,
+                married=bool(s["tax_married"]),
+                av_primes_under_150k=bool(s["tax_av_150k"]),
+                substantial_holding=(bool(sub) if sub in (0, 1)
+                                     else bool(s["tax_substantial"])),
+                progressive=opt,
             ))
         except KeyError as exc:  # année fiscale non versionnée
             return JSONResponse({"detail": str(exc)}, status_code=400)
@@ -1822,6 +1843,86 @@ async def tax_estimate(account_id: int, request: Request, year: int = 2026):
         return out
     finally:
         conn.close()
+
+
+# ---------------------------------------------------------------- settings
+# Hypothèses fiscales du foyer (v2026.09.032) : stockées PAR MEMBRE dans la
+# table settings (base principale pour les standard, coffre pour les
+# protected — le routage de db() suffit). Valeurs en % pour les taux, 0/1
+# pour les booléens ; les défauts du moteur s'appliquent si absentes.
+TAX_SETTING_DEFAULTS = {
+    "tax_tmi_lu": 42.8,   # taux marginal LU % — barème spéculation/participations
+    "tax_tmi_fr": 0.0,    # taux marginal FR % — 0 = non renseigné (options barème refusées)
+    "tax_married": 0.0,   # imposition collective (abattements doublés)
+    "tax_av_150k": 1.0,   # AV FR : primes ≤ 150 k€ (strate 7,5 %)
+    "tax_substantial": 0.0,  # LU : détention ≥ 10 % (demi-taux au lieu de l'exonération)
+}
+TAX_SETTING_KEYS = tuple(TAX_SETTING_DEFAULTS)
+
+
+def _get_settings(conn: sqlite3.Connection, username: str) -> dict:
+    """Réglages fiscaux résolus (stockés sinon défauts documentés)."""
+    rows = conn.execute(
+        "SELECT key, value FROM settings WHERE member=?", (username,)
+    ).fetchall()
+    out = dict(TAX_SETTING_DEFAULTS)
+    for r in rows:
+        if r["key"] in out:
+            out[r["key"]] = r["value"]
+    return out
+
+
+class SettingsIn(BaseModel):
+    tax_tmi_lu: float | None = None
+    tax_tmi_fr: float | None = None
+    tax_married: int | None = None
+    tax_av_150k: int | None = None
+    tax_substantial: int | None = None
+
+
+@app.get("/api/settings")
+async def get_settings(request: Request):
+    u = _need(request)
+    conn = db()
+    try:
+        out = _get_settings(conn, u["username"])
+    finally:
+        conn.close()
+    return out
+
+
+@app.put("/api/settings")
+async def put_settings(body: SettingsIn, request: Request):
+    u = _need(request)
+    vals = {
+        "tax_tmi_lu": body.tax_tmi_lu,
+        "tax_tmi_fr": body.tax_tmi_fr,
+        "tax_married": body.tax_married,
+        "tax_av_150k": body.tax_av_150k,
+        "tax_substantial": body.tax_substantial,
+    }
+    for key, v in vals.items():
+        if v is None:
+            continue
+        if key in ("tax_tmi_lu", "tax_tmi_fr"):
+            if v < 0 or v > 100:
+                return JSONResponse({"detail": "Taux marginal invalide (0-100 %)"}, status_code=400)
+        elif v not in (0, 1):
+            return JSONResponse({"detail": "Valeur invalide (0 ou 1)"}, status_code=400)
+    conn = db()
+    try:
+        for key, v in vals.items():
+            if v is None:
+                continue
+            conn.execute(
+                "INSERT INTO settings (member, key, value) VALUES (?,?,?)"
+                " ON CONFLICT(member, key) DO UPDATE SET value=excluded.value",
+                (u["username"], key, float(v)),
+            )
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
 
 
 class AccountIn(BaseModel):
@@ -2778,6 +2879,8 @@ def _export_data(conn: sqlite3.Connection, username: str) -> dict:
         "dividend_events": [dict(r) for r in conn.execute(
             "SELECT d.* FROM dividend_events d JOIN positions p ON p.id=d.position_id"
             " JOIN accounts a ON a.id=p.account_id WHERE a.owner=?", (username,)).fetchall()],
+        "settings": [dict(r) for r in conn.execute(
+            "SELECT key, value FROM settings WHERE member=?", (username,)).fetchall()],
     }
 
 
@@ -2794,10 +2897,11 @@ def _do_import(u: sqlite3.Row, body: dict) -> str | None:
         for a in body["accounts"]:
             conn.execute(
                 "INSERT INTO accounts (id, owner, name, asset_class, institution, currency, valuation_mode,"
-                " cost_basis, fees_pct, wrapper, open_date, close_date, notes, active, created_at, updated_at)"
+                " cost_basis, fees_pct, wrapper, tax_country, open_date, close_date, notes, active, created_at, updated_at)"
                 " VALUES (:id,:owner,:name,:asset_class,:institution,:currency,:valuation_mode,:cost_basis,"
-                " :fees_pct,:wrapper,:open_date,:close_date,:notes,:active,:created_at,:updated_at)",
-                {**a, "owner": u["username"], "fees_pct": a.get("fees_pct"), "wrapper": a.get("wrapper")},
+                " :fees_pct,:wrapper,:tax_country,:open_date,:close_date,:notes,:active,:created_at,:updated_at)",
+                {**a, "owner": u["username"], "fees_pct": a.get("fees_pct"), "wrapper": a.get("wrapper"),
+                 "tax_country": a.get("tax_country") or ""},
             )
         for v in body["valuations"]:
             conn.execute(
@@ -2828,6 +2932,12 @@ def _do_import(u: sqlite3.Row, body: dict) -> str | None:
                 "INSERT INTO dividend_events (id, position_id, ex_date, per_share, note, created_at)"
                 " VALUES (:id,:position_id,:ex_date,:per_share,:note,:created_at)",
                 d,
+            )
+        conn.execute("DELETE FROM settings WHERE member=?", (u["username"],))
+        for s in body.get("settings") or []:
+            conn.execute(
+                "INSERT INTO settings (member, key, value) VALUES (?,?,?)",
+                (u["username"], s["key"], s["value"]),
             )
         conn.commit()
     except Exception as e:

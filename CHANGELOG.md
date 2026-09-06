@@ -2,6 +2,37 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.032] — 2026-09-06
+
+### Added
+
+- **Household tax assumptions (settings), per member.** The tax engine
+  does not know the household income, so its marginal-rate inputs were
+  hard defaults; they are now editable and persisted per member.
+  - New `settings(member, key, value)` table (both main DB and vaults,
+    copied at vault init, exported/imported in JSON with the member
+    forced to the importer). `GET/PUT /api/settings` — values: `tmi_lu`
+    (default 42.8%), `tmi_fr` (default 0 = unset, progressive options
+    refused until set), `married` (doubled allowances), `av_150k`
+    (premiums ≤ €150k, AV 7.5% strate), `substantial` (LU holding ≥ 10%
+    as the default). Validation 400 out-of-range; isolation per member.
+  - `GET /api/tax-estimate` now feeds the engine from the member's
+    settings, with per-call overrides `opt=2op|3cn` (progressive options
+    — kept strictly separate, 2OP for CTO/PEA/AV, 3CN for crypto) and
+    `sub=0|1` (LU substantial holding).
+  - UI: ⚖️ "Tax assumptions" panel in Settings (visible to every member,
+    routed to the vault for protected accounts) + per-estimate toggles in
+    the 🧮 modal (simulate the flat-rate option / holding ≥ 10%) that
+    re-fetch the breakdown without closing. i18n ×4.
+  - Fix (v031 bug): JSON import dropped `accounts.tax_country` (the
+    INSERT listed columns without it) — restored, regression-tested.
+  - Tests: `tests/test_settings.py` (5) — CRUD + defaults, validation &
+    per-member isolation, engine wiring (settings respected, sub override,
+    married → €100k allowance, speculation at the set marginal rate,
+    2OP refused without TMI then computed at 30%), protected settings live
+    in the vault (nothing in the main DB), export/import round-trip keeps
+    tax_country and settings. 123 passing.
+
 ## [2026.09.031] — 2026-09-06
 
 ### Added
