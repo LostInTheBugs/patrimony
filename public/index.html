@@ -149,7 +149,9 @@
   /* ---------- modal ---------- */
   #modal{position:fixed;inset:0;background:rgba(5,8,14,.72);display:flex;align-items:center;justify-content:center;z-index:50}
   .modal-card{background:var(--panel);border:1px solid #2c3748;border-radius:16px;width:430px;max-width:94vw;max-height:90vh;overflow:auto;padding:20px 22px}
+  .modal-card.wide{width:900px}
   .modal-card h2{font-size:16px;margin-bottom:4px}
+  .modal-card table th{white-space:normal}
   .modal-card .sub{color:var(--muted);font-size:12px;margin-bottom:8px}
   .modal-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:18px}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
@@ -553,6 +555,7 @@ fr: {
   encPwdRule:'Min. 8 caractères — différent de votre mot de passe de connexion. Sans lui, la sauvegarde est irrécupérable.', encRestRule:'Vos données actuelles seront REMPLACÉES par celles du fichier.', encRestConfirm:'Remplacer toutes vos données par cette sauvegarde ?', encGo:'Chiffrer', encOkDl:'Sauvegarde chiffrée téléchargée.', encOkImp:'Restauration terminée.',
   tokTitle:'Accès API (extension)', tokNote:'Jeton personnel pour l\'extension « Patrimony Capture » — jamais stocké en clair, affiché une seule fois, révocable à tout moment. Interdit aux comptes protégés.', tokNew:'Nouveau jeton', tokEmpty:'Aucun jeton.', tokName:'Nom du jeton', tokExp:'Expiration', tokExpNever:'jamais', tokOnce:'Jeton créé — copiez-le maintenant', tokOnceNote:'Il ne sera plus jamais affiché. Stocké uniquement haché sur le serveur.', tokCopy:'Copier', tokDelConfirm:'Révoquer ce jeton ? L\'extension cessera d\'y avoir accès.',
   tokScope:'Portée', tokScopeFull:'Accès complet (API entière)', tokScopeCap:'Capture — extension uniquement (recommandé)',
+ posTitle:'Portefeuille', posSub:'{n} lignes — ≈ {v}', posEmpty:'Aucune ligne — ajoutez des titres au compte.', posEmptySub:'Ce compte n\'a pas encore de ligne : ajoutez vos titres (symbole, quantité, PRU).', posNoLines:'Portefeuille vide', posNoPrice:'Cours pas encore chargé — lancez Actualiser les cours', posAdd:'Ajouter une ligne', posEditTitle:'Modifier la ligne', posDelTitle:'Supprimer la ligne', posDelConfirm:'Supprimer cette ligne et ses dividendes ?', posSym:'Symbole', posLabel:'Nom affiché (optionnel)', posQty:'Quantité', posPru:'PRU (€/titre)', posCours:'Cours', posVal:'Valeur', posWeight:'Poids', posGain:'PV brute', posStaleTip:'cours de plus de 7 jours', posInactive:'ligne fermée', posBadInput:'Valeurs invalides (symbole, quantité > 0, PRU ≥ 0)', posHint:'Portefeuille : les titres se gèrent après création (bouton ⚖️)', posDiv:'Dividendes', divTitle:'Dividendes', divMirrorTip:'Le revenu est ajouté automatiquement aux opérations du compte (quantité actuelle × montant/action).', divAdd:'Ajouter un dividende', divDate:'Date (ex-date)', divPerShare:'Montant par action (€)', divTotal:'≈ total', divEmpty:'Aucun dividende enregistré.', divDelConfirm:'Supprimer ce dividende et l\'opération liée ?', feesPct:'Frais annuels %', feesPctHint:'(ex. 0,75)', feesPaid:'≈ {x} de frais cumulés (≈ {y} ans)', notes:'Note',
   offlineBanner:'Hors ligne — reconnexion requise pour des données à jour.',
   symAuto:'mode auto',
   clsComptes:'Comptes courants', clsEpargne:'Livrets & épargne', clsBourse:'Bourse & assurances-vie',
@@ -648,6 +651,7 @@ en: {
   encPwdRule:'Min. 8 characters — different from your login password. Without it, the backup is unrecoverable.', encRestRule:'Your current data will be REPLACED by the file content.', encRestConfirm:'Replace all your data with this backup?', encGo:'Encrypt', encOkDl:'Encrypted backup downloaded.', encOkImp:'Restore completed.',
   tokTitle:'API access (extension)', tokNote:'Personal token for the « Patrimony Capture » extension — never stored in clear, shown once, revocable anytime. Forbidden for protected accounts.', tokNew:'New token', tokEmpty:'No token.', tokName:'Token name', tokExp:'Expiration', tokExpNever:'never', tokOnce:'Token created — copy it now', tokOnceNote:'It will never be shown again. Only a hash is stored on the server.', tokCopy:'Copy', tokDelConfirm:'Revoke this token? The extension will lose access.',
   tokScope:'Scope', tokScopeFull:'Full access (whole API)', tokScopeCap:'Capture — extension only (recommended)',
+ posTitle:'Portfolio', posSub:'{n} lines — ≈ {v}', posEmpty:'No line yet — add securities to the account.', posEmptySub:'This account has no line yet: add your securities (symbol, quantity, average cost).', posNoLines:'Empty portfolio', posNoPrice:'Price not loaded yet — run Refresh prices', posAdd:'Add a line', posEditTitle:'Edit line', posDelTitle:'Delete line', posDelConfirm:'Delete this line and its dividends?', posSym:'Symbol', posLabel:'Display name (optional)', posQty:'Quantity', posPru:'Cost/share (€)', posCours:'Price', posVal:'Value', posWeight:'Weight', posGain:'Gain', posStaleTip:'price older than 7 days', posInactive:'closed line', posBadInput:'Invalid values (symbol, quantity > 0, avg. cost ≥ 0)', posHint:'Portfolio: manage securities after creation (⚖️ button)', posDiv:'Dividends', divTitle:'Dividends', divMirrorTip:'The income is added automatically to the account transactions (current quantity × amount per share).', divAdd:'Add dividend', divDate:'Date (ex-date)', divPerShare:'Amount per share (€)', divTotal:'≈ total', divEmpty:'No dividend recorded.', divDelConfirm:'Delete this dividend and the linked transaction?', feesPct:'Annual fees %', feesPctHint:'(e.g. 0.75)', feesPaid:'≈ {x} cumulative fees (≈ {y} years)', notes:'Note',
   offlineBanner:'Offline — reconnection needed for up-to-date data.',
   symAuto:'auto mode',
   clsComptes:'Current accounts', clsEpargne:'Savings accounts', clsBourse:'Stocks & life insurance',
@@ -742,6 +746,7 @@ de: {
   encPwdRule:'Mind. 8 Zeichen — verschieden von Ihrem Anmeldepasswort. Ohne es ist die Sicherung unwiederbringlich.', encRestRule:'Ihre aktuellen Daten werden durch den Dateiinhalt ERSETZT.', encRestConfirm:'Alle Daten durch diese Sicherung ersetzen?', encGo:'Verschlüsseln', encOkDl:'Verschlüsselte Sicherung heruntergeladen.', encOkImp:'Wiederherstellung abgeschlossen.',
   tokTitle:'API-Zugriff (Extension)', tokNote:'Persönlicher Token für die « Patrimony Capture »-Erweiterung — nie im Klartext gespeichert, nur einmal angezeigt, jederzeit widerrufbar. Für geschützte Konten verboten.', tokNew:'Neuer Token', tokEmpty:'Kein Token.', tokName:'Token-Name', tokExp:'Ablauf', tokExpNever:'nie', tokOnce:'Token erstellt — jetzt kopieren', tokOnceNote:'Er wird nie wieder angezeigt. Nur ein Hash wird auf dem Server gespeichert.', tokCopy:'Kopieren', tokDelConfirm:'Diesen Token widerrufen? Die Erweiterung verliert den Zugriff.',
   tokScope:'Bereich', tokScopeFull:'Voller Zugriff (ganze API)', tokScopeCap:'Capture — nur Erweiterung (empfohlen)',
+ posTitle:'Portfolio', posSub:'{n} Linien — ≈ {v}', posEmpty:'Keine Linie — fügen Sie Wertpapiere hinzu.', posEmptySub:'Dieses Konto hat noch keine Linie: Fügen Sie Wertpapiere hinzu (Symbol, Stückzahl, Einstandskurs).', posNoLines:'Leeres Portfolio', posNoPrice:'Kurs noch nicht geladen — Kurse aktualisieren', posAdd:'Linie hinzufügen', posEditTitle:'Linie bearbeiten', posDelTitle:'Linie löschen', posDelConfirm:'Diese Linie und ihre Dividenden löschen?', posSym:'Symbol', posLabel:'Anzeigename (optional)', posQty:'Stückzahl', posPru:'EK (€/Anteil)', posCours:'Kurs', posVal:'Wert', posWeight:'Gewicht', posGain:'Gewinn', posStaleTip:'Kurs älter als 7 Tage', posInactive:'geschlossene Linie', posBadInput:'Ungültige Werte (Symbol, Stückzahl > 0, EK ≥ 0)', posHint:'Portfolio: Wertpapiere nach der Erstellung verwalten (⚖️)', posDiv:'Dividenden', divTitle:'Dividenden', divMirrorTip:'Der Ertrag wird automatisch zu den Buchungen hinzugefügt (aktuelle Stückzahl × Betrag pro Anteil).', divAdd:'Dividende hinzufügen', divDate:'Datum (Ex-Tag)', divPerShare:'Betrag pro Anteil (€)', divTotal:'≈ Summe', divEmpty:'Keine Dividende erfasst.', divDelConfirm:'Diese Dividende und die verknüpfte Buchung löschen?', feesPct:'Jährliche Gebühren %', feesPctHint:'(z. B. 0,75)', feesPaid:'≈ {x} Gebühren gesamt (≈ {y} Jahre)', notes:'Notiz',
   offlineBanner:'Offline — Wiederverbindung für aktuelle Daten erforderlich.',
   symAuto:'Auto-Modus',
   clsComptes:'Girokonten', clsEpargne:'Sparkonten', clsBourse:'Aktien & Lebensversicherung',
@@ -837,6 +842,7 @@ lu: {
   encPwdRule:'Op d\'mannst 8 Zeechen — anescht wéi Äert Login-Passwuert. Ouni et ass d\'Sécherung onerëmbar.', encRestRule:'Är aktuell Donnéeë ginn duerch de Fichier ERSATZT.', encRestConfirm:'All Donnéeë mat dëser Sécherung ersetzen?', encGo:'Verschlësselen', encOkDl:'Verschlësselt Sécherung erofgelueden.', encOkImp:'Restauréierung ofgeschloss.',
   tokTitle:'API-Zougang (Extension)', tokNote:'Perséinleche Jeton fir d\'Extensioun « Patrimony Capture » — ni am Kloartext gespäichert, nëmmen eemol gewisen, all Moment zréckzefuerderen. Verbonne fir geschützt Konten.', tokNew:'Neie Jeton', tokEmpty:'Kee Jeton.', tokName:'Jeton-Numm', tokExp:'Verfall', tokExpNever:'ni', tokOnce:'Jeton erstallt — elo kopéieren', tokOnceNote:'E gëtt ni méi gewisen. Nëmmen en Hash gëtt um Server gespäichert.', tokCopy:'Kopéieren', tokDelConfirm:'Dëse Jeton zréckzéien? D\'Extensioun verléiert den Zougang.',
   tokScope:'Ëmfang', tokScopeFull:'Vollen Zougrëff (ganz API)', tokScopeCap:'Capture — nëmmen Extensioun (recommendéiert)',
+ posTitle:'Portefeuille', posSub:'{n} Linnen — ≈ {v}', posEmpty:'Keng Linn — füügt Wäertpabeieren derbäi.', posEmptySub:'Dëse Kont huet nach keng Linn: füügt Är Wäertpabeieren derbäi (Symbol, Stéckzuel, EK).', posNoLines:'Eidelt Portefeuille', posNoPrice:'Kurs nach net gelueden — aktualiséiert d\'Kursen', posAdd:'Linn derbäisetzen', posEditTitle:'Linn änneren', posDelTitle:'Linn läschen', posDelConfirm:'Dës Linn an hir Dividenden läschen?', posSym:'Symbol', posLabel:'Numm (optional)', posQty:'Stéckzuel', posPru:'EK (€/Aktie)', posCours:'Kurs', posVal:'Wäert', posWeight:'Gewiicht', posGain:'Gewënn', posStaleTip:'Kurs méi al wéi 7 Deeg', posInactive:'zou Linn', posBadInput:'Ongülteg Wäerter (Symbol, Stéckzuel > 0, EK ≥ 0)', posHint:'Portefeuille: Wäertpabeieren no der Erstellung verwalten (⚖️)', posDiv:'Dividenden', divTitle:'Dividenden', divMirrorTip:'Den Akommes gëtt automatesch zu de Buchungen derbäigesat (aktuell Stéckzuel × Betrag pro Aktie).', divAdd:'Dividend derbäisetzen', divDate:'Datum (Ex-Dag)', divPerShare:'Betrag pro Aktie (€)', divTotal:'≈ Total', divEmpty:'Keng Dividend erfaasst.', divDelConfirm:'Dës Dividend an déi verbonne Buchung läschen?', feesPct:'Jährlech Käschten %', feesPctHint:'(z. B. 0,75)', feesPaid:'≈ {x} Käschten total (≈ {y} Joer)', notes:'Nott',
   offlineBanner:'Offline — Wéiderverbindung néideg fir aktuell Donnéeën.',
   symAuto:'Auto-Modus',
   clsComptes:'Lafend Konten', clsEpargne:'Spuerkonten', clsBourse:'Aktien & Liewensversécherung',
@@ -866,6 +872,7 @@ const CCY_LBL = {EUR:'Euro', USD:'US Dollar', CHF:'Franc suisse', GBP:'Livre ste
 const ccySym = ccy => CCY[ccy] || ccy || '€';
 const fmtShort = v => v==null?'—':(Math.abs(v)>=1e6 ? (v/1e6).toLocaleString(locale(),{maximumFractionDigits:2})+' M€' : fmt(v));
 const mon = (v, ccy) => DISCRET ? '•••' : fmt(v, ccy);
+const fmtQty = v => v==null?'—':v.toLocaleString(locale(),{maximumFractionDigits:4});
 const monShort = (v, ccy) => DISCRET ? '•••' : fmtShort(v, ccy);
 const pctTxt = p => DISCRET ? '•••' : (p==null?'—':(p>=0?'+':'')+p.toLocaleString(locale(),{maximumFractionDigits:2})+' %');
 const fmtDate = d => d ? new Date(d+'T12:00:00').toLocaleDateString(locale(),{day:'2-digit',month:'short',year:'numeric'}) : '—';
@@ -1164,7 +1171,7 @@ function filteredAccounts() {
 function renderAccounts() {
   const rows = filteredAccounts();
   $('actifsCount').textContent = rows.length+' '+t('actCountS');
-  const hasAuto = ACCOUNTS.some(a => a.valuation_mode==='auto' && a.symbol);
+  const hasAuto = ACCOUNTS.some(a => a.valuation_mode==='auto' && (a.symbol || (a.positions && a.positions.length)));
   $('btnPrices').classList.toggle('hidden', !hasAuto);
   if (!rows.length) {
     $('actifsTableWrap').innerHTML = '<div class="panel"><div class="empty"><div class="big">💼</div>'+
@@ -1184,7 +1191,8 @@ function renderAccounts() {
   const body = rows.map(a => {
     const g = a.gain, gp = a.gain_pct;
     const gCls = g==null?'':(g<0?'neg':'pos');
-    const auto = a.valuation_mode==='auto' && a.symbol;
+    const pf = a.positions !== undefined;
+    const auto = a.valuation_mode==='auto' && (a.symbol || pf);
     // source + fraîcheur : ligne « cours auto » (ou alerte d'obsolescence)
     // uniquement pour les actifs auto — un actif manuel n'a pas de cours
     let srcLine = '';
@@ -1198,9 +1206,10 @@ function renderAccounts() {
     const costSub = a.cost_from_tx ? '<span class="smline">'+esc(t('actCostFromTx'))+'</span>'
       : (a.txn_count ? '<span class="smline">'+esc(t('actCostWarn'))+'</span>' : '');
     return '<tr>'+
-      '<td><div class="aname">'+esc(a.name)+(auto?'<span class="sym" title="'+esc(t('symAuto'))+'">📡 '+esc(a.symbol)+'</span>':'')+(a.currency&&a.currency!=='EUR'?'<span class="sym" title="'+esc(a.currency)+'">'+ccySym(a.currency)+'</span>':'')+'</div>'+
+      '<td><div class="aname">'+esc(a.name)+(auto&&a.symbol?'<span class="sym" title="'+esc(t('symAuto'))+'">📡 '+esc(a.symbol)+'</span>':'')+(a.currency&&a.currency!=='EUR'?'<span class="sym" title="'+esc(a.currency)+'">'+ccySym(a.currency)+'</span>':'')+'</div>'+
       (a.institution?'<div class="ainst">'+esc(a.institution)+'</div>':'')+
-      (auto?'<div class="smline">'+a.quantity+' '+esc(t('actQtyTimes'))+'</div>':'')+'</td>'+
+      (auto&&!pf?'<div class="smline">'+a.quantity+' '+esc(t('actQtyTimes'))+'</div>':'')+
+      (pf?posChips(a):'')+'</td>'+
       '<td><span class="badge">'+CLASS_EMOJI[a.asset_class]+' '+esc(clsLabel(a.asset_class))+'</span></td>'+
       '<td class="num" style="font-weight:700">'+(a.last_value==null?'<span class="muted">—</span>':mon(a.last_value, a.currency))+
         (a.fx&&a.fx.error? '<div class="smline" style="color:#e6a23c" title="'+esc(t('fxMissingTip'))+'">⚠️ '+esc(t('fxMissing'))+'</div>'
@@ -1209,10 +1218,11 @@ function renderAccounts() {
       '<td class="num">'+(a.cost_effective?mon(a.cost_effective, a.currency):'—')+'</td>'+
       '<td class="num"><span class="'+gCls+'">'+(g==null?'—':mon(g, a.currency))+'</span>'+(gp!=null?' <span class="muted" style="font-size:11px">'+pctTxt(gp)+'</span>':'')+'</td>'+
       '<td class="rowacts">'+
+        (pf?'<button class="btn small" title="'+esc(t('posTitle'))+'" onclick="openPosModal('+a.id+')">⚖️</button>':'')+
         (!auto?'<button class="btn small primary" title="'+esc(t('actValTitle'))+'" onclick="openValModal('+a.id+')">💶</button>':'')+
         '<button class="btn small" title="'+esc(t('actEditTitle'))+'" onclick="openAccountModal('+a.id+')">✏️</button>'+
         '<button class="btn small danger" title="'+esc(t('actDelTitle'))+'" onclick="delAccount('+a.id+')">🗑️</button>'+
-      '</td></tr>'+(costSub?'<tr><td colspan="7" style="padding:2px 12px 8px;font-size:11px" class="muted">'+costSub+'</td></tr>':'');
+      '</td></tr>'+(costSub||a.fees_paid?'<tr><td colspan="7" style="padding:2px 12px 8px;font-size:11px" class="muted">'+(costSub||'')+(a.fees_paid?'<span'+(costSub?' style="margin-left:14px"':'')+'>🧾 '+esc(tF('feesPaid',{x:mon(a.fees_paid.paid_eur),y:(a.fees_paid.months/12).toFixed(1)}))+'</span>':'')+'</td></tr>':'');
   }).join('');
   const foot = '<tr style="background:#131a26"><td colspan="3" style="font-weight:800">'+(mixed?esc(t('total'))+' ≈':esc(t('total')))+'</td>'+
     '<td class="num"></td><td class="num muted">'+(mixed?'*':mon(totCost))+'</td>'+
@@ -1221,7 +1231,10 @@ function renderAccounts() {
 }
 
 /* ---------- modales ---------- */
-function openModal(html) { $('modalCard').innerHTML = html; $('modal').classList.remove('hidden'); }
+function openModal(html, wide) {
+  $('modalCard').className = 'modal-card' + (wide ? ' wide' : '');
+  $('modalCard').innerHTML = html; $('modal').classList.remove('hidden');
+}
 function closeModal() { $('modal').classList.add('hidden'); }
 $('modal').addEventListener('click', ev => { if (ev.target === $('modal')) closeModal(); });
 
@@ -1256,6 +1269,9 @@ function openAccountModal(id) {
     '</div>'+
     '<div class="grid2">'+
       '<div><label>'+esc(t('mCost'))+'</label><input id="fCost" type="number" step="0.01" min="0" value="'+(a&&a.cost_basis?a.cost_basis:'')+'" style="width:100%"></div>'+
+      '<div><label>'+esc(t('feesPct'))+' <span class="muted" style="font-weight:400">'+esc(t('feesPctHint'))+'</span></label><input id="fFees" type="number" step="0.01" min="0" value="'+(a&&a.fees_pct!=null?a.fees_pct:'')+'" style="width:100%"></div>'+
+    '</div>'+
+    '<div class="grid2">'+
       '<div><label>'+esc(t('mOpen'))+'</label><input id="fOpen" type="date" value="'+(a&&a.open_date?a.open_date.slice(0,10):'')+'" style="width:100%"></div>'+
     '</div>'+
     (!a?'<label>'+esc(t('mInit'))+' <span class="muted" style="font-weight:400">'+esc(t('mInitHint'))+'</span></label><input id="fInit" type="number" step="0.01" style="width:100%">':'')+
@@ -1270,9 +1286,15 @@ function openAccountModal(id) {
 function modeChanged() {
   const auto = $('fMode').value === 'auto';
   const isCrypto = $('fClass').value === 'crypto';
-  $('wrapQty').classList.toggle('hidden', !auto);
-  $('wrapSym').classList.toggle('hidden', !auto);
-  $('symHint').textContent = auto ? (isCrypto ? 'ex : BTC, ETH, SOL' : 'ex : IWDA.DE, MC.PA') : '';
+  const isBourse = $('fClass').value === 'bourse';
+  // bourse auto = portefeuille multi-lignes (positions) : le symbole/quantité
+  // du compte n'existe plus, les titres se gèrent via ⚖️
+  const showSymQty = auto && !isBourse;
+  $('wrapQty').classList.toggle('hidden', !showSymQty);
+  $('wrapSym').classList.toggle('hidden', !showSymQty);
+  $('symHint').textContent = auto ? (isBourse ? t('posHint') : (isCrypto ? 'ex : BTC, ETH, SOL' : 'ex : IWDA.DE, MC.PA')) : '';
+  if (!showSymQty && $('fSym')) { $('fSym').value = ''; }
+  if (!showSymQty && $('fQty')) { $('fQty').value = ''; }
   // auto = toujours valorisé en EUR (cours converti au refresh) : devise figée
   if (auto) { const s = $('fCcy'); if (s) { s.value = 'EUR'; s.disabled = true; } }
   else { const s = $('fCcy'); if (s) s.disabled = false; }
@@ -1287,23 +1309,26 @@ function ccyChanged() {
 }
 async function saveAccount(id) {
   const mode = $('fMode').value;
+  const isBourseAuto = mode==='auto' && $('fClass').value==='bourse';
   const body = {
     name: $('fName').value, asset_class: $('fClass').value, institution: $('fInst').value,
     cost_basis: parseFloat($('fCost').value) || 0, open_date: $('fOpen').value || null,
     notes: $('fNotes').value, active: 1,
-    valuation_mode: mode, symbol: mode==='auto' ? ($('fSym').value||'') : '',
-    quantity: mode==='auto' ? (parseFloat($('fQty').value)||0) : 0,
+    valuation_mode: mode,
+    symbol: (mode==='auto' && !isBourseAuto) ? ($('fSym').value||'') : '',
+    quantity: (mode==='auto' && !isBourseAuto) ? (parseFloat($('fQty').value)||0) : 0,
     currency: mode==='auto' ? 'EUR' : ($('fCcy').value || 'EUR'),
+    fees_pct: $('fFees') && $('fFees').value!=='' ? parseFloat($('fFees').value) : null,
     fx_override: (mode==='manual' && $('fCcy').value!=='EUR' && $('fFxOv').value) ? parseFloat($('fFxOv').value) : null
   };
   if (!body.name.trim()) return;
-  if (mode==='auto' && (!body.symbol || body.quantity<=0)) { alert(t('mAutoAlert')); return; }
+  if (mode==='auto' && !isBourseAuto && (!body.symbol || body.quantity<=0)) { alert(t('mAutoAlert')); return; }
   try {
     if (id) await api('/api/accounts/'+id, {method:'PUT', body: JSON.stringify(body)});
     else {
       body.initial_value = (mode==='manual' && $('fInit').value) ? parseFloat($('fInit').value) : null;
       const r = await api('/api/accounts', {method:'POST', body: JSON.stringify(body)});
-      if (mode==='auto') { await refreshPrices([r.id]); }
+      if (mode==='auto' && !isBourseAuto) { await refreshPrices([r.id]); }
     }
     closeModal(); loadAccounts(); loadSummary();
   } catch(e) { alert(e.message); }
@@ -1333,6 +1358,150 @@ async function saveVal(id) {
   if (isNaN(v)) return;
   await api('/api/accounts/'+id+'/valuation', {method:'POST', body: JSON.stringify({value:v, val_date:$('fValDate').value||null})});
   closeModal(); loadAccounts(); loadSummary(); loadHistory();
+}
+
+/* ---------- positions (portefeuille) ---------- */
+function posAcc(aid) { return ACCOUNTS.find(x => x.id===aid); }
+function posPriceAgeDays(ts) {
+  if (!ts) return null;
+  const d = (Date.now() - Date.parse(ts)) / 86400000;
+  return d < 0 ? 0 : d;
+}
+function posChips(a) {
+  const ls = (a.positions||[]).filter(p => p.active && p.value_eur!=null)
+    .slice().sort((x,y) => y.value_eur - x.value_eur);
+  if (!a.positions.length) return '<div class="smline muted">'+esc(t('posNoLines'))+'</div>';
+  if (!ls.length) return '<div class="smline muted" title="'+esc(t('posNoPrice'))+'">'+esc(t('posNoPrice'))+'</div>';
+  const n = a.positions.length;
+  return '<div class="smline">'+ls.slice(0,3).map(p =>
+    '<span class="sym" title="'+esc(p.label||p.symbol)+'">'+esc(p.symbol)+'</span> <span style="font-size:11px" class="muted">'+pctTxt(p.weight_pct)+'</span>'
+  ).join(' · ')+(n>3?' <span class="muted" style="font-size:11px">+'+esc(String(n-3))+'</span>':'')+'</div>';
+}
+function openPosModal(aid) {
+  const a = posAcc(aid); if (!a) return;
+  const lines = a.positions || [];
+  const tot = lines.filter(p => p.active && p.value_eur!=null).reduce((s,p) => s+p.value_eur, 0);
+  let html = '<h2>⚖️ '+esc(a.name)+'</h2>'+
+    '<div class="sub">'+(lines.length?esc(tF('posSub',{n:lines.length,v:mon(tot)})):esc(t('posEmpty')))+'</div>';
+  if (lines.length) {
+    html += '<div style="max-height:330px;overflow:auto"><table style="table-layout:fixed;width:100%"><colgroup>'+
+      '<col style="width:14%"><col style="width:8%"><col style="width:12%"><col style="width:15%">'+
+      '<col style="width:17%"><col style="width:16%"><col style="width:18%"></colgroup>'+
+      '<thead><tr><th>'+esc(t('posSym'))+'</th><th class="num">'+esc(t('posQty'))+'</th><th class="num">'+esc(t('posPru'))+'</th>'+
+      '<th class="num">'+esc(t('posCours'))+'</th><th class="num">'+esc(t('posVal'))+'</th>'+
+      '<th class="num">'+esc(t('posGain'))+'</th><th></th></tr></thead><tbody>'+
+    lines.map(p => {
+      const age = p.price_ts ? posPriceAgeDays(p.price_ts) : null;
+      const stale = age != null && age > 7;
+      const gainCls = p.gain_eur==null?'':(p.gain_eur<0?'neg':'pos');
+      const pxCell = p.price!=null
+        ? '<span style="white-space:nowrap">'+mon(p.price)+(p.price_currency&&p.price_currency!=='EUR'?' '+esc(p.price_currency):'')+'</span>'+
+          '<div class="smline">'+(stale?'<span style="color:#e6a23c" title="'+esc(t('posStaleTip'))+'">⚠️</span> ':'')+fmtDate(p.price_ts.slice(0,10))+'</div>'
+        : '<span class="muted" title="'+esc(t('posNoPrice'))+'">—</span>';
+      return '<tr>'+
+        '<td style="word-break:break-word"><b>'+esc(p.symbol)+'</b>'+(p.label?'<div class="ainst">'+esc(p.label)+'</div>':'')+(p.active?'':'<div class="smline muted">'+esc(t('posInactive'))+'</div>')+'</td>'+
+        '<td class="num" style="white-space:nowrap">'+fmtQty(p.quantity)+'</td>'+
+        '<td class="num muted" style="white-space:nowrap">'+(p.pru!=null?mon(p.pru):'—')+'</td>'+
+        '<td class="num">'+pxCell+'</td>'+
+        '<td class="num" style="white-space:nowrap"><b>'+(p.value_eur!=null?mon(p.value_eur):'—')+'</b>'+(p.weight_pct!=null?' <span class="muted" style="font-size:11px">'+pctTxt(p.weight_pct)+'</span>':'')+'</td>'+
+        '<td class="num" style="white-space:nowrap"><span class="'+gainCls+'">'+(p.gain_eur!=null?mon(p.gain_eur):'—')+'</span>'+(p.gain_pct!=null?' <span class="muted" style="font-size:11px">'+pctTxt(p.gain_pct)+'</span>':'')+'</td>'+
+        '<td class="rowacts">'+
+          '<button class="btn small" title="'+esc(t('posDiv'))+'" onclick="openDivModal('+p.id+')">💶</button>'+
+          '<button class="btn small" title="'+esc(t('posEditTitle'))+'" onclick="openPosEdit('+p.id+')">✏️</button>'+
+          '<button class="btn small danger" title="'+esc(t('posDelTitle'))+'" onclick="delPosition('+p.id+')">🗑️</button>'+
+        '</td></tr>';
+    }).join('')+'</tbody></table></div>';
+  } else {
+    html += '<div class="empty"><div class="big">📊</div>'+esc(t('posEmptySub'))+'</div>';
+  }
+  html += '<div class="modal-actions">'+
+    '<button class="btn ghost" onclick="closeModal()">'+esc(t('cancel'))+'</button>'+
+    '<button class="btn primary" onclick="openPosEdit(null,'+aid+')">➕ '+esc(t('posAdd'))+'</button></div>';
+  openModal(html, true);
+}
+function openPosEdit(pid, aid) {
+  const p = pid ? (() => { for (const a of ACCOUNTS) if (a.positions) { const f = a.positions.find(x => x.id===pid); if (f) return f; } return null; })() : null;
+  const accId = pid ? null : aid;
+  const accName = pid ? '' : (posAcc(aid)||{}).name;
+  openModal(
+    '<h2>'+(p?esc(t('posEditTitle')):esc(t('posAdd')))+'</h2>'+
+    (accName?'<div class="sub">'+esc(accName)+'</div>':'')+
+    '<label>'+esc(t('posSym'))+'</label><input id="pSym" style="width:100%" value="'+(p?esc(p.symbol):'')+'" placeholder="ex : IWDA.DE, MC.PA" autofocus>'+
+    '<label>'+esc(t('posLabel'))+'</label><input id="pLabel" style="width:100%" value="'+(p?esc(p.label||''):'')+'">'+
+    '<div class="grid2">'+
+      '<div><label>'+esc(t('posQty'))+'</label><input id="pQty" type="number" step="any" min="0" value="'+(p&&p.quantity?p.quantity:'')+'" style="width:100%"></div>'+
+      '<div><label>'+esc(t('posPru'))+'</label><input id="pPru" type="number" step="any" min="0" value="'+(p&&p.pru!=null?p.pru:'')+'" style="width:100%"></div>'+
+    '</div>'+
+    '<div class="modal-actions">'+
+      '<button class="btn ghost" onclick="openPosModal('+(pid?p.account_id:aid)+')">'+esc(t('cancel'))+'</button>'+
+      '<button class="btn primary" onclick="savePosition('+(pid||'null')+','+(pid?p.account_id:aid)+')">'+esc(t('save'))+'</button></div>'
+  );
+  $('modalCard').classList.add('wide');
+}
+async function savePosition(pid, aid) {
+  const sym = $('pSym').value.trim().toUpperCase();
+  const qty = parseFloat($('pQty').value);
+  const pru = $('pPru').value==='' ? null : parseFloat($('pPru').value);
+  if (!sym || !(qty>0) || (pru!=null && pru<0)) { alert(t('posBadInput')); return; }
+  const body = {symbol: sym, label: $('pLabel').value.trim(), quantity: qty, pru: pru};
+  try {
+    if (pid) await api('/api/positions/'+pid, {method:'PUT', body: JSON.stringify(body)});
+    else await api('/api/accounts/'+aid+'/positions', {method:'POST', body: JSON.stringify(body)});
+    await loadAccounts();
+    openPosModal(pid ? pPosAccId(pid) : aid);
+  } catch(e) { alert(e.message); }
+}
+function pPosAccId(pid) {
+  for (const a of ACCOUNTS) if (a.positions) { const f = a.positions.find(x => x.id===pid); if (f) return f.account_id; }
+  return null;
+}
+async function delPosition(pid) {
+  const a = pPosAccId(pid);
+  if (!confirm(t('posDelConfirm'))) return;
+  try { await api('/api/positions/'+pid, {method:'DELETE'}); await loadAccounts(); openPosModal(a); }
+  catch(e) { alert(e.message); }
+}
+function openDivModal(pid) {
+  let pos = null, accId = null;
+  for (const a of ACCOUNTS) if (a.positions) { const f = a.positions.find(x => x.id===pid); if (f) { pos = f; accId = a.id; break; } }
+  if (!pos) return;
+  const evs = pos.dividends || [];
+  const rows = evs.map(d => '<tr><td style="white-space:nowrap">'+fmtDate(d.ex_date)+'</td>'+
+    '<td class="num">'+mon(d.per_share)+'</td><td class="num" style="font-weight:700">'+mon(d.amount)+'</td>'+
+    '<td class="muted">'+esc(d.note||'')+'</td>'+
+    '<td class="rowacts"><button class="btn small danger" onclick="delDividend('+d.id+','+pid+')">🗑️</button></td></tr>').join('');
+  openModal(
+    '<h2>💶 '+esc(t('divTitle'))+'</h2>'+
+    '<div class="sub">'+esc(pos.symbol)+(pos.label?' — '+esc(pos.label):'')+'</div>'+
+    '<div class="note">'+esc(t('divMirrorTip'))+'</div>'+
+    (evs.length
+      ? '<div style="max-height:200px;overflow:auto"><table><thead><tr><th>'+esc(t('divDate'))+'</th><th class="num">'+esc(t('divPerShare'))+'</th><th class="num">'+esc(t('divTotal'))+'</th><th>'+esc(t('notes'))+'</th><th></th></tr></thead><tbody>'+rows+'</tbody></table></div>'
+      : '<div class="empty">'+esc(t('divEmpty'))+'</div>')+
+    '<div class="grid2" style="margin-top:10px">'+
+      '<div><label>'+esc(t('divDate'))+'</label><input id="dDate" type="date" value="'+new Date().toISOString().slice(0,10)+'" style="width:100%"></div>'+
+      '<div><label>'+esc(t('divPerShare'))+'</label><input id="dShare" type="number" step="0.0001" min="0" style="width:100%"></div>'+
+    '</div>'+
+    '<label>'+esc(t('notes'))+'</label><input id="dNote" style="width:100%" placeholder="ex : dividende 2026">'+
+    '<div class="modal-actions">'+
+      '<button class="btn ghost" onclick="openPosModal('+accId+')">'+esc(t('cancel'))+'</button>'+
+      '<button class="btn primary" onclick="addDividend('+pid+','+accId+')">➕ '+esc(t('divAdd'))+'</button></div>'
+  );
+  $('modalCard').classList.add('wide');
+}
+async function addDividend(pid, accId) {
+  const sh = parseFloat($('dShare').value);
+  if (!(sh>0)) { alert(t('posBadInput')); return; }
+  try {
+    await api('/api/positions/'+pid+'/dividend', {method:'POST', body: JSON.stringify({
+      ex_date: $('dDate').value, per_share: sh, note: $('dNote').value.trim()})});
+    await loadAccounts();
+    openDivModal(pid);
+  } catch(e) { alert(e.message); }
+}
+async function delDividend(did, pid) {
+  if (!confirm(t('divDelConfirm'))) return;
+  try { await api('/api/dividends/'+did, {method:'DELETE'}); await loadAccounts(); openDivModal(pid); }
+  catch(e) { alert(e.message); }
 }
 
 /* ---------- cours auto ---------- */

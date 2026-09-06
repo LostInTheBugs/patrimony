@@ -2,6 +2,48 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.025] — 2026-09-06
+
+### Added
+
+- **Portfolio lines (`positions`) for auto-priced stock accounts**: a PEA /
+  brokerage account becomes a container; its composition lives in a new
+  `positions` table (symbol × quantity × PRU). Account value = Σ(qty ×
+  price), refreshed per distinct symbol (deduplicated quotes), monthly
+  backfill merged across lines for fresh accounts. Existing single-symbol
+  auto accounts are migrated at boot into a one-line portfolio (idempotent,
+  nothing lost) — and creating/updating such an account with a symbol still
+  mirrors position #1 for API compatibility. New endpoints
+  `POST /api/accounts/{id}/positions`, `PUT|DELETE /api/positions/{id}`,
+  per-line gains (`gain_eur`/`gain_pct` vs PRU), weights and live prices in
+  the accounts payload, UI ⚖️ manager (wide modal, i18n ×4).
+- **Dividends as per-position events** (`POST /api/positions/{id}/dividend`,
+  `DELETE /api/dividends/{id}`): ex-date + amount per share; a mirrored
+  income transaction (source_id `div:{position}:{date}`) is upserted into
+  the account ledger on every save — idempotent, resynced on quantity or
+  rate change, removed with the event/line, and protected from manual
+  deletion (400). UI 💶 per line.
+- **Annual fees per account** (`fees_pct`, any class): cumulative ≈ fees are
+  computed over the real monthly valuation history (monthly rate applied to
+  each month-end value) and shown under the asset row ("≈ €X cumulative
+  fees (≈ Y years)").
+- **CSV exports localize human values** (asset classes, transaction types)
+  following `Accept-Language` (FR default); canonical identifiers and
+  headers stay stable so exports remain re-importable. Removed dead
+  server-side French labels (`class_label`, summary `label`) — the UI was
+  already fully translated via i18n keys.
+- Vaults (protected accounts) carry positions and dividend events too:
+  schema upgraded on cold open of older blobs, rows copied at vault init,
+  included in JSON/encrypted export-import round trips.
+
+### Tests
+
+- New `tests/test_positions.py` (8): legacy-symbol mirroring, CRUD guards
+  and ownership isolation, per-line gains/weights, fees cumulation,
+  portfolio refresh aggregation + monthly backfill + honest failure,
+  dividend mirror lifecycle (create/update/delete/quantity resync/guarded
+  manual delete), export-import round trip, CSV localization. 56 passing.
+
 ## [2026.09.024] — 2026-09-06
 
 ### Added

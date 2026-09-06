@@ -230,6 +230,7 @@ def _schema_data(conn: sqlite3.Connection) -> None:
             close_date TEXT,
             notes TEXT DEFAULT '',
             active INTEGER DEFAULT 1,
+            fees_pct REAL,
             created_at TEXT DEFAULT (datetime('now')),
             updated_at TEXT
         );
@@ -289,6 +290,27 @@ def _schema_data(conn: sqlite3.Connection) -> None:
             source TEXT NOT NULL DEFAULT 'ecb',
             PRIMARY KEY (ccy, rate_date)
         );
+        CREATE TABLE IF NOT EXISTS positions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+            symbol TEXT NOT NULL,
+            label TEXT DEFAULT '',
+            quantity REAL NOT NULL DEFAULT 0,
+            pru REAL,
+            active INTEGER DEFAULT 1,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_positions_account ON positions(account_id);
+        CREATE TABLE IF NOT EXISTS dividend_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            position_id INTEGER NOT NULL REFERENCES positions(id) ON DELETE CASCADE,
+            ex_date TEXT NOT NULL,
+            per_share REAL NOT NULL,
+            note TEXT DEFAULT '',
+            created_at TEXT DEFAULT (datetime('now')),
+            UNIQUE (position_id, ex_date)
+        );
         """
     )
     for col, ddl in (
@@ -296,6 +318,7 @@ def _schema_data(conn: sqlite3.Connection) -> None:
         ("quantity", "ALTER TABLE accounts ADD COLUMN quantity REAL DEFAULT 0"),
         ("owner", "ALTER TABLE accounts ADD COLUMN owner TEXT DEFAULT ''"),
         ("fx_override", "ALTER TABLE accounts ADD COLUMN fx_override REAL"),
+        ("fees_pct", "ALTER TABLE accounts ADD COLUMN fees_pct REAL"),
     ):
         try:
             conn.execute(ddl)
@@ -428,6 +451,18 @@ def init_db() -> None:
     )
     # journal d'audit : rétention 90 jours (purge au boot)
     conn.execute("DELETE FROM audit_log WHERE ts < datetime('now', '-90 days')")
+    # v2026.09.025 : un compte bourse auto « 1 symbole » (modèle historique)
+    # devient un portefeuille à 1 ligne — rien n'est perdu, l'actif reste le
+    # conteneur. Idempotent : jamais de doublon si des lignes existent déjà.
+    # (gardé pour les bases très anciennes sans valuation_mode)
+    acc_cols = {r["name"] for r in conn.execute("PRAGMA table_info(accounts)")}
+    if {"valuation_mode", "symbol", "quantity"} <= acc_cols:
+        conn.execute(
+            "INSERT INTO positions (account_id, symbol, label, quantity, active)"
+            " SELECT id, symbol, name, quantity, 1 FROM accounts"
+            " WHERE asset_class='bourse' AND valuation_mode='auto' AND symbol<>''"
+            " AND NOT EXISTS (SELECT 1 FROM positions p WHERE p.account_id=accounts.id)"
+        )
     conn.commit()
     conn.close()
     if SEED_DEMO:
@@ -574,7 +609,6 @@ def _vault_mem_from_blob(dek: bytes, blob_b64: str) -> sqlite3.Connection:
     raw = _AESGCM(dek).decrypt(nonce_ct[:12], nonce_ct[12:], None)
     try:
         conn.deserialize(raw)
-        conn.execute("PRAGMA foreign_keys = ON")
     except sqlite3.Error:
         tmp = DATA_DIR / f".vault_{os.getpid()}.tmp"
         tmp.write_bytes(raw)
@@ -586,6 +620,10 @@ def _vault_mem_from_blob(dek: bytes, blob_b64: str) -> sqlite3.Connection:
                 src.close()
         finally:
             tmp.unlink(missing_ok=True)
+    # coffres antérieurs à v2026.09.025 : schéma sans positions/dividend_events
+    # ni fees_pct — CREATE/ALTER idempotents après la restauration
+    _schema_data(conn)
+    conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
 
@@ -1171,6 +1209,11 @@ async def vault_init(body: VaultInitIn, request: Request):
                    "account_id IN (SELECT id FROM accounts WHERE owner=?)", (u["username"],))
         _copy_rows(src, mem, "income_rules",
                    "account_id IN (SELECT id FROM accounts WHERE owner=?)", (u["username"],))
+        _copy_rows(src, mem, "positions",
+                   "account_id IN (SELECT id FROM accounts WHERE owner=?)", (u["username"],))
+        _copy_rows(src, mem, "dividend_events",
+                   "position_id IN (SELECT p.id FROM positions p"
+                   " JOIN accounts a ON a.id=p.account_id WHERE a.owner=?)", (u["username"],))
     finally:
         src.close()
     # 2) le coffre est ouvert pour cette session
@@ -1447,7 +1490,6 @@ def _account_payload(row: sqlite3.Row, latest: dict | None, txn: dict | None = N
                      conn: sqlite3.Connection | None = None) -> dict:
     p = {k: row[k] for k in row.keys()}
     cls = CLASS_META.get(row["asset_class"], {})
-    p["class_label"] = cls.get("label", row["asset_class"])
     p["class_emoji"] = cls.get("emoji", "📦")
     p["last_value"] = latest["value"] if latest else None
     p["last_val_date"] = latest["date"] if latest else None
@@ -1471,6 +1513,9 @@ def _account_payload(row: sqlite3.Row, latest: dict | None, txn: dict | None = N
     else:
         p["last_val_source"] = None
         p["last_val_age_days"] = None
+    # frais de gestion annuels % : cumul ≈ sur l'historique mensuel réel
+    p["fees_pct"] = row["fees_pct"] if "fees_pct" in row.keys() else None
+    p["fees_paid"] = _fees_paid_eur(conn, row) if (p["fees_pct"] and conn) else None
     gain = None
     if latest and cost:
         gain = round(latest["value"] - cost, 2)
@@ -1501,13 +1546,21 @@ def _account_payload(row: sqlite3.Row, latest: dict | None, txn: dict | None = N
 async def list_accounts(request: Request):
     u = _need(request)
     conn = db()
-    latest = _latest_valuations(conn)
-    txns = _txn_summary(conn)
-    rows = conn.execute(
-        "SELECT * FROM accounts WHERE owner=? ORDER BY asset_class, name", (u["username"],)
-    ).fetchall()
-    out = [_account_payload(r, latest.get(r["id"]), txns.get(r["id"]), conn) for r in rows]
-    conn.close()
+    try:
+        latest = _latest_valuations(conn)
+        txns = _txn_summary(conn)
+        rows = conn.execute(
+            "SELECT * FROM accounts WHERE owner=? ORDER BY asset_class, name", (u["username"],)
+        ).fetchall()
+        out = [_account_payload(r, latest.get(r["id"]), txns.get(r["id"]), conn) for r in rows]
+        # portefeuille : composition des comptes bourse auto (v2026.09.025)
+        pf_ids = [r["id"] for r in rows
+                  if r["asset_class"] == "bourse" and r["valuation_mode"] == "auto"]
+        for a in out:
+            if a["id"] in pf_ids:
+                a["positions"] = _positions_payload(conn, a["id"])
+    finally:
+        conn.close()
     return {"accounts": out}
 
 
@@ -1525,6 +1578,7 @@ class AccountIn(BaseModel):
     symbol: str = ""
     quantity: float = 0
     initial_value: float | None = None
+    fees_pct: float | None = None  # frais de gestion annuels % (v2026.09.025)
 
 
 @app.post("/api/accounts")
@@ -1539,17 +1593,27 @@ async def create_account(body: AccountIn, request: Request):
     ccy = "EUR" if mode == "auto" else (body.currency or "EUR").upper()
     if ccy not in FX_SUPPORTED:
         return JSONResponse({"detail": "Devise non supportée"}, status_code=400)
+    if body.fees_pct is not None and body.fees_pct < 0:
+        return JSONResponse({"detail": "Frais annuels invalides"}, status_code=400)
     conn = db()
     cur = conn.execute(
-        "INSERT INTO accounts (owner, name, asset_class, institution, currency, fx_override, cost_basis, open_date, notes, active,"
-        " valuation_mode, symbol, quantity) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO accounts (owner, name, asset_class, institution, currency, fx_override, cost_basis, fees_pct, open_date, notes, active,"
+        " valuation_mode, symbol, quantity) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (u["username"], body.name.strip(), body.asset_class, body.institution.strip(), ccy,
          round(body.fx_override, 6) if body.fx_override else None, body.cost_basis or 0,
+         round(body.fees_pct, 4) if body.fees_pct is not None else None,
          body.open_date, body.notes.strip(), body.active,
          mode,
          body.symbol.strip().upper(), body.quantity or 0),
     )
     aid = cur.lastrowid
+    # v2026.09.025 — un compte bourse auto créé avec un symbole (ancien modèle
+    # 1 ligne) devient un portefeuille à 1 position : le compte reste conteneur.
+    if body.asset_class == "bourse" and mode == "auto" and (body.symbol or "").strip():
+        conn.execute(
+            "INSERT INTO positions (account_id, symbol, label, quantity, pru) VALUES (?,?,?,?,NULL)",
+            (aid, body.symbol.strip().upper(), body.name.strip(), body.quantity or 0),
+        )
     if body.initial_value is not None and body.valuation_mode != "auto":
         d = body.open_date or date.today().isoformat()
         conn.execute(
@@ -1575,14 +1639,26 @@ async def update_account(aid: int, body: AccountIn, request: Request):
         conn.close()
         return JSONResponse({"detail": "Devise non supportée"}, status_code=400)
     conn.execute(
-        "UPDATE accounts SET name=?, asset_class=?, institution=?, currency=?, fx_override=?, cost_basis=?, open_date=?, notes=?,"
+        "UPDATE accounts SET name=?, asset_class=?, institution=?, currency=?, fx_override=?, cost_basis=?, fees_pct=?, open_date=?, notes=?,"
         " active=?, valuation_mode=?, symbol=?, quantity=?, updated_at=datetime('now') WHERE id=?",
         (body.name.strip(), body.asset_class, body.institution.strip(), ccy,
          round(body.fx_override, 6) if body.fx_override else None, body.cost_basis or 0,
+         round(body.fees_pct, 4) if body.fees_pct is not None else None,
          body.open_date, body.notes.strip(), body.active,
          mode,
          body.symbol.strip().upper(), body.quantity or 0, aid),
     )
+    # v2026.09.025 — passage d'un compte bourse existant en auto avec symbole
+    # (sans ligne déjà gérée) : on matérialise la position #1
+    if body.asset_class == "bourse" and mode == "auto" and (body.symbol or "").strip():
+        has_pos = conn.execute(
+            "SELECT 1 FROM positions WHERE account_id=?", (aid,)
+        ).fetchone()
+        if not has_pos:
+            conn.execute(
+                "INSERT INTO positions (account_id, symbol, label, quantity, pru) VALUES (?,?,?,?,NULL)",
+                (aid, body.symbol.strip().upper(), body.name.strip(), body.quantity or 0),
+            )
     conn.commit()
     conn.close()
     _audit(u["username"], "Modification d'actif", f"#{aid} {body.name.strip()}")
@@ -1601,6 +1677,297 @@ async def delete_account(aid: int, request: Request):
     conn.close()
     if row:
         _audit(u["username"], "Suppression d'actif", f"#{aid} {row['name']}")
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------- positions (portefeuille)
+# v2026.09.025 — un compte bourse 'auto' est un CONTENEUR ; sa composition
+# vit dans `positions` (symbole × quantité × PRU). Valeur du compte = Σ des
+# lignes au cours du jour ; l'historique de valorisation (mensuel) reste au
+# niveau du compte — rien de cassé pour les graphiques existants.
+
+def _latest_price(conn: sqlite3.Connection, symbol: str) -> dict | None:
+    r = conn.execute(
+        "SELECT price, currency, ts FROM prices WHERE symbol=? ORDER BY ts DESC LIMIT 1",
+        (symbol,),
+    ).fetchone()
+    return dict(r) if r else None
+
+
+def _pos_quote_eur(conn: sqlite3.Connection, symbol: str, d: str | None = None) -> dict | None:
+    """Cours (cache prices) converti en EUR — jamais de réseau ici."""
+    px = _latest_price(conn, symbol)
+    if px is None:
+        return None
+    ccy = px["currency"] or "EUR"
+    out = {"price": px["price"], "currency": ccy, "ts": px["ts"]}
+    if ccy in ("", "EUR"):
+        out["price_eur"] = px["price"]
+    else:
+        fx = _fx_lookup(conn, ccy, d or date.today().isoformat(), None)
+        if fx is None:
+            return None
+        out["price_eur"] = px["price"] / fx["rate"]
+    return out
+
+
+def _positions_payload(conn: sqlite3.Connection, account_id: int) -> list[dict]:
+    """Lignes d'un compte avec cours, valeur EUR, poids, PV brute (PRU) et
+    dividendes enregistrés (montant = quantité ACTUELLE × montant/action)."""
+    rows = conn.execute(
+        "SELECT * FROM positions WHERE account_id=? ORDER BY id", (account_id,)
+    ).fetchall()
+    divs = conn.execute(
+        "SELECT d.*, p.symbol, p.quantity FROM dividend_events d JOIN positions p ON p.id=d.position_id"
+        " WHERE p.account_id=? ORDER BY d.ex_date", (account_id,)
+    ).fetchall()
+    by_pos: dict[int, list[dict]] = {}
+    for d in divs:
+        by_pos.setdefault(d["position_id"], []).append({
+            "id": d["id"], "ex_date": d["ex_date"], "per_share": d["per_share"],
+            "note": d["note"], "amount": round((d["quantity"] or 0) * d["per_share"], 2)
+            if d["quantity"] else None, "symbol": d["symbol"],
+        })
+    out = []
+    for r in rows:
+        q = _pos_quote_eur(conn, r["symbol"]) if r["active"] else None
+        line = {
+            "id": r["id"], "account_id": r["account_id"], "symbol": r["symbol"], "label": r["label"],
+            "quantity": r["quantity"], "pru": r["pru"], "active": bool(r["active"]),
+            "price": q["price"] if q else None,
+            "price_currency": q["currency"] if q else None,
+            "price_ts": q["ts"] if q else None,
+            "value_eur": round((r["quantity"] or 0) * q["price_eur"], 2) if q else None,
+            "gain_eur": round((r["quantity"] or 0) * (q["price_eur"] - (r["pru"] or 0)), 2)
+            if q and r["pru"] is not None else None,
+            "gain_pct": round((q["price_eur"] / r["pru"] - 1) * 100, 2)
+            if q and r["pru"] else None,
+            "dividends": by_pos.get(r["id"], []),
+        }
+        if q and r["pru"] is not None:
+            line["cost_eur"] = round((r["quantity"] or 0) * r["pru"], 2)
+        out.append(line)
+    vals = [l for l in out if l["value_eur"] is not None and l["active"]]
+    tot = sum(l["value_eur"] for l in vals)
+    for l in out:
+        l["weight_pct"] = round(l["value_eur"] / tot * 100, 2) if (tot and l["value_eur"] is not None) else None
+        l["portfolio_eur"] = round(tot, 2)
+    return out
+
+
+def _fees_paid_eur(conn: sqlite3.Connection, row: sqlite3.Row) -> dict | None:
+    """Cumul ≈ des frais de gestion : taux annuel appliqué au prorata mensuel
+    sur chaque valorisation de fin de mois (historique réel)."""
+    pct = row["fees_pct"]
+    if pct is None or pct <= 0:
+        return None
+    vals = conn.execute(
+        "SELECT val_date, value FROM valuations WHERE account_id=?"
+        " AND val_date <= date('now') ORDER BY val_date", (row["id"],)
+    ).fetchall()
+    if not vals:
+        return None
+    tot = 0.0
+    for v in vals:
+        tot += (v["value"] or 0) * pct / 100.0 / 12.0
+    first = vals[0]["val_date"][:7]
+    last = vals[-1]["val_date"][:7]
+    y1, m1 = int(first[:4]), int(first[5:7])
+    y2, m2 = int(last[:4]), int(last[5:7])
+    months = (y2 - y1) * 12 + (m2 - m1) + 1
+    return {"fees_pct": pct, "paid_eur": round(tot, 2), "months": months,
+            "from_ym": first, "to_ym": last}
+
+
+class PositionIn(BaseModel):
+    symbol: str
+    label: str = ""
+    quantity: float = 0
+    pru: float | None = None
+    active: int = 1
+
+
+class DividendIn(BaseModel):
+    ex_date: str
+    per_share: float
+    note: str = ""
+
+
+def _div_source_id(pid: int, ex_date: str) -> str:
+    return f"div:{pid}:{ex_date}"
+
+
+def _div_sync(conn: sqlite3.Connection, pos: sqlite3.Row, ex_date: str, per_share: float, note: str = "") -> None:
+    """Miroir comptable d'un dividende : une opération income liée par
+    source_id (idempotent — l'événement est la source de vérité, la ligne
+    d'opération est recalculée à chaque sauvegarde)."""
+    amount = round((pos["quantity"] or 0) * per_share, 2)
+    sid = _div_source_id(pos["id"], ex_date)
+    if amount <= 0:
+        conn.execute("DELETE FROM transactions WHERE source_id=?", (sid,))
+        return
+    ex = conn.execute("SELECT id FROM transactions WHERE source_id=?", (sid,)).fetchone()
+    if ex:
+        conn.execute(
+            "UPDATE transactions SET amount=?, note=?, op_date=? WHERE id=?",
+            (amount, f"Dividende {pos['symbol']}", ex_date, ex["id"]),
+        )
+    else:
+        conn.execute(
+            "INSERT INTO transactions (account_id, op_date, kind, amount, note, source_id)"
+            " VALUES (?,?,?,?,?,?)",
+            (pos["account_id"], ex_date, "income", amount, f"Dividende {pos['symbol']}", sid),
+        )
+
+
+def _div_unsync(conn: sqlite3.Connection, pid: int, ex_date: str) -> None:
+    conn.execute("DELETE FROM transactions WHERE source_id=?", (_div_source_id(pid, ex_date),))
+
+
+def _pos_owned(conn: sqlite3.Connection, pid: int, owner: str) -> sqlite3.Row | None:
+    return conn.execute(
+        "SELECT p.*, a.asset_class, a.valuation_mode FROM positions p"
+        " JOIN accounts a ON a.id=p.account_id WHERE p.id=? AND a.owner=?",
+        (pid, owner),
+    ).fetchone()
+
+
+@app.post("/api/accounts/{aid}/positions")
+async def create_position(aid: int, body: PositionIn, request: Request):
+    u = _need(request)
+    conn = db()
+    acc = conn.execute(
+        "SELECT * FROM accounts WHERE id=? AND owner=?", (aid, u["username"])
+    ).fetchone()
+    if acc is None:
+        conn.close()
+        return JSONResponse({"detail": "Actif introuvable"}, status_code=404)
+    if acc["asset_class"] != "bourse" or acc["valuation_mode"] != "auto":
+        conn.close()
+        return JSONResponse({"detail": "Lignes réservées aux comptes bourse valorisés au cours"}, status_code=400)
+    sym = (body.symbol or "").strip().upper()
+    if not sym or len(sym) > 24:
+        conn.close()
+        return JSONResponse({"detail": "Symbole invalide"}, status_code=400)
+    if not body.quantity or body.quantity <= 0:
+        conn.close()
+        return JSONResponse({"detail": "Quantité invalide"}, status_code=400)
+    if body.pru is not None and body.pru < 0:
+        conn.close()
+        return JSONResponse({"detail": "PRU invalide"}, status_code=400)
+    cur = conn.execute(
+        "INSERT INTO positions (account_id, symbol, label, quantity, pru)"
+        " VALUES (?,?,?,?,?)",
+        (aid, sym, (body.label or "").strip()[:80],
+         round(body.quantity, 6),
+         round(body.pru, 6) if body.pru is not None else None),
+    )
+    conn.commit()
+    pid = cur.lastrowid
+    conn.close()
+    _audit(u["username"], "Ajout de ligne portefeuille", f"#{pid} {sym}")
+    return {"id": pid}
+
+
+@app.put("/api/positions/{pid}")
+async def update_position(pid: int, body: PositionIn, request: Request):
+    u = _need(request)
+    conn = db()
+    pos = _pos_owned(conn, pid, u["username"])
+    if pos is None:
+        conn.close()
+        return JSONResponse({"detail": "Ligne introuvable"}, status_code=404)
+    sym = (body.symbol or "").strip().upper()
+    if not sym or len(sym) > 24:
+        conn.close()
+        return JSONResponse({"detail": "Symbole invalide"}, status_code=400)
+    if not body.quantity or body.quantity <= 0:
+        conn.close()
+        return JSONResponse({"detail": "Quantité invalide"}, status_code=400)
+    if body.pru is not None and body.pru < 0:
+        conn.close()
+        return JSONResponse({"detail": "PRU invalide"}, status_code=400)
+    conn.execute(
+        "UPDATE positions SET symbol=?, label=?, quantity=?, pru=?, active=?, updated_at=datetime('now') WHERE id=?",
+        (sym, (body.label or "").strip()[:80], round(body.quantity, 6),
+         round(body.pru, 6) if body.pru is not None else None,
+         1 if body.active else 0, pid),
+    )
+    # la quantité change le montant des dividendes : resynchroniser les miroirs
+    for d in conn.execute("SELECT ex_date, per_share FROM dividend_events WHERE position_id=?", (pid,)):
+        _div_sync(conn, conn.execute(
+            "SELECT id, account_id, symbol, quantity FROM positions WHERE id=?", (pid,)).fetchone(),
+            d["ex_date"], d["per_share"])
+    conn.commit()
+    conn.close()
+    _audit(u["username"], "Modification de ligne portefeuille", f"#{pid} {sym}")
+    return {"ok": True}
+
+
+@app.delete("/api/positions/{pid}")
+async def delete_position(pid: int, request: Request):
+    u = _need(request)
+    conn = db()
+    pos = _pos_owned(conn, pid, u["username"])
+    if pos is None:
+        conn.close()
+        return JSONResponse({"detail": "Ligne introuvable"}, status_code=404)
+    # retire les miroirs comptables des dividendes avant la cascade
+    for d in conn.execute("SELECT ex_date FROM dividend_events WHERE position_id=?", (pid,)):
+        _div_unsync(conn, pid, d["ex_date"])
+    conn.execute("DELETE FROM positions WHERE id=?", (pid,))
+    conn.commit()
+    conn.close()
+    _audit(u["username"], "Suppression de ligne portefeuille", f"#{pid} {pos['symbol']}")
+    return {"ok": True}
+
+
+@app.post("/api/positions/{pid}/dividend")
+async def upsert_dividend(pid: int, body: DividendIn, request: Request):
+    u = _need(request)
+    conn = db()
+    pos = _pos_owned(conn, pid, u["username"])
+    if pos is None:
+        conn.close()
+        return JSONResponse({"detail": "Ligne introuvable"}, status_code=404)
+    try:
+        date.fromisoformat(body.ex_date)
+    except ValueError:
+        conn.close()
+        return JSONResponse({"detail": "Date invalide"}, status_code=400)
+    if body.per_share is None or body.per_share <= 0:
+        conn.close()
+        return JSONResponse({"detail": "Montant par action invalide"}, status_code=400)
+    conn.execute(
+        "INSERT INTO dividend_events (position_id, ex_date, per_share, note) VALUES (?,?,?,?)"
+        " ON CONFLICT(position_id, ex_date) DO UPDATE SET per_share=excluded.per_share,"
+        " note=excluded.note",
+        (pid, body.ex_date, round(body.per_share, 6), (body.note or "").strip()[:120]),
+    )
+    _div_sync(conn, pos, body.ex_date, body.per_share)
+    conn.commit()
+    conn.close()
+    _audit(u["username"], "Dividende enregistré", f"#{pid} {pos['symbol']} {body.ex_date}")
+    return {"ok": True}
+
+
+@app.delete("/api/dividends/{did}")
+async def delete_dividend(did: int, request: Request):
+    u = _need(request)
+    conn = db()
+    row = conn.execute(
+        "SELECT d.id, d.position_id, d.ex_date FROM dividend_events d"
+        " JOIN positions p ON p.id=d.position_id JOIN accounts a ON a.id=p.account_id"
+        " WHERE d.id=? AND a.owner=?", (did, u["username"])
+    ).fetchone()
+    if row is None:
+        conn.close()
+        return JSONResponse({"detail": "Dividende introuvable"}, status_code=404)
+    _div_unsync(conn, row["position_id"], row["ex_date"])
+    conn.execute("DELETE FROM dividend_events WHERE id=?", (did,))
+    conn.commit()
+    conn.close()
+    _audit(u["username"], "Dividende supprimé", f"#{row['position_id']} {row['ex_date']}")
     return {"ok": True}
 
 
@@ -1855,7 +2222,6 @@ async def summary(request: Request, family: int = 0):
         c["gain"] = round(c["value"] - c["cost"], 2) if c["cost"] else None
         c["gain_pct"] = round((c["value"] - c["cost"]) / c["cost"] * 100, 2) if c["cost"] else None
         c["share_pct"] = round(c["value"] / total_value * 100, 1) if total_value else 0
-        c["label"] = CLASS_META[k]["label"]
         c["emoji"] = CLASS_META[k]["emoji"]
         c["color"] = CLASS_META[k]["color"]
         classes.append(c)
@@ -1973,6 +2339,12 @@ def _export_data(conn: sqlite3.Connection, username: str) -> dict:
         "income_rules": [dict(r) for r in conn.execute(
             "SELECT ir.* FROM income_rules ir JOIN accounts a ON a.id=ir.account_id"
             " WHERE a.owner=?", (username,)).fetchall()],
+        "positions": [dict(r) for r in conn.execute(
+            "SELECT p.* FROM positions p JOIN accounts a ON a.id=p.account_id"
+            " WHERE a.owner=?", (username,)).fetchall()],
+        "dividend_events": [dict(r) for r in conn.execute(
+            "SELECT d.* FROM dividend_events d JOIN positions p ON p.id=d.position_id"
+            " JOIN accounts a ON a.id=p.account_id WHERE a.owner=?", (username,)).fetchall()],
     }
 
 
@@ -1989,10 +2361,10 @@ def _do_import(u: sqlite3.Row, body: dict) -> str | None:
         for a in body["accounts"]:
             conn.execute(
                 "INSERT INTO accounts (id, owner, name, asset_class, institution, currency, valuation_mode,"
-                " cost_basis, open_date, close_date, notes, active, created_at, updated_at)"
+                " cost_basis, fees_pct, open_date, close_date, notes, active, created_at, updated_at)"
                 " VALUES (:id,:owner,:name,:asset_class,:institution,:currency,:valuation_mode,:cost_basis,"
-                " :open_date,:close_date,:notes,:active,:created_at,:updated_at)",
-                {**a, "owner": u["username"]},
+                " :fees_pct,:open_date,:close_date,:notes,:active,:created_at,:updated_at)",
+                {**a, "owner": u["username"], "fees_pct": a.get("fees_pct")},
             )
         for v in body["valuations"]:
             conn.execute(
@@ -2011,6 +2383,18 @@ def _do_import(u: sqlite3.Row, body: dict) -> str | None:
                 "INSERT INTO income_rules (id, account_id, label, amount, freq, months_int, next_date, active)"
                 " VALUES (:id,:account_id,:label,:amount,:freq,:months_int,:next_date,:active)",
                 ir,
+            )
+        for p in body.get("positions") or []:
+            conn.execute(
+                "INSERT INTO positions (id, account_id, symbol, label, quantity, pru, active, created_at, updated_at)"
+                " VALUES (:id,:account_id,:symbol,:label,:quantity,:pru,:active,:created_at,:updated_at)",
+                p,
+            )
+        for d in body.get("dividend_events") or []:
+            conn.execute(
+                "INSERT INTO dividend_events (id, position_id, ex_date, per_share, note, created_at)"
+                " VALUES (:id,:position_id,:ex_date,:per_share,:note,:created_at)",
+                d,
             )
         conn.commit()
     except Exception as e:
@@ -2094,7 +2478,48 @@ async def import_data(request: Request):
     return {"ok": True}
 
 
-# ---------------------------------------------------------------- import CSV d'opérations
+# ---------------------------------------------------------------- imports/exports CSV
+# Libellés humains des exports CSV : la langue suit le navigateur
+# (Accept-Language, défaut FR) — les IDENTIFIANTS restent canoniques.
+_CSV_L10N: dict[str, dict[str, dict[str, str]]] = {
+    "cls": {
+        "fr": {"comptes": "Comptes courants", "epargne": "Livrets & épargne", "bourse": "Bourse & assurances-vie",
+               "immobilier": "Immobilier", "crowdfunding": "Crowdfunding", "crypto": "Cryptomonnaies",
+               "metaux": "Métaux précieux", "divers": "Divers"},
+        "en": {"comptes": "Current accounts", "epargne": "Savings accounts", "bourse": "Stocks & life insurance",
+               "immobilier": "Real estate", "crowdfunding": "Crowdfunding", "crypto": "Cryptocurrencies",
+               "metaux": "Precious metals", "divers": "Other"},
+        "de": {"comptes": "Girokonten", "epargne": "Sparkonten", "bourse": "Aktien & Lebensversicherung",
+               "immobilier": "Immobilien", "crowdfunding": "Crowdfunding", "crypto": "Kryptowährungen",
+               "metaux": "Edelmetalle", "divers": "Sonstiges"},
+        "lb": {"comptes": "Lafend Konten", "epargne": "Spuerkonten", "bourse": "Aktien & Liewensversécherung",
+               "immobilier": "Immobilien", "crowdfunding": "Crowdfunding", "crypto": "Kryptowährungen",
+               "metaux": "Edelmetaller", "divers": "Divis"},
+    },
+    "kind": {
+        "fr": {"deposit": "Dépôt", "withdrawal": "Retrait", "income": "Revenu", "expense": "Frais / dépense"},
+        "en": {"deposit": "Deposit", "withdrawal": "Withdrawal", "income": "Income", "expense": "Fee / expense"},
+        "de": {"deposit": "Einzahlung", "withdrawal": "Auszahlung", "income": "Einkommen", "expense": "Gebühr / Ausgabe"},
+        "lb": {"deposit": "Akommes", "withdrawal": "Ofhuelen", "income": "Akommes (Zënssaz…)", "expense": "Frais / Ausgab"},
+    },
+}
+_CSV_LANG_ORDER = ("fr", "en", "de", "lb")
+
+
+def _csv_lang(request: Request) -> str:
+    hdr = request.headers.get("accept-language", "")
+    for part in hdr.split(","):
+        tag = part.strip().split(";")[0].lower()
+        base = tag.split("-")[0]
+        if base in _CSV_LANG_ORDER:
+            return base
+    return "fr"
+
+
+def _l10n_map(kind: str, lang: str) -> dict[str, str]:
+    return _CSV_L10N[kind].get(lang) or _CSV_L10N[kind]["fr"]
+
+
 class TxCsvIn(BaseModel):
     account_id: int
     default_kind: str = "deposit"
@@ -2278,10 +2703,18 @@ async def export_csv(kind: str, request: Request):
     buf.write("\ufeff")
     if rows:
         cols = list(rows[0].keys())
+        lang = _csv_lang(request)
+        cls_map = _l10n_map("cls", lang)
+        kind_map = _l10n_map("kind", lang)
         w = csv.writer(buf, lineterminator="\r\n")
         w.writerow(cols)
         for r in rows:
-            w.writerow([r[k] for k in cols])
+            row = dict(r)
+            if "asset_class" in row:
+                row["asset_class"] = cls_map.get(row["asset_class"], row["asset_class"])
+            if "type" in row:
+                row["type"] = kind_map.get(row["type"], row["type"])
+            w.writerow([row[k] for k in cols])
     _audit(u["username"], f"Export CSV ({fname})", f"{len(rows)} lignes")
     return Response(
         buf.getvalue(),
@@ -2382,10 +2815,17 @@ async def add_transaction(body: TxIn, request: Request):
 async def delete_transaction(tid: int, request: Request):
     u = _need(request)
     conn = db()
-    conn.execute(
-        "DELETE FROM transactions WHERE id=? AND account_id IN"
+    row = conn.execute(
+        "SELECT source_id FROM transactions WHERE id=? AND account_id IN"
         " (SELECT id FROM accounts WHERE owner=?)", (tid, u["username"])
-    )
+    ).fetchone()
+    if row is None:
+        conn.close()
+        return JSONResponse({"detail": "Opération introuvable"}, status_code=404)
+    if (row["source_id"] or "").startswith("div:"):
+        conn.close()
+        return JSONResponse({"detail": "Dividende géré depuis la ligne du portefeuille"}, status_code=400)
+    conn.execute("DELETE FROM transactions WHERE id=?", (tid,))
     conn.commit()
     conn.close()
     _audit(u["username"], "Suppression d'opération", f"#{tid}")
@@ -2556,53 +2996,83 @@ async def income_actual(request: Request, months: int = 12):
 async def refresh_prices(request: Request):
     u = _need(request)
     conn = db()
-    rows = conn.execute(
-        "SELECT id, name, asset_class, symbol, quantity, open_date FROM accounts"
-        " WHERE active=1 AND valuation_mode='auto' AND symbol<>'' AND owner=?", (u["username"],)
-    ).fetchall()
     today = date.today().isoformat()
     status = []
-    for r in rows:
-        # Appels réseau Yahoo/CoinGecko hors event loop (urllib bloquant,
-        # timeout 12 s — en série ici ils gèleraient tout le serveur)
-        q = await run_in_threadpool(fetch_quote, r["symbol"], r["asset_class"])
+
+    async def fetch_sym(symbol: str, asset_class: str) -> tuple[float | None, str | None]:
+        """Cours frais (réseau hors event loop) → cache prices → EUR.
+        Retourne (prix EUR, erreur)."""
+        q = await run_in_threadpool(fetch_quote, symbol, asset_class)
         if not q:
-            status.append({"id": r["id"], "name": r["name"], "symbol": r["symbol"], "error": "cours introuvable"})
-            continue
+            return None, "cours introuvable"
         conn.execute(
             "INSERT OR REPLACE INTO prices (symbol, price, currency, ts) VALUES (?,?,?,?)",
-            (r["symbol"], q["price"], q.get("currency", ""), datetime.now(timezone.utc).isoformat()),
+            (symbol, q["price"], q.get("currency", ""), datetime.now(timezone.utc).isoformat()),
         )
-        # Les actifs auto sont valorisés en EUR : cours converti si la devise
-        # de cotation n'est pas l'EUR (taux BCE du jour, repli manuel actif).
         ccy_q = q.get("currency") or "EUR"
-        fx = None
-        if ccy_q not in ("", "EUR"):
-            fx = _fx_lookup(conn, ccy_q, today, None)
-            if fx is None:
-                try:  # taux manquant : un seul appel BCE, puis échec propre
-                    rates = await run_in_threadpool(_ecb_fetch_http)
-                    for cc2, day, rate in rates:
-                        if cc2 in FX_SUPPORTED and day <= today:
-                            conn.execute(
-                                "INSERT OR REPLACE INTO fx_rates (ccy, rate_date, rate, source)"
-                                " VALUES (?,?,?, 'ecb')", (cc2, day, rate),
-                            )
-                    conn.commit()
-                    fx = _fx_lookup(conn, ccy_q, today, None)
-                except Exception:
-                    fx = None
-            if fx is None:
-                status.append({"id": r["id"], "name": r["name"], "symbol": r["symbol"],
-                               "currency": ccy_q, "error": "taux de change indisponible (BCE)"})
-                continue
-        price_eur = q["price"] / fx["rate"] if fx else q["price"]
+        if ccy_q in ("", "EUR"):
+            return q["price"], None
+        fx = _fx_lookup(conn, ccy_q, today, None)
+        if fx is None:
+            try:  # taux manquant : un seul appel BCE, puis échec propre
+                rates = await run_in_threadpool(_ecb_fetch_http)
+                for cc2, day, rate in rates:
+                    if cc2 in FX_SUPPORTED and day <= today:
+                        conn.execute(
+                            "INSERT OR REPLACE INTO fx_rates (ccy, rate_date, rate, source)"
+                            " VALUES (?,?,?, 'ecb')", (cc2, day, rate),
+                        )
+                conn.commit()
+                fx = _fx_lookup(conn, ccy_q, today, None)
+            except Exception:
+                fx = None
+        if fx is None:
+            return None, "taux de change indisponible (BCE)"
+        return q["price"] / fx["rate"], None
+
+    def chart_factor(symbol: str) -> float:
+        """close (devise de cotation) → EUR : même conversion que le cours du
+        jour (facteur prix_eur/prix brut lus dans le cache prices)."""
+        r = conn.execute(
+            "SELECT price, currency FROM prices WHERE symbol=? ORDER BY ts DESC LIMIT 1",
+            (symbol,),
+        ).fetchone()
+        if r is None or (r["currency"] or "EUR") in ("", "EUR") or not r["price"]:
+            return 1.0
+        px = _pos_quote_eur(conn, symbol)
+        return (px["price_eur"] / r["price"]) if px else 1.0
+
+    def insert_today(aid: int, value: float) -> None:
+        if value <= 0:
+            return
+        dup = conn.execute(
+            "SELECT id FROM valuations WHERE account_id=? AND val_date=?", (aid, today)
+        ).fetchone()
+        if not dup:
+            conn.execute(
+                "INSERT INTO valuations (account_id, val_date, value, source) VALUES (?,?,?, 'auto')",
+                (aid, today, value),
+            )
+
+    # --- actifs auto mono-symbole (crypto…) : chemin historique ---
+    rows = conn.execute(
+        "SELECT id, name, asset_class, symbol, quantity, open_date FROM accounts"
+        " WHERE active=1 AND valuation_mode='auto' AND symbol<>''"
+        " AND asset_class<>'bourse' AND owner=?", (u["username"],)
+    ).fetchall()
+    for r in rows:
+        price_eur, err = await fetch_sym(r["symbol"], r["asset_class"])
+        if err:
+            status.append({"id": r["id"], "name": r["name"], "symbol": r["symbol"], "error": err})
+            continue
+        assert price_eur is not None
         value = round((r["quantity"] or 0) * price_eur, 2)
         nvals = conn.execute("SELECT COUNT(*) c FROM valuations WHERE account_id=?", (r["id"],)).fetchone()["c"]
         if nvals == 0 and r["asset_class"] not in CRYPTO_AUTO_CLASSES and r["open_date"]:
             years = max(1, min(10, date.today().year - date.fromisoformat(r["open_date"][:10]).year + 1))
             chart = await run_in_threadpool(_yahoo_chart, r["symbol"], f"{years}y", "1mo")
             if chart:
+                f = chart_factor(r["symbol"])
                 for dstr, close in chart["points"]:
                     ex = conn.execute(
                         "SELECT id FROM valuations WHERE account_id=? AND val_date=?", (r["id"], dstr)
@@ -2610,20 +3080,75 @@ async def refresh_prices(request: Request):
                     if not ex:
                         conn.execute(
                             "INSERT INTO valuations (account_id, val_date, value, source) VALUES (?,?,?, 'auto')",
-                            (r["id"], dstr, round((r["quantity"] or 0) * (close / fx["rate"] if fx else close), 2)),
+                            (r["id"], dstr, round((r["quantity"] or 0) * close * f, 2)),
                         )
-        dup = conn.execute(
-            "SELECT id FROM valuations WHERE account_id=? AND val_date=?", (r["id"], today)
-        ).fetchone()
-        if not dup and value > 0:
-            conn.execute(
-                "INSERT INTO valuations (account_id, val_date, value, source) VALUES (?,?,?, 'auto')",
-                (r["id"], today, value),
-            )
+        insert_today(r["id"], value)
         status.append({
-            "id": r["id"], "name": r["name"], "symbol": r["symbol"], "price": q["price"],
-            "currency": q.get("currency", ""), "value": value,
+            "id": r["id"], "name": r["name"], "symbol": r["symbol"],
+            "price": round(price_eur, 4), "currency": "EUR", "value": value,
         })
+
+    # --- comptes bourse : portefeuille multi-lignes (positions) ---
+    baccs = conn.execute(
+        "SELECT a.id, a.name, a.open_date FROM accounts a"
+        " WHERE a.active=1 AND a.valuation_mode='auto' AND a.asset_class='bourse' AND a.owner=?",
+        (u["username"],),
+    ).fetchall()
+    if baccs:
+        pos_rows = conn.execute(
+            "SELECT p.* FROM positions p JOIN accounts a ON a.id=p.account_id"
+            " WHERE p.active=1 AND a.asset_class='bourse' AND a.valuation_mode='auto'"
+            " AND a.owner=?", (u["username"],)
+        ).fetchall()
+        by_acc: dict[int, list] = {}
+        for p in pos_rows:
+            by_acc.setdefault(p["account_id"], []).append(p)
+        quotes: dict[str, tuple[float | None, str | None]] = {}
+        for s in sorted({p["symbol"] for p in pos_rows}):
+            quotes[s] = await fetch_sym(s, "bourse")
+        for acc in baccs:
+            aid, name = acc["id"], acc["name"]
+            poss = by_acc.get(aid, [])
+            if not poss:
+                status.append({"id": aid, "name": name, "error": "portefeuille vide — ajoutez une ligne"})
+                continue
+            missing = next((p["symbol"] for p in poss if quotes[p["symbol"]][0] is None), None)
+            if missing:
+                status.append({"id": aid, "name": name, "symbol": missing,
+                               "error": quotes[missing][1] or "cours introuvable"})
+                continue
+            pos_px = {s: (quotes[s][0] or 0.0) for s in quotes}
+            value = round(sum((p["quantity"] or 0) * pos_px[p["symbol"]] for p in poss), 2)
+            nvals = conn.execute("SELECT COUNT(*) c FROM valuations WHERE account_id=?", (aid,)).fetchone()["c"]
+            if nvals == 0 and acc["open_date"]:
+                years = max(1, min(10, date.today().year - date.fromisoformat(acc["open_date"][:10]).year + 1))
+                charts: dict[str, dict] = {}
+                for s in sorted({p["symbol"] for p in poss}):
+                    ch = await run_in_threadpool(_yahoo_chart, s, f"{years}y", "1mo")
+                    if ch and ch.get("points"):
+                        charts[s] = {d: float(c) for d, c in ch["points"]}
+                need = {p["symbol"] for p in poss}
+                if charts and need.issubset(charts):
+                    months = sorted(set.intersection(*[set(charts[s].keys()) for s in need]))
+                    fct = {s: chart_factor(s) for s in need}
+                    for dstr in months:
+                        if dstr < acc["open_date"][:10]:
+                            continue
+                        mv = round(sum((p["quantity"] or 0) * charts[p["symbol"]][dstr] * fct[p["symbol"]]
+                                       for p in poss), 2)
+                        ex = conn.execute(
+                            "SELECT id FROM valuations WHERE account_id=? AND val_date=?", (aid, dstr)
+                        ).fetchone()
+                        if not ex:
+                            conn.execute(
+                                "INSERT INTO valuations (account_id, val_date, value, source) VALUES (?,?,?, 'auto')",
+                                (aid, dstr, mv),
+                            )
+            insert_today(aid, value)
+            status.append({
+                "id": aid, "name": name, "symbol": f"{len(poss)} lignes",
+                "price": None, "currency": "EUR", "value": value,
+            })
     conn.commit()
     conn.close()
     return {"status": status, "asof": today}
