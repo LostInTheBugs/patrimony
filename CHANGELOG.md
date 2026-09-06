@@ -2,6 +2,19 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.026] — 2026-09-06
+
+### Fixed
+
+- **Annual fees over-counted when several valuations share a month.** The
+  cumulative fees estimator applied one twelfth of the annual rate to every
+  valuation row — an account valued several times in the same month (daily
+  auto refresh, capture extension) accumulated N months of fees for that
+  month. Now only the last valuation of each month counts (last `val_date`,
+  `MAX(id)` wins on same-day ties, same convention as the rest of the
+  financial model). `test_fees_pct_cumul` now locks the rule with
+  mid-month valuations and a same-day duplicate.
+
 ## [2026.09.025] — 2026-09-06
 
 ### Added

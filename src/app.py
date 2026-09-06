@@ -1757,13 +1757,20 @@ def _positions_payload(conn: sqlite3.Connection, account_id: int) -> list[dict]:
 
 def _fees_paid_eur(conn: sqlite3.Connection, row: sqlite3.Row) -> dict | None:
     """Cumul ≈ des frais de gestion : taux annuel appliqué au prorata mensuel
-    sur chaque valorisation de fin de mois (historique réel)."""
+    sur la DERNIÈRE valorisation de chaque mois (historique réel) — plusieurs
+    valorisations dans un même mois (refresh auto, captures) ne comptent
+    qu'une fois : une par mois, sinon le cumul serait surestimé."""
     pct = row["fees_pct"]
     if pct is None or pct <= 0:
         return None
+    # une ligne par mois : dernière val_date du mois (ex-aequo même jour ->
+    # MAX(id) gagne, convention du modèle financier)
     vals = conn.execute(
-        "SELECT val_date, value FROM valuations WHERE account_id=?"
-        " AND val_date <= date('now') ORDER BY val_date", (row["id"],)
+        "SELECT val_date, value FROM ("
+        " SELECT val_date, value, ROW_NUMBER() OVER ("
+        "   PARTITION BY substr(val_date,1,7) ORDER BY val_date DESC, id DESC) rn"
+        " FROM valuations WHERE account_id=? AND val_date <= date('now'))"
+        " WHERE rn = 1 ORDER BY val_date", (row["id"],)
     ).fetchall()
     if not vals:
         return None

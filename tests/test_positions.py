@@ -140,11 +140,21 @@ def test_fees_pct_cumul(admin_c):
         "open_date": "2026-01-01"})
     assert r.status_code == 200
     aid = r.json()["id"]
-    for d, v in (("2026-01-31", 10000), ("2026-02-28", 10000)):
-        admin_c.post(f"/api/accounts/{aid}/valuation", json={"value": v, "val_date": d})
+    # plusieurs valorisations DANS un mois : seule la dernière de chaque mois
+    # compte (refresh auto/captures quotidiens ne doivent pas sur-comptabiliser)
+    for d, v in (("2026-01-15", 9500), ("2026-01-31", 10000),
+                 ("2026-02-10", 9000), ("2026-02-28", 10000)):
+        assert admin_c.post(f"/api/accounts/{aid}/valuation",
+                            json={"value": v, "val_date": d}).status_code == 200
     acc = next(a for a in admin_c.get("/api/accounts").json()["accounts"] if a["id"] == aid)
     assert acc["fees_pct"] == 1.2
-    assert acc["fees_paid"]["paid_eur"] == pytest.approx(20.0, abs=0.01)  # 2 × 10000×1.2%/12
+    assert acc["fees_paid"]["paid_eur"] == pytest.approx(20.0, abs=0.01)  # (10000+10000)×1.2%/12
+    assert acc["fees_paid"]["months"] == 2
+    # deux valorisations le MÊME dernier jour : la dernière saisie gagne (MAX(id))
+    assert admin_c.post(f"/api/accounts/{aid}/valuation",
+                        json={"value": 12000, "val_date": "2026-02-28"}).status_code == 200
+    acc = next(a for a in admin_c.get("/api/accounts").json()["accounts"] if a["id"] == aid)
+    assert acc["fees_paid"]["paid_eur"] == pytest.approx(22.0, abs=0.01)  # (10000+12000)×1.2%/12
     assert acc["fees_paid"]["months"] == 2
     # refus d'un taux négatif
     assert admin_c.post("/api/accounts", json={
