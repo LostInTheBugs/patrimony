@@ -2352,6 +2352,132 @@ async def history(request: Request, months: int = 60, family: int = 0):
     }
 
 
+# ---------------------------------------------------------------- évolution
+def _snap_value(conn, r, by_acc, d_iso):
+    """Valeur d'un actif à la date d_iso : dernière valorisation ≤ date (0
+    si aucune), convertie en EUR — mêmes conventions que /api/history."""
+    val = 0.0
+    for vd, vv in by_acc.get(r["id"], []):
+        if vd <= d_iso:
+            val = vv
+        else:
+            break
+    if val and (r["currency"] or "EUR") != "EUR":
+        fx = _fx_lookup(conn, r["currency"], d_iso, r["fx_override"])
+        val = 0.0 if fx is None else val / fx["rate"]
+    return val
+
+
+def _month_end(y: int, m: int) -> date:
+    return date(y, m, calendar.monthrange(y, m)[1])
+
+
+@app.get("/api/evolution")
+async def evolution(request: Request, months: int = 12, family: int = 0):
+    """Pourquoi le patrimoine change : décomposition additive par mois
+    (Flux = dépôts − retraits − dépenses, Revenus = opérations income,
+    Effet marché = résidu) + snapshots annuels par classe (dernière
+    valorisation de décembre, année courante incluse partielle)."""
+    u = _need(request)
+    months = max(3, min(months, 60))
+    conn = db()
+    owners = _visible_owners(conn, u, bool(family))
+    wc, args = _owner_clause(owners)
+    rows = conn.execute(
+        f"SELECT id, name, asset_class, currency, fx_override, open_date, close_date, active"
+        f" FROM accounts WHERE {wc}", args
+    ).fetchall()
+    by_acc: dict[int, list[tuple[str, float]]] = {}
+    for v in conn.execute(
+        f"SELECT v.account_id, v.val_date, v.value FROM valuations v"
+        f" JOIN accounts a ON a.id = v.account_id WHERE {wc} ORDER BY v.val_date, v.id", args
+    ):
+        by_acc.setdefault(v["account_id"], []).append((v["val_date"][:10], v["value"]))
+    sums: dict[tuple[int, str], dict[str, float]] = {}
+    for t in conn.execute(
+        f"SELECT t.account_id, substr(t.op_date, 1, 7) ym, t.kind, t.amount FROM transactions t"
+        f" JOIN accounts a ON a.id = t.account_id WHERE {wc}", args
+    ):
+        d = sums.setdefault((t["account_id"], t["ym"]), {"deposit": 0.0, "withdrawal": 0.0, "income": 0.0, "expense": 0.0})
+        d[t["kind"]] = d.get(t["kind"], 0.0) + t["amount"]
+
+    today = date.today()
+    cur_y, cur_m = today.year, today.month
+    # --- snapshots annuels (dernière valo de décembre ; année courante partielle)
+    years: list[int] = []
+    annual: list[dict] = []
+    first_y = min((int(v[0][:4]) for vs in by_acc.values() for v in vs), default=None)
+    if first_y is not None:
+        years = list(range(first_y, cur_y + 1))
+        for y in years:
+            end = today if y == cur_y else date(y, 12, 31)
+            end_str = end.isoformat()
+            by_class = {k: 0.0 for k in CLASS_KEYS}
+            tot = 0.0
+            for r in rows:
+                if not r["active"]:
+                    continue
+                if r["open_date"] and r["open_date"][:10] > end_str:
+                    continue
+                if r["close_date"] and r["close_date"][:10] < end_str:
+                    continue
+                val = _snap_value(conn, r, by_acc, end_str)
+                if val:
+                    by_class[r["asset_class"]] = round(by_class[r["asset_class"]] + val, 2)
+                    tot += val
+            annual.append({"year": y, "by_class": by_class, "total": round(tot, 2)})
+
+    # --- drivers mensuels (fenêtre glissante, mois courant inclus)
+    d0 = date(cur_y, cur_m, 1)
+    for _ in range(months - 1):
+        d0 = date(d0.year - (d0.month == 1), 12 if d0.month == 1 else d0.month - 1, 1)
+    ym_prev = (d0.year - (d0.month == 1), 12 if d0.month == 1 else d0.month - 1)
+    prev_end = _month_end(*ym_prev)
+    months_out: list[dict] = []
+    d = d0
+    while d <= today:
+        end = today if (d.year, d.month) == (cur_y, cur_m) else _month_end(d.year, d.month)
+        end_str, prev_str = end.isoformat(), prev_end.isoformat()
+        ym = d.strftime("%Y-%m")
+        classes: dict[str, dict[str, float]] = {}
+        tot = {"dv": 0.0, "flux": 0.0, "revenus": 0.0, "marche": 0.0, "depenses": 0.0}
+        acts = []
+        for r in rows:
+            if not r["active"]:
+                continue
+            if r["open_date"] and r["open_date"][:10] > end_str:
+                continue
+            if r["close_date"] and r["close_date"][:10] < end_str:
+                continue
+            sm = sums.get((r["id"], ym)) or {}
+            dep, wd = sm.get("deposit", 0.0), sm.get("withdrawal", 0.0)
+            exp, inc = sm.get("expense", 0.0), sm.get("income", 0.0)
+            v0, v1 = _snap_value(conn, r, by_acc, prev_str), _snap_value(conn, r, by_acc, end_str)
+            dv = round(v1 - v0, 2)
+            flux = round(dep - wd - exp, 2)
+            rev = round(inc, 2)
+            marche = round(dv - flux - rev, 2)
+            if not (dv or flux or rev):
+                continue  # actif immobile ce mois : rien à expliquer
+            c = classes.setdefault(r["asset_class"], {"dv": 0.0, "flux": 0.0, "revenus": 0.0, "marche": 0.0})
+            for k, vv in (("dv", dv), ("flux", flux), ("revenus", rev)):
+                c[k] = round(c[k] + vv, 2)
+            tot["dv"] = round(tot["dv"] + dv, 2)
+            tot["flux"] = round(tot["flux"] + flux, 2)
+            tot["revenus"] = round(tot["revenus"] + rev, 2)
+            tot["depenses"] = round(tot["depenses"] + exp, 2)
+            acts.append({"id": r["id"], "name": r["name"], "cls": r["asset_class"],
+                         "dv": dv, "flux": flux, "revenus": rev, "marche": marche})
+        for c in classes.values():
+            c["marche"] = round(c["dv"] - c["flux"] - c["revenus"], 2)
+        tot["marche"] = round(tot["dv"] - tot["flux"] - tot["revenus"], 2)
+        months_out.append({"ym": ym, "total": tot, "classes": classes, "acts": acts})
+        prev_end = end
+        d = date(d.year + d.month // 12, d.month % 12 + 1, 1)
+    conn.close()
+    return {"years": years, "current_year": cur_y, "annual": annual, "months": months_out}
+
+
 # ---------------------------------------------------------------- divers
 @app.get("/api/version")
 async def version():

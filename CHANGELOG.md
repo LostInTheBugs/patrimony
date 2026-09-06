@@ -2,6 +2,37 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.029] — 2026-09-06
+
+### Added
+
+- **Wealth evolution engine** — `GET /api/evolution?months=N`: answers
+  "why did my wealth change?" with an *exact by-construction* additive
+  monthly decomposition per account, per asset class and total:
+  `ΔV = Flows + Income + Market effect` where Flows = deposits −
+  withdrawals − expenses (signed transactions of the month), Income =
+  received dividends/interest/rent (income transactions), and Market
+  effect = the **residual** (price and FX moves) — anything not declared
+  as a flow or income lands in market effect, so the split never drifts
+  from the tracked valuations. Same conventions as the rest of the
+  model: last valuation of the month, active accounts, open/close dates,
+  BCE FX. Annual snapshots (last December valuation per class, current
+  year partial) reuse the same windowing.
+- **Evolution page** (new 📈 nav entry): "Net worth by year" stacked
+  bar chart per asset class + "What is driving your wealth": last 12
+  months, each month summarized as signed chips (Flows / Income / Market
+  effect → change), click to expand the per-class breakdown table. One
+  short definition note under the data (Flows / Income / Market effect).
+  i18n ×4.
+
+### Tests
+
+- `tests/test_evolution.py` (4): additive split with deposit, income,
+  withdrawal, expense and price moves (exact cents on every level:
+  account, class, total), December-snapshot annuals with current-year
+  partial, closed-account exclusion and member isolation, market
+  residual covering an untracked price move. 65 passing.
+
 ## [2026.09.028] — 2026-09-06
 
 ### Added

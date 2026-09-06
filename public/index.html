@@ -224,6 +224,7 @@
     </div>
     <nav>
       <a href="#" id="navDash" onclick="switchPage('dash')"><span class="e">📊</span> <span data-i18n="navDash">Tableau de bord</span></a>
+      <a href="#" id="navEv" onclick="switchPage('ev')"><span class="e">📈</span> <span data-i18n="navEv">Évolution</span></a>
       <a href="#" id="navActifs" onclick="switchPage('actifs')"><span class="e">💼</span> <span data-i18n="navActifs">Actifs</span></a>
       <a href="#" id="navOps" onclick="switchPage('ops')"><span class="e">📜</span> <span data-i18n="navOps">Opérations</span></a>
       <a href="#" id="navRev" onclick="switchPage('rev')"><span class="e">📅</span> <span data-i18n="navRev">Revenus</span></a>
@@ -298,6 +299,20 @@
           <span class="hint" id="benchHint"></span>
         </h3>
         <div id="benchWrap"><div class="muted" data-i18n="loading">Chargement…</div></div>
+      </div>
+    </section>
+
+    <!-- ---------- ÉVOLUTION ---------- -->
+    <section id="pageEv" class="hidden">
+      <div class="page-title"><h1>📈 <span data-i18n="evTitle">Évolution du patrimoine</span></h1></div>
+      <div class="panel">
+        <h3>🏗️ <span data-i18n="evAnnual">Net worth par année</span> <span class="hint" data-i18n="evAnnualHint">dernière valorisation de décembre — année courante partielle</span></h3>
+        <div class="chartbox"><canvas id="chEv"></canvas></div>
+      </div>
+      <div class="panel" style="margin-top:14px">
+        <h3>🔍 <span data-i18n="evDrvTitle">Ce qui fait bouger le patrimoine</span> <span class="hint" data-i18n="evDrvHint">12 derniers mois — cliquez sur un mois pour le détail</span></h3>
+        <div id="drvWrap"></div>
+        <div class="muted" style="font-size:12px;margin-top:8px" data-i18n="evFluxNote">Flux = dépôts − retraits − dépenses · Revenus = dividendes, intérêts, loyers encaissés · Effet marché = tout le reste (prix et change)</div>
       </div>
     </section>
 
@@ -475,7 +490,7 @@ fr: {
   lgUser:'Identifiant', lgPass:'Mot de passe', lgBtn:'Se connecter', lgErr:'Identifiants invalides.', lgUnlock:'🔐 Entrez votre mot de passe pour déverrouiller votre coffre.',
   mcTitle:'Changement de mot de passe requis', mcDesc:'Compte protégé : choisissez votre propre mot de passe. Après ce changement, plus personne — même l\'administrateur — ne pourra réinitialiser le compte ni accéder à vos données.',
   pwdNew2:'Confirmer le nouveau mot de passe', pwdMismatch:'Les mots de passe ne correspondent pas.', pwdWait:'Chiffrement en cours, veuillez patienter…', vltErr:'Erreur de déverrouillage du coffre.', pwdShort:'Mot de passe trop court (min. 12 caractères).',
-  navDash:'Tableau de bord', navActifs:'Actifs', navOps:'Opérations', navRev:'Revenus', navParams:'Paramètres',
+  navDash:'Tableau de bord', navEv:'Évolution', navActifs:'Actifs', navOps:'Opérations', navRev:'Revenus', navParams:'Paramètres',
   footLogout:'Déconnexion', discOn:'Normal', discOff:'Discret',
   heroNet:'PATRIMOINE NET', heroNoCost:'aucun coût renseigné', heroSince:'depuis le premier investissement',
   heroInvested:'Investi :', heroGainLbl:'Gain :', heroAsof:'au',
@@ -521,6 +536,7 @@ fr: {
   revTitle:'Revenus & dépenses', revAddRule:'Règle périodique', incTitle:'Revenus perçus',
   incHint:'12 derniers mois (opérations « revenu »)', incTot:'Total perçu sur la période : {v}',
   calTitle:'Échéances à venir', calHint:'12 prochains mois', calEmpty:'Aucune échéance à venir. Ajoutez une règle ci-dessous 👇',
+  evTitle:'Évolution du patrimoine', evAnnual:'Net worth par année', evAnnualHint:'dernière valorisation de décembre — année courante partielle', evDrvTitle:'Ce qui fait bouger le patrimoine', evDrvHint:'12 derniers mois — cliquez sur un mois pour le détail', evPoste:'Poste', evFlux:'Flux', evRev:'Revenus', evMkt:'Effet marché', evDelta:'Variation', evFlat:'Rien à signaler ce mois-ci — aucune classe n\'a bougé.', evFluxNote:'Flux = dépôts − retraits − dépenses · Revenus = dividendes, intérêts, loyers encaissés · Effet marché = tout le reste (prix et change)',
   ruleKind:'Type',
   cfTitle:'Projection de trésorerie', cfHint:'12 prochains mois (règles périodiques)', cfNote:'Solde de départ : {v} (trésorerie actuelle des comptes courants). Projection mensuelle indicative.', cfNet:'Net mensuel', cfBal:'Solde projeté', cfNeg:'⚠️ solde projeté négatif',
   rulesTitle:'Règles périodiques', rulesN:'{n} règle(s) active(s)', rules0:'aucune règle — les flux apparaîtront dans le calendrier et la projection',
@@ -574,7 +590,7 @@ en: {
   lgUser:'Username', lgPass:'Password', lgBtn:'Sign in', lgErr:'Invalid credentials.', lgUnlock:'🔐 Enter your password to unlock your vault.',
   mcTitle:'Password change required', mcDesc:'Protected account: choose your own password. After this change, no one — not even the administrator — can reset the account or access your data.',
   pwdNew2:'Confirm the new password', pwdMismatch:'Passwords do not match.', pwdWait:'Encrypting, please wait…', vltErr:'Vault unlock error.', pwdShort:'Password too short (min. 12 characters).',
-  navDash:'Dashboard', navActifs:'Assets', navOps:'Transactions', navRev:'Income', navParams:'Settings',
+  navDash:'Dashboard', navEv:'Evolution', navActifs:'Assets', navOps:'Transactions', navRev:'Income', navParams:'Settings',
   footLogout:'Log out', discOn:'Normal', discOff:'Discreet',
   heroNet:'NET WORTH', heroNoCost:'no cost recorded', heroSince:'since the first investment',
   heroInvested:'Invested:', heroGainLbl:'Gain:', heroAsof:'as of',
@@ -620,6 +636,7 @@ en: {
   revTitle:'Income & expenses', revAddRule:'Recurring rule', incTitle:'Income received',
   incHint:'last 12 months (“income” transactions)', incTot:'Total received over the period: {v}',
   calTitle:'Upcoming schedule', calHint:'next 12 months', calEmpty:'No upcoming entry. Add a rule below 👇',
+  evTitle:'Wealth evolution', evAnnual:'Net worth by year', evAnnualHint:'last December valuation — current year partial', evDrvTitle:'What is driving your wealth', evDrvHint:'last 12 months — click a month for the breakdown', evPoste:'Item', evFlux:'Flows', evRev:'Income', evMkt:'Market effect', evDelta:'Change', evFlat:'Nothing to report this month — no class moved.', evFluxNote:'Flows = deposits − withdrawals − expenses · Income = dividends, interest, rent received · Market effect = everything else (prices and FX)',
   ruleKind:'Type',
   cfTitle:'Cash-flow projection', cfHint:'next 12 months (recurring rules)', cfNote:'Starting balance: {v} (current cash accounts). Indicative monthly projection.', cfNet:'Monthly net', cfBal:'Projected balance', cfNeg:'⚠️ projected balance turns negative',
   rulesTitle:'Recurring rules', rulesN:'{n} active rule(s)', rules0:'no rule — flows will appear in the calendar and projection',
@@ -673,7 +690,7 @@ de: {
   lgUser:'Benutzername', lgPass:'Passwort', lgBtn:'Anmelden', lgErr:'Ungültige Zugangsdaten.', lgUnlock:'🔐 Geben Sie Ihr Passwort ein, um Ihren Tresor zu entsperren.',
   mcTitle:'Passwortänderung erforderlich', mcDesc:'Geschütztes Konto: Wählen Sie Ihr eigenes Passwort. Danach kann niemand — auch der Administrator nicht — das Konto zurücksetzen oder auf Ihre Daten zugreifen.',
   pwdNew2:'Neues Passwort bestätigen', pwdMismatch:'Die Passwörter stimmen nicht überein.', pwdWait:'Verschlüsselung läuft, bitte warten…', vltErr:'Fehler beim Entsperren des Tresors.', pwdShort:'Passwort zu kurz (min. 12 Zeichen).',
-  navDash:'Übersicht', navActifs:'Vermögenswerte', navOps:'Transaktionen', navRev:'Einkünfte', navParams:'Einstellungen',
+  navDash:'Übersicht', navEv:'Entwicklung', navActifs:'Vermögenswerte', navOps:'Transaktionen', navRev:'Einkünfte', navParams:'Einstellungen',
   footLogout:'Abmelden', discOn:'Normal', discOff:'Diskret',
   heroNet:'NETTOVERMÖGEN', heroNoCost:'keine Kosten erfasst', heroSince:'seit der ersten Anlage',
   heroInvested:'Investiert:', heroGainLbl:'Gewinn:', heroAsof:'am',
@@ -718,6 +735,7 @@ de: {
   revTitle:'Einnahmen & Ausgaben', revAddRule:'Periodische Regel', incTitle:'Erhaltene Einkünfte',
   incHint:'letzte 12 Monate (« Einkunft »-Transaktionen)', incTot:'Gesamt erhalten im Zeitraum: {v}',
   calTitle:'Kommende Fälligkeiten', calHint:'nächste 12 Monate', calEmpty:'Keine künftige Fälligkeit. Unten eine Regel hinzufügen 👇',
+  evTitle:'Vermögensentwicklung', evAnnual:'Nettovermögen pro Jahr', evAnnualHint:'letzte Dezember-Bewertung — laufendes Jahr anteilig', evDrvTitle:'Was das Vermögen bewegt', evDrvHint:'letzte 12 Monate — Monat für Details anklicken', evPoste:'Position', evFlux:'Flüsse', evRev:'Einkünfte', evMkt:'Markteffekt', evDelta:'Veränderung', evFlat:'Diesen Monat nichts zu melden — keine Klasse hat sich bewegt.', evFluxNote:'Flüsse = Einzahlungen − Auszahlungen − Ausgaben · Einkünfte = erhaltene Dividenden, Zinsen, Mieten · Markteffekt = alles andere (Kurse und Wechselkurs)',
   ruleKind:'Typ',
   cfTitle:'Liquiditätsprojektion', cfHint:'nächste 12 Monate (periodische Regeln)', cfNote:'Startguthaben: {v} (aktuelle Girokonten). Monatliche Richtwert-Projektion.', cfNet:'Monatsnetto', cfBal:'Projizierter Saldo', cfNeg:'⚠️ projizierter Saldo negativ',
   rulesTitle:'Periodische Regeln', rulesN:'{n} aktive Regel(n)', rules0:'keine Regel — Flüsse erscheinen im Kalender und der Projektion',
@@ -771,7 +789,7 @@ lu: {
   lgUser:'Benotzernumm', lgPass:'Passwuert', lgBtn:'Aloggen', lgErr:'Ongëlteg Zouganksdaten.', lgUnlock:'🔐 Gitt Äert Passwuert an fir Ären Tresor opzemaachen.',
   mcTitle:'Passwuertännerung néideg', mcDesc:'Geschützt Kont: wielt Äert eegent Passwuert. Duerno kann kee Mënsch — och net den Administrator — d\'Kont zrécksetzen oder op Är Date zougräifen.',
   pwdNew2:'Neit Passwuert bestätegen', pwdMismatch:'D\'Passwierder stëmmen net iwwereneen.', pwdWait:'Verschlësselung am Gaang, wgl. waarden…', vltErr:'Feeler beim Opmaache vum Tresor.', pwdShort:'Passwuert ze kuerz (min. 12 Zeechen).',
-  navDash:'Dashboard', navActifs:'Aktiven', navOps:'Transaktiounen', navRev:'Akommes', navParams:'Astellungen',
+  navDash:'Dashboard', navEv:'Evolution', navActifs:'Aktiven', navOps:'Transaktiounen', navRev:'Akommes', navParams:'Astellungen',
   footLogout:'Ofmellen', discOn:'Normal', discOff:'Diskreet',
   heroNet:'NETTOVERMÉIGEN', heroNoCost:'kee Käschten erfaasst', heroSince:'zënter der éischter Investitioun',
   heroInvested:'Investéiert:', heroGainLbl:'Gewënn:', heroAsof:'vum',
@@ -817,6 +835,7 @@ lu: {
   revTitle:'Akommen & Ausgaben', revAddRule:'Periodesch Regel', incTitle:'Erhale Akommes',
   incHint:'lescht 12 Méint (« Akommes »-Transaktiounen)', incTot:'Total erhale vum Zäitraum: {v}',
   calTitle:'Fällegkeeten déi kommen', calHint:'nächst 12 Méint', calEmpty:'Keng kënfteg Fällegkeet. Füügt hei drënner eng Regel derbäi 👇',
+  evTitle:'Entwécklung vum Verméigen', evAnnual:'Nettoverméigen pro Joer', evAnnualHint:'lescht Dezember-Bewäertung — aktuellt Joer deelweis', evDrvTitle:'Wat de Verméigen beweegt', evDrvHint:'lescht 12 Méint — klickt op e Mount fir Detailer', evPoste:'Post', evFlux:'Fléiss', evRev:'Akommen', evMkt:'Maarteffet', evDelta:'Verännerung', evFlat:'Dëse Mount näischt ze mellen — keng Klass huet sech beweegt.', evFluxNote:'Fléiss = Abezuelungen − Auszuelungen − Ausgaben · Akommen = Dividenden, Zënsen, Loyer · Maarteffet = alles anescht (Kursen a Wiesselkurs)',
   ruleKind:'Typ',
   cfTitle:'Projektioun vun der Liquiditéit', cfHint:'nächst 12 Méint (periodesch Regelen)', cfNote:'Startguthaben: {v} (aktuell Konten). Méintlech indikativ Projektioun.', cfNet:'Netto pro Mount', cfBal:'Projizéierte Saldo', cfNeg:'⚠️ projizéierte Saldo negativ',
   rulesTitle:'Periodesch Regelen', rulesN:'{n} aktiv Regel(en)', rules0:'kee Regel — Fléiss erschéngen am Kalennar an der Projektioun',
@@ -928,9 +947,10 @@ async function api(path, opts={}) {
 /* ---------- pages ---------- */
 function switchPage(p) {
   CUR_PAGE = p;
-  ['dash','actifs','ops','rev','params'].forEach(x => $('page'+x[0].toUpperCase()+x.slice(1)).classList.toggle('hidden', x!==p));
+  ['dash','ev','actifs','ops','rev','params'].forEach(x => $('page'+x[0].toUpperCase()+x.slice(1)).classList.toggle('hidden', x!==p));
   document.querySelectorAll('nav a').forEach(a => a.classList.toggle('active', a.id === 'nav'+p[0].toUpperCase()+p.slice(1)));
   if (p==='dash') { loadSummary(); loadHistory(); loadBench(); }
+  if (p==='ev') { loadEv(); }
   if (p==='actifs') { loadAccounts(); }
   if (p==='ops') { loadOps(); }
   if (p==='rev') { loadRev(); }
@@ -1665,6 +1685,86 @@ async function importTxCsv() {
     alert(tF('impTxOk', {n:r.inserted, d:r.skipped, i:r.invalid}) + (r.errors && r.errors.length ? '\n'+r.errors.join('\n') : ''));
     loadOps(); loadSummary();
   } catch(e) { alert('❌ '+e.message); }
+}
+
+/* ---------- évolution ---------- */
+let EV = null, chEv = null;
+const EV_CLS_ORDER = ['comptes','epargne','bourse','immobilier','crowdfunding','crypto','metaux','divers'];
+async function loadEv() {
+  try { EV = await api('/api/evolution?months=12' + famSuffix().replace('?','&')); } catch(e) { return; }
+  renderEvAnnual(); renderEvDrivers();
+}
+function renderEvAnnual() {
+  const a = EV.annual, years = a.map(x => String(x.year));
+  const present = new Set();
+  a.forEach(an => Object.keys(an.by_class).forEach(k => { if (an.by_class[k] > 0) present.add(k); }));
+  const ctx = $('chEv').getContext('2d');
+  if (chEv) chEv.destroy();
+  chEv = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: years,
+      datasets: [...present].map(k => ({
+        label: clsLabel(k),
+        backgroundColor: (CLASS_META[k]||{}).color || '#8b949e',
+        data: a.map(an => an.by_class[k] || 0)
+      }))
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#8b949e', font: {size: 10}, boxWidth: 10 } },
+        tooltip: { callbacks: { label: c => ' '+fmt(c.parsed.y) } } },
+      scales: {
+        x: { stacked: true, grid: {display:false}, ticks: {color:'#8b949e', font:{size:10}} },
+        y: { stacked: true, grid: {color:'#1c242f'}, ticks: {color:'#8b949e', font:{size:9}, callback: v => fmt(v)} }
+      }
+    }
+  });
+}
+function evSigned(v) { return (v > 0 ? '+' : '') + fmt(v); }
+function evCell(v, bold) {
+  const cls = v > 0 ? 'pos' : (v < 0 ? 'neg' : '');
+  return '<span class="'+cls+'"'+(bold?' style="font-weight:700"':'')+'>'+evSigned(v)+'</span>';
+}
+function renderEvDrivers() {
+  const wrap = $('drvWrap');
+  if (!EV.months.length) {
+    wrap.innerHTML = '<div class="muted">—</div>';
+    return;
+  }
+  const mth = ym => new Date(ym+'-01T12:00').toLocaleDateString(locale(), {month:'long', year:'numeric'});
+  wrap.innerHTML = EV.months.slice().reverse().map(m => {
+    const tot = m.total;
+    const chips = (tot.flux ? evChipF(t('evFlux'), tot.flux) : '')
+      + (tot.revenus ? evChipF(t('evRev'), tot.revenus) : '')
+      + (tot.marche ? evChipF(t('evMkt'), tot.marche) : '')
+      + '<span style="font-weight:700;margin-left:6px">'+evCell(tot.dv, true)+'</span>';
+    const rows = Object.keys(m.classes).sort((x,y) => EV_CLS_ORDER.indexOf(x) - EV_CLS_ORDER.indexOf(y)).map(k => {
+      const c = m.classes[k];
+      return '<tr>'+
+        '<td style="padding:3px 6px;font-size:12.5px">'+(CLASS_META[k]||{}).emoji+' '+esc(clsLabel(k))+'</td>'+
+        '<td align="right" style="padding:3px 6px">'+evCell(c.flux)+'</td>'+
+        '<td align="right" style="padding:3px 6px">'+evCell(c.revenus)+'</td>'+
+        '<td align="right" style="padding:3px 6px">'+evCell(c.marche)+'</td>'+
+        '<td align="right" style="padding:3px 6px">'+evCell(c.dv, true)+'</td></tr>';
+    }).join('');
+    const head = '<tr style="color:#8b949e;font-size:11px">'+
+      '<th align="left" style="padding:3px 6px;font-weight:600">'+esc(t('evPoste'))+'</th>'+
+      '<th align="right" style="padding:3px 6px;font-weight:600">'+esc(t('evFlux'))+'</th>'+
+      '<th align="right" style="padding:3px 6px;font-weight:600">'+esc(t('evRev'))+'</th>'+
+      '<th align="right" style="padding:3px 6px;font-weight:600">'+esc(t('evMkt'))+'</th>'+
+      '<th align="right" style="padding:3px 6px;font-weight:600">'+esc(t('evDelta'))+'</th></tr>';
+    return '<div style="border-bottom:1px solid #1c242f">'+
+      '<div onclick="this.nextElementSibling.classList.toggle(\'hidden\')" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 2px;cursor:pointer">'+
+        '<b style="font-size:13px">'+esc(mth(m.ym))+'</b>'+chips+'<span class="muted" style="font-size:10px">▼</span>'+
+      '</div>'+
+      '<div class="hidden" style="padding:2px 2px 8px;overflow-x:auto">'+
+        (rows ? '<table style="width:100%;border-collapse:collapse;min-width:480px">'+head+rows+'</table>' : '<div class="muted" style="font-size:12px;padding:2px 6px">'+esc(t('evFlat'))+'</div>')+
+      '</div></div>';
+  }).join('');
+}
+function evChipF(label, v) {
+  return '<span style="font-size:11.5px;padding:1px 7px;border-radius:9px;background:#0d1420;color:'+(v>=0?'#3fb950':'#f85149')+'">'+esc(label)+' '+evSigned(v)+'</span>';
 }
 
 /* ---------- revenus ---------- */
