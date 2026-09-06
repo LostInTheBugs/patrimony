@@ -2,6 +2,35 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.034] — 2026-09-06
+
+### Added
+
+- **Deterministic FIRE simulator (roadmap ②, validated by Fred: "deterministic
+  simulator — target age/date, nominal AND real return, inflation, scheduled
+  withdrawals, annuities/pensions + sensitivity curves", no Monte-Carlo).**
+  - `src/fire.py`: pure engine (zero I/O): French-style year-by-year model —
+    accumulation with inflation-indexed savings, financial independence when
+    capital ≥ (expenses − annuities)/SWR (both indexed), then withdrawal phase
+    with honest erosion/exhaustion when the withdrawal rate exceeds the real
+    return (nothing hidden); "already independent" when annuities ≥ expenses.
+  - `GET /api/fire/simulate` (principal, savings/expenses/pension per month,
+    return/inflation/SWR %, defaults resolved from the member settings).
+  - Household assumptions persisted per member like the tax ones (settings
+    keys `fire_return` 5 %, `fire_inflation` 2 %, `fire_swr` 4 %,
+    `fire_birthyear` optional; range-validated, isolation between members).
+  - New 🔮 page (FR/DE/LU/EN): prefilled from real data (net worth from the
+    summary, expenses/savings monthly totals from the recurring rules —
+    income − expense kinds), assumptions saved back to settings; verdict
+    (independence year + age when birth year is set, "never" case, erosion /
+    exhaustion warnings), capital at the FIRE point, net expenses to cover,
+    real return after inflation, sensitivity ±2 pts (3/5/7 %), Chart.js
+    curve of projected capital vs. target capital until the FIRE point,
+    methodology note (deterministic, taxes on withdrawals excluded).
+  - Tests: `tests/test_fire.py` (6) — engine (accumulation, already
+    independent, exhaustion, never-FIRE, sensitivity ordering) + route
+    (settings defaults, overrides, ranges, member isolation). 134 passing.
+
 ## [2026.09.033] — 2026-09-06
 
 ### Added

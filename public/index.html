@@ -229,6 +229,7 @@
       <a href="#" id="navActifs" onclick="switchPage('actifs')"><span class="e">💼</span> <span data-i18n="navActifs">Actifs</span></a>
       <a href="#" id="navOps" onclick="switchPage('ops')"><span class="e">📜</span> <span data-i18n="navOps">Opérations</span></a>
       <a href="#" id="navRev" onclick="switchPage('rev')"><span class="e">📅</span> <span data-i18n="navRev">Revenus</span></a>
+      <a href="#" id="navFire" onclick="switchPage('fire')"><span class="e">🔮</span> <span data-i18n="navFire">Indépendance</span></a>
       <a href="#" id="navParams" onclick="switchPage('params')"><span class="e">⚙️</span> <span data-i18n="navParams">Paramètres</span></a>
     </nav>
     <div id="sideFoot">
@@ -384,6 +385,44 @@
       </div>
     </section>
 
+    <!-- ---------- FIRE (indépendance financière) ---------- -->
+    <section id="pageFire" class="hidden">
+      <div class="page-title"><h1>🔮 <span data-i18n="navFire">Indépendance financière</span></h1></div>
+      <div class="params">
+        <div class="panel">
+          <h3><span data-i18n="fireHyp">Hypothèses</span></h3>
+          <label data-i18n="firePrinc">Patrimoine actuel</label>
+          <input id="fP0" type="number" step="1" min="0">
+          <div class="grid2">
+            <div><label data-i18n="fireSave">Épargne mensuelle</label><input id="fE0" type="number" step="0.01" min="0"></div>
+            <div><label data-i18n="fireExp">Dépenses mensuelles</label><input id="fD0" type="number" step="0.01" min="0"></div>
+            <div><label data-i18n="fireRent">Rentes / pensions mensuelles</label><input id="fR0" type="number" step="0.01" min="0"></div>
+            <div><label data-i18n="fireBirth">Année de naissance</label><input id="fBirth" type="number" step="1" min="1900" max="2100"></div>
+            <div><label data-i18n="fireRet">Rendement annuel (%)</label><input id="fRet" type="number" step="0.1" min="-5" max="25"></div>
+            <div><label data-i18n="fireInfl">Inflation annuelle (%)</label><input id="fInfl" type="number" step="0.1" min="0" max="15"></div>
+            <div><label data-i18n="fireSwr">Taux de retrait (%)</label><input id="fSwr" type="number" step="0.1" min="0.1" max="25"></div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <button class="btn primary" onclick="fireSim()">🔮 <span data-i18n="fireGo">Simuler</span></button>
+            <button class="btn" onclick="fireSaveH()">💾 <span data-i18n="fireSaveH">Enregistrer les hypothèses</span></button>
+          </div>
+          <div class="muted" id="fireAuto" style="font-size:12px;margin-top:8px"></div>
+        </div>
+        <div class="panel">
+          <h3><span data-i18n="fireRes">Résultat</span></h3>
+          <div class="big" id="fireVerdict" style="color:#3fb950">—</div>
+          <div class="muted" id="fireVerdictSub" style="font-size:13px;margin-top:4px"></div>
+          <div id="fireStats" style="font-size:12px;margin-top:10px;line-height:1.8;color:#8b949e"></div>
+          <div id="fireSens" style="margin-top:10px"></div>
+        </div>
+      </div>
+      <div class="panel" style="margin-top:14px">
+        <h3>📈 <span data-i18n="fireChartT">Capital projeté</span></h3>
+        <div class="chartbox" style="height:250px"><canvas id="chFire"></canvas></div>
+        <div class="note muted" id="fireNote" style="font-size:11px;margin-top:6px;line-height:1.6"></div>
+      </div>
+    </section>
+
     <!-- ---------- PARAMÈTRES ---------- -->
     <section id="pageParams" class="hidden">
       <div class="page-title"><h1>⚙️ <span data-i18n="navParams">Paramètres</span></h1></div>
@@ -526,6 +565,21 @@ fr: {
   lnYear:'Année', lnAmort:'Amorti', lnInterest:'Intérêts', lnLeft:'Restant dû',
   lnEnd:'Fin estimée : {d} (dans {n} ans) · intérêts restants : {i}',
   lnHeroDebt:'Actifs {a} − passifs {d}',
+  navFire:'Indépendance (FIRE)', fireHyp:'Hypothèses', firePrinc:'Patrimoine actuel',
+  fireSave:'Épargne mensuelle', fireExp:'Dépenses mensuelles', fireRent:'Rentes / pensions mensuelles',
+  fireBirth:'Année de naissance', fireRet:'Rendement annuel (%)', fireInfl:'Inflation annuelle (%)',
+  fireSwr:'Taux de retrait (%)', fireGo:'Simuler', fireSaveH:'Enregistrer les hypothèses', fireRes:'Résultat',
+  fireChartT:'Capital projeté — accumulation puis retrait', fireFill:'Renseignez tous les champs pour simuler.',
+  firePrefill:'Prérempli depuis vos règles : dépenses {e}/mois, épargne {n}/mois.',
+  fireYear:'Indépendance en {y}', fireAge:'Indépendance à {a} ans ({y})', fireAlready:'Déjà indépendant 🎉',
+  fireDep:'Dépenses nettes à couvrir (aujourd\'hui) : {d} par an', fireCapital:'Capital au point FIRE : {c}',
+  fireReal:'Rendement réel après inflation : {r} %', fireTarget:'Capital cible',
+  fireErode:'⚠️ Le taux de retrait dépasse le rendement réel : le capital s\'érode à long terme.',
+  fireExh:'⚠️ Capital épuisé en {y} avec ces hypothèses.',
+  fireNever:'Pas d\'indépendance d\'ici {n} ans', fireNeverSub:'Essayez d\'augmenter l\'épargne, le rendement attendu, ou de réduire les dépenses — ou allongez l\'horizon.',
+  fireSensT:'Sensibilité : année d\'indépendance selon le rendement', fireSensY:'Rendement {r} % → {y}', fireSensN:'Rendement {r} % → jamais',
+  fireSaved:'Hypothèses enregistrées — réappliquées à la prochaine visite.', fireSaveErr:'Enregistrement impossible — vérifiez les valeurs.',
+  fireNoteT:'ⓘ Estimation déterministe : rendement net de frais supposé constant, épargne et dépenses indexées sur l\'inflation, rentes reçues jusqu\'au bout, retrait annuel net au taux choisi. Hors fiscalité des retraits — aucune garantie de performance.',
   txwNeg:'Perte : aucun impôt — imputation/report non simulés (estimation mono-actif).', txwPeaHist:'PS estimés à 18,6 % (taux en vigueur au retrait) — stratification historique des gains non implémentée (⚠️ plan ouvert avant 2018).',
   txwAv2017:'Contrat ouvert avant le 27/09/2017 : ancien régime non modélisé — ordre de grandeur seulement.', txwLuImmo:'Coefficients de réévaluation monétaire LU non appliqués — impôt surestimé pour les détentions longues.',
   txwLuAv:'Rachat très précoce (< 6 mois) : imposition au barème possible selon doctrine — non confirmé officiellement.', txwMissDate:'Date d\'acquisition manquante — renseignez-la pour estimer.',
@@ -654,6 +708,21 @@ en: {
   lnYear:'Year', lnAmort:'Principal paid', lnInterest:'Interest', lnLeft:'Remaining',
   lnEnd:'Estimated end: {d} (in {n} years) · remaining interest: {i}',
   lnHeroDebt:'Assets {a} − liabilities {d}',
+  navFire:'FIRE independence', fireHyp:'Assumptions', firePrinc:'Current net worth',
+  fireSave:'Monthly savings', fireExp:'Monthly expenses', fireRent:'Monthly annuities / pensions',
+  fireBirth:'Birth year', fireRet:'Annual return (%)', fireInfl:'Annual inflation (%)',
+  fireSwr:'Withdrawal rate (%)', fireGo:'Simulate', fireSaveH:'Save assumptions', fireRes:'Result',
+  fireChartT:'Projected capital — accumulation then withdrawals', fireFill:'Fill in every field to simulate.',
+  firePrefill:'Prefilled from your rules: expenses {e}/month, savings {n}/month.',
+  fireYear:'Independence in {y}', fireAge:'Independence at {a} ({y})', fireAlready:'Already independent 🎉',
+  fireDep:'Net expenses to cover (today): {d} a year', fireCapital:'Capital at the FIRE point: {c}',
+  fireReal:'Real return after inflation: {r} %', fireTarget:'Target capital',
+  fireErode:'⚠️ The withdrawal rate exceeds the real return: capital erodes over the long run.',
+  fireExh:'⚠️ Capital exhausted in {y} under these assumptions.',
+  fireNever:'No independence within {n} years', fireNeverSub:'Try raising savings or the expected return, or cutting expenses — or lengthen the horizon.',
+  fireSensT:'Sensitivity: independence year by return', fireSensY:'{r} % return → {y}', fireSensN:'{r} % return → never',
+  fireSaved:'Assumptions saved — reapplied on your next visit.', fireSaveErr:'Could not save — check the values.',
+  fireNoteT:'ⓘ Deterministic estimate: constant net-of-fees return, savings and expenses indexed on inflation, annuities received throughout, net annual withdrawal at the chosen rate. Excludes withdrawal taxes — no performance guarantee.',
   txwNeg:'Loss: no tax — offset/carryover not simulated (single-asset estimate).', txwPeaHist:'Social contributions estimated at 18.6% (rate at withdrawal) — historical layering not implemented (⚠️ plan opened before 2018).',
   txwAv2017:'Contract opened before 27/09/2017: former regime not modelled — order of magnitude only.', txwLuImmo:'LU monetary revaluation coefficients not applied — tax overestimated for long holdings.',
   txwLuAv:'Very early redemption (< 6 months): progressive taxation possible per doctrine — not officially confirmed.', txwMissDate:'Missing acquisition date — set it to estimate.',
@@ -782,6 +851,21 @@ de: {
   lnYear:'Jahr', lnAmort:'Getilgt', lnInterest:'Zinsen', lnLeft:'Restbetrag',
   lnEnd:'Voraussichtliches Ende: {d} (in {n} Jahren) · Restzinsen: {i}',
   lnHeroDebt:'Vermögen {a} − Verbindlichkeiten {d}',
+  navFire:'Unabhängigkeit (FIRE)', fireHyp:'Annahmen', firePrinc:'Aktuelles Vermögen',
+  fireSave:'Monatliche Sparrate', fireExp:'Monatliche Ausgaben', fireRent:'Monatliche Renten / Pensionen',
+  fireBirth:'Geburtsjahr', fireRet:'Jährliche Rendite (%)', fireInfl:'Jährliche Inflation (%)',
+  fireSwr:'Entnahmerate (%)', fireGo:'Simulieren', fireSaveH:'Annahmen speichern', fireRes:'Ergebnis',
+  fireChartT:'Projiziertes Kapital — Ansparen, dann Entnahmen', fireFill:'Bitte alle Felder ausfüllen.',
+  firePrefill:'Aus Ihren Regeln vorbelegt: Ausgaben {e}/Monat, Ersparnis {n}/Monat.',
+  fireYear:'Unabhängigkeit in {y}', fireAge:'Unabhängigkeit mit {a} ({y})', fireAlready:'Bereits unabhängig 🎉',
+  fireDep:'Nettoausgaben (heute): {d} pro Jahr', fireCapital:'Kapital am FIRE-Punkt: {c}',
+  fireReal:'Reale Rendite nach Inflation: {r} %', fireTarget:'Zielkapital',
+  fireErode:'⚠️ Die Entnahmerate übersteigt die reale Rendite: das Kapital schrumpft langfristig.',
+  fireExh:'⚠️ Kapital in {y} aufgebraucht.',
+  fireNever:'Keine Unabhängigkeit innerhalb von {n} Jahren', fireNeverSub:'Sparrate oder Renditeerwartung erhöhen oder Ausgaben senken — oder den Horizont verlängern.',
+  fireSensT:'Sensitivität: Jahr der Unabhängigkeit nach Rendite', fireSensY:'Rendite {r} % → {y}', fireSensN:'Rendite {r} % → nie',
+  fireSaved:'Annahmen gespeichert — bei Ihrem nächsten Besuch wieder angewendet.', fireSaveErr:'Speichern fehlgeschlagen — Werte prüfen.',
+  fireNoteT:'ⓘ Deterministische Schätzung: konstante Netto-Rendite, Sparen und Ausgaben inflationsindexiert, Renten laufen weiter, jährliche Nettoentnahme zum gewählten Satz. Ohne Besteuerung der Entnahmen — keine Gewähr auf Performance.',
   txwNeg:'Verlust: keine Steuer — Verrechnung/Vortrag nicht simuliert (Einzelvermögen-Schätzung).', txwPeaHist:'Sozialabgaben mit 18,6 % geschätzt (Satz bei Abhebung) — historische Schichtung nicht implementiert (⚠️ Plan vor 2018 eröffnet).',
   txwAv2017:'Vertrag vor dem 27.09.2017 eröffnet: altes Regime nicht modelliert — nur Größenordnung.', txwLuImmo:'LU-Geldentwertungsfaktoren nicht angewendet — Steuer bei langen Haltedauern überschätzt.',
   txwLuAv:'Sehr früher Rückkauf (< 6 Monate): Besteuerung nach Tarif möglich (Lehre) — nicht offiziell bestätigt.', txwMissDate:'Erwerbsdatum fehlt — bitte angeben.',
@@ -909,6 +993,21 @@ lu: {
   lnYear:'Joer', lnAmort:'Getilgt', lnInterest:'Zënssen', lnLeft:'Rescht',
   lnEnd:'Geschate Enn: {d} (an {n} Joer) · Reschtzënssen: {i}',
   lnHeroDebt:'Aktiva {a} − Verbindlechkeeten {d}',
+  navFire:'Onofhängegkeet (FIRE)', fireHyp:'Unnerstellungen', firePrinc:'Aktuell Verméigen',
+  fireSave:'Monatlecht Spueren', fireExp:'Monatlech Ausgaben', fireRent:'Monatlech Renten / Pensiounen',
+  fireBirth:'Gebuertsjoer', fireRet:'Jährlech Rendit (%)', fireInfl:'Jährlech Inflatioun (%)',
+  fireSwr:'Entnarate (%)', fireGo:'Simuléieren', fireSaveH:'Unnerstellungen späicheren', fireRes:'Resultat',
+  fireChartT:'Projizéiert Kapital — spueren, dann Entnamen', fireFill:'Fëllt all Felder aus fir ze simuléieren.',
+  firePrefill:'Aus Äre Regelen: Ausgaben {e}/Mount, Erspuernes {n}/Mount.',
+  fireYear:'Onofhängegkeet am Joer {y}', fireAge:'Onofhängegkeet mat {a} Joer ({y})', fireAlready:'Schonn onofhängeg 🎉',
+  fireDep:'Nettoausgaben (haut): {d} am Joer', fireCapital:'Kapital um FIRE-Punkt: {c}',
+  fireReal:'Reell Rendit no der Inflatioun: {r} %', fireTarget:'Zilkapital',
+  fireErode:'⚠️ D\'Entnarate iwwertrefft déi reell Rendit: d\'Kapital geet laangfristeg zréck.',
+  fireExh:'⚠️ Kapital opgebraucht am Joer {y}.',
+  fireNever:'Keng Onofhängegkeet bannent {n} Joer', fireNeverSub:'Erhéicht d\'Spueren oder d\'Renditerwaardung, oder reduzéiert d\'Ausgaben — oder verlängert den Horizont.',
+  fireSensT:'Sensibilitéit: Joer vun der Onofhängegkeet no Rendit', fireSensY:'Rendit {r} % → {y}', fireSensN:'Rendit {r} % → ni',
+  fireSaved:'Unnerstellungen gespäichert — bei Ärem nächste Besuch erëm ugewannt.', fireSaveErr:'Späicheren net méiglech — Wäerter préifen.',
+  fireNoteT:'ⓘ Deterministesch Schätzung: konstant Netto-Rendit, Spueren an Ausgaben inflatiounsindexéiert, Renten lafe weider, jährlech Nettoentnam zum gewielten Taux. Ouni Steiere vun den Entnamen — keng Garantie op Performance.',
   txwNeg:'Verloscht: keng Steier — Verrechnung/Virdro net simuléiert (Schätzung eenzel Actif).', txwPeaHist:'Sozialbäiträg mat 18,6 % geschat (Saz bei Retrait) — historesch Schichtung net implementéiert (⚠️ Plan virun 2018 opgemaach).',
   txwAv2017:'Kontrakt virum 27.09.2017 opgemaach: aalt Regime net modelliséiert — nëmme Gréisstenuerdnung.', txwLuImmo:'LU-Geldentwäertungsfaktoren net applizéiert — Steier bei laange Besëtzdauer iwwerschat.',
   txwLuAv:'Ganz fréie Réckkaf (< 6 Méint): Besteierung nom Tarif méiglech (Doctrine) — net offiziell confirméiert.', txwMissDate:'Acquisitiounsdatum feelt — gitt et un fir ze schätzen.',
@@ -1083,13 +1182,14 @@ async function api(path, opts={}) {
 /* ---------- pages ---------- */
 function switchPage(p) {
   CUR_PAGE = p;
-  ['dash','ev','actifs','ops','rev','params'].forEach(x => $('page'+x[0].toUpperCase()+x.slice(1)).classList.toggle('hidden', x!==p));
+  ['dash','ev','actifs','ops','rev','fire','params'].forEach(x => $('page'+x[0].toUpperCase()+x.slice(1)).classList.toggle('hidden', x!==p));
   document.querySelectorAll('nav a').forEach(a => a.classList.toggle('active', a.id === 'nav'+p[0].toUpperCase()+p.slice(1)));
   if (p==='dash') { loadSummary(); loadHistory(); loadBench(); }
   if (p==='ev') { loadEv(); }
   if (p==='actifs') { loadAccounts(); }
   if (p==='ops') { loadOps(); }
   if (p==='rev') { loadRev(); }
+  if (p==='fire') { renderFire(); }
   if (p==='params') {
     api('/api/version').then(d => $('verApp').textContent = d.version).catch(()=>{});
     if (ME && ME.role === 'admin') { loadFamily(); loadAudit(); }
@@ -2362,6 +2462,110 @@ function renderRules() {
   $('rulesWrap').innerHTML = '<table><thead><tr><th>'+esc(t('rulesColLabel'))+'</th><th class="num">'+esc(t('rulesColAmt'))+'</th><th>'+esc(t('rulesColFreq'))+'</th>'+
     '<th class="num">'+esc(t('rulesColNext'))+'</th><th></th></tr></thead><tbody>'+rows+'</tbody></table>';
 }
+/* ---------- page FIRE — indépendance financière (v2026.09.034) ---------- */
+let FIRE_CHART = null;
+let FIRE_TOUCHED = false;
+
+async function renderFire() {
+  // préremplissage à la première visite : patrimoine réel, règles réelles,
+  // hypothèses persistées (settings fire_*)
+  const [s, set, rules] = await Promise.all([
+    api('/api/summary').catch(() => null),
+    api('/api/settings').catch(() => null),
+    api('/api/income-rules').catch(() => null),
+  ]);
+  const empty = id => { const el = $(id); return el && !FIRE_TOUCHED && !el.value; };
+  if (empty('fP0') && s && s.net_worth != null) $('fP0').value = Math.round(s.net_worth);
+  if (empty('fR0')) $('fR0').value = '0';
+  if (set) {
+    if (empty('fBirth') && set.fire_birthyear) $('fBirth').value = Math.round(set.fire_birthyear);
+    if (empty('fRet') && set.fire_return != null) $('fRet').value = set.fire_return;
+    if (empty('fInfl') && set.fire_inflation != null) $('fInfl').value = set.fire_inflation;
+    if (empty('fSwr') && set.fire_swr != null) $('fSwr').value = set.fire_swr;
+  }
+  if (rules && rules.rules) {
+    const months = r => ({monthly: 1, quarterly: 3, yearly: 12}[r.freq] || Math.max(1, r.months_int || 1));
+    let inc = 0, exp = 0;
+    rules.rules.forEach(r => { if (!r.active) return; const m = months(r); if (r.kind === 'expense') exp += r.amount / m; else inc += r.amount / m; });
+    const net = inc - exp;
+    if (empty('fD0') && exp > 0) $('fD0').value = Math.round(exp * 100) / 100;
+    if (empty('fE0') && net > 0) $('fE0').value = Math.round(net * 100) / 100;
+    if (exp > 0) $('fireAuto').textContent = tF('firePrefill', {e: mon(Math.round(exp * 100) / 100), n: net > 0 ? mon(Math.round(net * 100) / 100) : '—'});
+  }
+  fireSim();
+}
+
+async function fireSim() {
+  const pairs = [['principal','fP0'],['savings_month','fE0'],['expenses_month','fD0'],
+                 ['pension_month','fR0'],['return_pct','fRet'],['inflation_pct','fInfl'],['swr_pct','fSwr']];
+  const q = new URLSearchParams();
+  for (const [k, id] of pairs) {
+    const v = parseFloat(($(id) || {}).value);
+    if (isNaN(v)) { $('fireAuto').textContent = t('fireFill'); return; }
+    q.set(k, String(v));
+  }
+  const j = await api('/api/fire/simulate?' + q);
+  FIRE_TOUCHED = true;
+  const birth = parseInt(($('fBirth') || {}).value, 10) || 0;
+  const vd = $('fireVerdict'), vs = $('fireVerdictSub');
+  const st = $('fireStats'), ns = $('fireNote');
+  const sen = $('fireSens');
+  const real = j.real_return_pct;
+  const erode = parseFloat(q.get('swr_pct')) > real;
+  ns.style.color = '';
+  if (j.fire && j.fire.t === 0) {
+    vd.textContent = t('fireAlready'); vs.textContent = '';
+  } else if (j.fire) {
+    const age = birth ? j.fire.year - birth : 0;
+    vd.textContent = age > 0 ? tF('fireAge', {a: age, y: j.fire.year}) : tF('fireYear', {y: j.fire.year});
+    vs.textContent = tF('fireCapital', {c: mon(j.fire.capital)});
+    vd.style.color = erode ? '#e6a23c' : '#3fb950';
+  } else {
+    vd.textContent = tF('fireNever', {n: (j.rows.length || 70)});
+    vs.textContent = t('fireNeverSub');
+    vd.style.color = '#e6a23c';
+  }
+  const last = j.rows[j.rows.length - 1];
+  st.innerHTML = (j.net_expenses_year0 > 0 ? tF('fireDep', {d: mon(j.net_expenses_year0)}) + '<br>' : '') +
+    tF('fireReal', {r: String(real).replace('.', ',')}) +
+    (j.exhausted && last ? '<br><span style="color:#f85149">' + esc(tF('fireExh', {y: last.year})) + '</span>' : '') +
+    (erode && j.fire && !j.exhausted ? '<br><span style="color:#e6a23c">' + esc(t('fireErode')) + '</span>' : '');
+  sen.innerHTML = '<div class="muted" style="font-size:11px;margin-bottom:4px">' + esc(t('fireSensT')) + '</div>' +
+    j.sensitivity.map(x => '<div style="font-size:12px;line-height:1.7">' +
+      (x.year ? '<span class="pos">✓</span>' : '<span style="color:#f85149">✗</span>') + ' ' +
+      esc(x.year ? tF('fireSensY', {r: String(x.return_pct).replace('.', ','), y: x.year})
+                 : tF('fireSensN', {r: String(x.return_pct).replace('.', ',')})) + '</div>').join('');
+  // courbe : capital projeté (accumulation puis retrait) + cible pendant l'accumulation
+  const cv = $('chFire');
+  if (cv && window.Chart) {
+    if (FIRE_CHART) FIRE_CHART.destroy();
+    FIRE_CHART = new Chart(cv, {
+      type: 'line',
+      data: {labels: j.rows.map(r => r.year), datasets: [
+        {label: esc(t('fireCapital')), data: j.rows.map(r => r.capital),
+         borderColor: '#f0883e', backgroundColor: 'rgba(240,136,62,.12)', fill: true, tension: .25, pointRadius: 0, borderWidth: 2},
+        {label: esc(t('fireTarget')), data: j.rows.map(r => r.target),
+         borderColor: '#8b949e', borderDash: [5, 4], pointRadius: 0, borderWidth: 1.5, fill: false}
+      ]},
+      options: {interaction: {mode: 'index', intersect: false},
+        plugins: {legend: {labels: {color: '#8b949e', font: {size: 10}}, boxWidth: 14},
+          tooltip: {callbacks: {label: c => ' ' + c.dataset.label + ': ' + (DISCRET ? '•••' : fmt(c.parsed.y))}}},
+        scales: {x: {grid: {color: '#1c242f'}, ticks: {color: '#8b949e', font: {size: 9}, autoSkip: true, maxTicksLimit: 12}},
+                 y: {grid: {color: '#1c242f'}, ticks: {color: '#8b949e', font: {size: 9}, callback: v => DISCRET ? '' : fmt(v)}}}}
+    });
+  }
+  ns.textContent = t('fireNoteT');
+}
+
+async function fireSaveH() {
+  const num = id => { const v = parseFloat(($(id) || {}).value); return isNaN(v) ? null : v; };
+  const body = {fire_return: num('fRet'), fire_inflation: num('fInfl'), fire_swr: num('fSwr')};
+  const b = num('fBirth');
+  if (b) body.fire_birthyear = Math.round(b);
+  const r = await api('/api/settings', {method: 'PUT', body: JSON.stringify(body)});
+  $('fireAuto').textContent = r.ok ? t('fireSaved') : t('fireSaveErr');
+}
+
 function openRuleModal(id) {
   const r = id ? RULES.find(x => x.id===id) : null;
   const accOpts = ACCOUNTS.map(a => '<option value="'+a.id+'"'+(r&&r.account_id===a.id?' selected':'')+'>'+esc(a.name)+'</option>').join('');

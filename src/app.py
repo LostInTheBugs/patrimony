@@ -42,6 +42,7 @@ from starlette.concurrency import run_in_threadpool
 from src.backup_crypto import decrypt_bytes, encrypt_bytes
 from src.tax import compute as tax_compute
 from src.tax import TaxInput
+from src import fire
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 PUBLIC_DIR = BASE_DIR / "public"
@@ -1771,6 +1772,63 @@ async def list_accounts(request: Request):
     return {"accounts": out}
 
 
+def _fire_num(q: dict, name: str, default: float) -> float:
+    v = q.get(name, default)
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return default
+
+
+@app.get("/api/fire/simulate")
+async def fire_simulate(request: Request,
+                        principal: float = -1, savings_month: float = -1,
+                        expenses_month: float = -1, pension_month: float = 0,
+                        return_pct: float = -1, inflation_pct: float = -1,
+                        swr_pct: float = -1, max_years: int = 70):
+    """Simulation FIRE déterministe (v2026.09.034) — moteur pur src/fire.
+    Les défauts (return/inflation/swr) viennent des settings du membre
+    (clés fire_*, réglables et persistées comme les hypothèses fiscales).
+    Montants MENSUELS en entrée (×12 pour le moteur annuel). Réponse en
+    années civiles à partir de l'année courante + sensibilité ±2 pts."""
+    u = _need(request)
+    conn = db()
+    try:
+        st = _get_settings(conn, u["username"])
+    finally:
+        conn.close()
+    r_pct = return_pct if return_pct >= 0 else st["fire_return"]
+    i_pct = inflation_pct if inflation_pct >= 0 else st["fire_inflation"]
+    s_pct = swr_pct if swr_pct >= 0 else st["fire_swr"]
+    if principal < 0 or savings_month < 0 or expenses_month < 0 or pension_month < 0:
+        return JSONResponse({"detail": "Montants invalides (>= 0 attendus)"}, status_code=400)
+    if not (-5 <= r_pct <= 25 and 0 <= i_pct <= 15 and 0 < s_pct <= 25):
+        return JSONResponse({"detail": "Paramètres hors plage (rendement -5..25, inflation 0..15, retrait 0..25)"}, status_code=400)
+    if not (0 < max_years <= 100):
+        return JSONResponse({"detail": "Horizon invalide (1-100 ans)"}, status_code=400)
+    out = fire.simulate(principal, savings_month * 12, expenses_month * 12,
+                        pension_month * 12, r_pct, i_pct, s_pct, max_years)
+    year0 = datetime.now().year
+    res = {
+        "year0": year0,
+        "fire": None if out["fire"] is None else {
+            "year": year0 + out["fire"]["t"], "t": out["fire"]["t"],
+            "capital": out["fire"]["capital"],
+        },
+        "exhausted": out["exhausted"], "retired": out["retired"],
+        "real_return_pct": out["real_return_pct"],
+        "net_expenses_year0": out["net_expenses_year0"],
+        "rows": [{"year": year0 + r_["t"], "t": r_["t"], "capital": r_["capital"],
+                  "target": r_["target"], "retired": r_["retired"]} for r_ in out["rows"]],
+        "sensitivity": [{"return_pct": s_["return_pct"],
+                         "year": None if s_["fire_t"] is None else year0 + s_["fire_t"]}
+                        for s_ in fire.sensitivity(principal, savings_month * 12,
+                                                   expenses_month * 12, pension_month * 12,
+                                                   r_pct, i_pct, s_pct, max_years=max_years)],
+    }
+    return res
+
+
 @app.get("/api/tax-estimate")
 async def tax_estimate(account_id: int, request: Request, year: int = 2026,
                        opt: str = "", sub: int = -1):
@@ -1870,15 +1928,30 @@ TAX_SETTING_KEYS = tuple(TAX_SETTING_DEFAULTS)
 
 
 def _get_settings(conn: sqlite3.Connection, username: str) -> dict:
-    """Réglages fiscaux résolus (stockés sinon défauts documentés)."""
+    """Réglages résolus (stockés sinon défauts documentés) : fiscal + FIRE."""
     rows = conn.execute(
         "SELECT key, value FROM settings WHERE member=?", (username,)
     ).fetchall()
-    out = dict(TAX_SETTING_DEFAULTS)
+    out = dict(ALL_SETTING_DEFAULTS)
     for r in rows:
         if r["key"] in out:
             out[r["key"]] = r["value"]
     return out
+
+
+FIRE_SETTING_DEFAULTS = {
+    "fire_return": 5.0,      # rendement nominal annuel % des investissements
+    "fire_inflation": 2.0,   # inflation annuelle % (indexe épargne/dépenses/rentes)
+    "fire_swr": 4.0,         # taux de retrait soutenable % (règle des 4 %)
+    "fire_birthyear": 0.0,   # année de naissance (0 = inconnue — pas d'âge affiché)
+}
+FIRE_SETTING_RANGES = {
+    "fire_return": (-5.0, 25.0),
+    "fire_inflation": (0.0, 15.0),
+    "fire_swr": (0.1, 25.0),
+    "fire_birthyear": (1900.0, 2100.0),
+}
+ALL_SETTING_DEFAULTS = {**TAX_SETTING_DEFAULTS, **FIRE_SETTING_DEFAULTS}
 
 
 class SettingsIn(BaseModel):
@@ -1887,6 +1960,10 @@ class SettingsIn(BaseModel):
     tax_married: int | None = None
     tax_av_150k: int | None = None
     tax_substantial: int | None = None
+    fire_return: float | None = None
+    fire_inflation: float | None = None
+    fire_swr: float | None = None
+    fire_birthyear: float | None = None
 
 
 @app.get("/api/settings")
@@ -1909,11 +1986,19 @@ async def put_settings(body: SettingsIn, request: Request):
         "tax_married": body.tax_married,
         "tax_av_150k": body.tax_av_150k,
         "tax_substantial": body.tax_substantial,
+        "fire_return": body.fire_return,
+        "fire_inflation": body.fire_inflation,
+        "fire_swr": body.fire_swr,
+        "fire_birthyear": body.fire_birthyear,
     }
     for key, v in vals.items():
         if v is None:
             continue
-        if key in ("tax_tmi_lu", "tax_tmi_fr"):
+        if key in FIRE_SETTING_RANGES:
+            lo, hi = FIRE_SETTING_RANGES[key]
+            if v < lo or v > hi:
+                return JSONResponse({"detail": f"Valeur {key} invalide ({lo}-{hi})"}, status_code=400)
+        elif key in ("tax_tmi_lu", "tax_tmi_fr"):
             if v < 0 or v > 100:
                 return JSONResponse({"detail": "Taux marginal invalide (0-100 %)"}, status_code=400)
         elif v not in (0, 1):
