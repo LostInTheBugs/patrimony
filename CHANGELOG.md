@@ -2,6 +2,48 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.030] — 2026-09-06
+
+### Added
+
+- **Vault recovery key.** A protected member can now arm a second DEK wrap
+  under a client-generated recovery key (128 random bits, base32 + 32-bit
+  SHA-256 checksum, displayed once as 8×4 groups, printable/copyable), so
+  a forgotten password no longer means a lost vault — even the
+  administrator still cannot recover anything.
+  - `vaults` gains `r_salt`, `r_auth_salt`, `r_wrapped`, `r_auth`
+    (idempotent ALTERs, empty for existing vaults). The server stores
+    only PBKDF2-600k material: the DEK wrapped under
+    PBKDF2(recovery-key, r_salt) and an authentication proof
+    PBKDF2(recovery-key, r_auth_salt) — distinct salts, so the proof can
+    never unwrap the DEK and the raw key never transits or is stored.
+  - `POST /api/vault/recovery` arms/replaces the key (authenticated
+    session with an OPEN vault required: only the DEK holder can produce
+    `r_wrapped`); `POST /api/vault/recover/start` returns the public
+    materials for a username (generic 400 otherwise, anti-enumeration);
+    `POST /api/vault/recover` combines authentication by proof, vault
+    open (canary + real blob decryption), new password hashing and DEK
+    re-wrap under it — one call, no "old password" required since it is
+    lost by definition. Old keys are revoked the moment a new one is
+    armed. Failures are audited, success too (auth events only for
+    protected accounts).
+  - UI: login screen gains "Forgot password?" (username + key + new
+    password); Settings shows a vault panel for protected accounts
+    (status + generate/regenerate, key shown exactly once, "I saved the
+    key" arms it). i18n ×4.
+  - Vault in-memory connections now open with `check_same_thread=False`
+    (SQLite serialized + existing `_VAULT_GUARD`): the connection lives
+    beyond the handler that created it and serves subsequent requests,
+    which can run on a different worker thread under TestClient/anyio.
+
+### Tests
+
+- `tests/test_recovery.py` (4): arming requires an open vault + exposes
+  `recovery_armed`, locked-vault arming rejected, full lost-password
+  cycle (start → proof → new session + new password + vault data intact,
+  old password dead), re-armed key revokes the previous one, generic
+  answers for unknown/unarmed accounts. 69 passing.
+
 ## [2026.09.029] — 2026-09-06
 
 ### Added

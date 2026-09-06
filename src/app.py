@@ -18,6 +18,7 @@ import calendar
 import base64
 import csv
 import hashlib
+import hmac
 import io
 import json
 import os
@@ -392,6 +393,10 @@ def init_db() -> None:
             wrapped TEXT NOT NULL,
             blob TEXT DEFAULT '',
             canary TEXT DEFAULT '',
+            r_salt TEXT DEFAULT '',
+            r_auth_salt TEXT DEFAULT '',
+            r_wrapped TEXT DEFAULT '',
+            r_auth TEXT DEFAULT '',
             updated_at TEXT DEFAULT (datetime('now'))
         );
         """
@@ -413,6 +418,16 @@ def init_db() -> None:
         conn.execute("ALTER TABLE vaults ADD COLUMN canary TEXT DEFAULT ''")
     except sqlite3.OperationalError:
         pass  # colonne déjà présente (v2026.09.011)
+    for col, ddl in (
+        ("r_salt", "ALTER TABLE vaults ADD COLUMN r_salt TEXT DEFAULT ''"),
+        ("r_auth_salt", "ALTER TABLE vaults ADD COLUMN r_auth_salt TEXT DEFAULT ''"),
+        ("r_wrapped", "ALTER TABLE vaults ADD COLUMN r_wrapped TEXT DEFAULT ''"),
+        ("r_auth", "ALTER TABLE vaults ADD COLUMN r_auth TEXT DEFAULT ''"),
+    ):
+        try:
+            conn.execute(ddl)
+        except sqlite3.OperationalError:
+            pass  # colonne déjà présente (v2026.09.030 — clé de récupération)
     try:
         conn.execute("ALTER TABLE api_tokens ADD COLUMN scope TEXT DEFAULT 'full'")
     except sqlite3.OperationalError:
@@ -594,7 +609,11 @@ def _vault_mem_new(dek: bytes) -> sqlite3.Connection:
     """Base mémoire vide d'un coffre (schéma de données complet)."""
     if _AESGCM is None:
         raise RuntimeError("cryptography manquante (pip install cryptography)")
-    conn = sqlite3.connect(":memory:", factory=_VConn)
+    # check_same_thread=False : la connexion vit au-delà du handler qui l'a
+    # créée et sert les requêtes suivantes (worker du pool différent sous
+    # TestClient/anyio) — SQLite est compilé en mode serialized et les
+    # accès concurrents sont déjà gardés par _VAULT_GUARD.
+    conn = sqlite3.connect(":memory:", factory=_VConn, check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     _schema_data(conn)
@@ -891,6 +910,8 @@ async def _ts_h(_req, _exc):
 _AUDIT_AUTH_EVENTS = {
     "Connexion", "Échec de connexion", "Déconnexion",
     "Initialisation du coffre", "Ouverture du coffre",
+    "Armement de la clé de récupération", "Récupération par clé de secours",
+    "Échec de récupération",
 }
 _audit_mode_cache: dict[str, str] = {}
 
@@ -1012,7 +1033,7 @@ async def login(body: LoginIn, request: Request, response: Response):
     vault = None
     if row["mode"] == "protected":
         vault = conn.execute(
-            "SELECT salt, wrapped FROM vaults WHERE username=?", (row["username"],)
+            "SELECT salt, wrapped, r_auth FROM vaults WHERE username=?", (row["username"],)
         ).fetchone()
     conn.close()
     response.set_cookie(
@@ -1026,6 +1047,7 @@ async def login(body: LoginIn, request: Request, response: Response):
         "vault_init": vault is not None,
         "salt": vault["salt"] if vault else "",
         "wrapped": vault["wrapped"] if vault else "",
+        "recovery_armed": bool(vault and vault["r_auth"]),
     }
 
 
@@ -1063,12 +1085,13 @@ async def me(request: Request):
     if row["mode"] == "protected":
         conn = db_main()
         vault = conn.execute(
-            "SELECT salt, wrapped FROM vaults WHERE username=?", (row["username"],)
+            "SELECT salt, wrapped, r_auth FROM vaults WHERE username=?", (row["username"],)
         ).fetchone()
         conn.close()
         out["vault_init"] = vault is not None
         out["salt"] = vault["salt"] if vault else ""
         out["wrapped"] = vault["wrapped"] if vault else ""
+        out["recovery_armed"] = bool(vault and vault["r_auth"])
     return out
 
 
@@ -1305,6 +1328,163 @@ async def vault_open(body: VaultOpenIn, request: Request):
             v["sessions"][token] = time.monotonic()
     _audit(u["username"], "Ouverture du coffre")
     return {"ok": True}
+
+
+# ------------------------------------------------- clé de récupération du coffre
+class RecoveryArmIn(BaseModel):
+    r_salt: str       # b64 : sel du wrap DEK sous la clé de récupération
+    r_auth_salt: str  # b64 : sel de la preuve d'authentification
+    r_wrapped: str    # b64(nonce+ct) : DEK chiffrée sous PBKDF2(clé, r_salt)
+    r_auth: str       # b64 : PBKDF2(clé, r_auth_salt) — preuve stockée (jamais renvoyée)
+
+
+@app.post("/api/vault/recovery")
+async def vault_recovery_arm(body: RecoveryArmIn, request: Request):
+    """Arme (ou remplace) la clé de récupération d'un coffre. Exige une
+    session au coffre OUVERT : seul le détenteur de la DEK peut produire
+    r_wrapped, et l'ancienne clé est invalidée d'un coup (UPDATE)."""
+    u = _need_main(request)
+    if u["mode"] != "protected":
+        return JSONResponse({"detail": "Compte non protégé"}, status_code=400)
+    token = request.cookies.get(COOKIE)
+    with _VAULT_GUARD:
+        v = _VAULTS.get(u["username"])
+        if v is None or v["conn"] is None or token not in v["sessions"]:
+            return JSONResponse({"detail": "Déverrouillez d'abord le coffre"}, status_code=400)
+    for label, raw, lo in (("r_salt", body.r_salt, 8), ("r_auth_salt", body.r_auth_salt, 8),
+                           ("r_wrapped", body.r_wrapped, 16), ("r_auth", body.r_auth, 16)):
+        try:
+            if len(_b64d(raw)) < lo:
+                raise ValueError
+        except Exception:
+            return JSONResponse({"detail": f"Champ {label} invalide"}, status_code=400)
+    conn = db_main()
+    try:
+        conn.execute(
+            "UPDATE vaults SET r_salt=?, r_auth_salt=?, r_wrapped=?, r_auth=?,"
+            " updated_at=datetime('now') WHERE username=?",
+            (body.r_salt, body.r_auth_salt, body.r_wrapped, body.r_auth, u["username"]),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    _audit(u["username"], "Armement de la clé de récupération")
+    return {"ok": True}
+
+
+class RecoveryStartIn(BaseModel):
+    username: str
+
+
+@app.post("/api/vault/recover/start")
+async def vault_recover_start(body: RecoveryStartIn, request: Request):
+    """Étape 1 du mot de passe oublié : renvoie les matériaux de la clé de
+    récupération (publics — le login renvoie déjà salt+wrapped au monde).
+    Réponse générique si le compte n'existe pas / n'est pas protégé / n'a
+    pas de clé armée (anti-énumération)."""
+    uname = body.username.strip()
+    conn = db_main()
+    try:
+        row = conn.execute("SELECT mode FROM users WHERE username=?", (uname,)).fetchone()
+        vault = None
+        if row is not None and row["mode"] == "protected":
+            vault = conn.execute(
+                "SELECT r_salt, r_auth_salt, r_wrapped FROM vaults WHERE username=?", (uname,)
+            ).fetchone()
+    finally:
+        conn.close()
+    if vault is None or not vault["r_auth_salt"]:
+        return JSONResponse({"detail": "Récupération impossible"}, status_code=400)
+    return {"ok": True, "r_salt": vault["r_salt"], "r_auth_salt": vault["r_auth_salt"],
+            "r_wrapped": vault["r_wrapped"]}
+
+
+class RecoveryIn(BaseModel):
+    username: str
+    proof: str        # b64 : PBKDF2(clé de récupération, r_auth_salt) — authentifie
+    dek: str          # b64 : DEK déchiffrée localement avec la clé
+    new_password: str
+    wrapped: str      # re-wrap de la DEK sous le nouveau mot de passe
+    salt: str
+
+
+@app.post("/api/vault/recover")
+async def vault_recover(body: RecoveryIn, request: Request, response: Response):
+    """Mot de passe oublié : preuve par la clé de récupération + nouvelle
+    DEK (déchiffrée côté client) + nouveau mot de passe. Combine login,
+    ouverture du coffre et changement de mot de passe — l'ancien mdp n'est
+    pas requis (perdu par définition)."""
+    uname = body.username.strip()
+    conn = db_main()
+    try:
+        row = conn.execute("SELECT mode FROM users WHERE username=?", (uname,)).fetchone()
+        vault = None
+        if row is not None and row["mode"] == "protected":
+            vault = conn.execute(
+                "SELECT r_auth, canary, blob FROM vaults WHERE username=?", (uname,)
+            ).fetchone()
+        if vault is None or not vault["r_auth"]:
+            conn.close()
+            return JSONResponse({"detail": "Récupération impossible"}, status_code=400)
+        try:
+            proof, expected = _b64d(body.proof), _b64d(vault["r_auth"])
+        except Exception:
+            conn.close()
+            return JSONResponse({"detail": "Clé de récupération invalide"}, status_code=400)
+        if len(proof) != len(expected) or not hmac.compare_digest(proof, expected):
+            conn.close()
+            _audit(uname, "Échec de récupération")
+            return JSONResponse({"detail": "Clé de récupération invalide"}, status_code=400)
+        if len(body.new_password) < MIN_PASSWORD_LEN:
+            conn.close()
+            return JSONResponse(
+                {"detail": f"Mot de passe trop court (min. {MIN_PASSWORD_LEN} caractères)"},
+                status_code=400)
+        if not body.wrapped or not body.salt:
+            conn.close()
+            return JSONResponse(
+                {"detail": "Re-chiffrement du coffre requis (wrapped + salt)"}, status_code=400)
+        try:
+            dek = _b64d(body.dek)
+        except Exception:
+            conn.close()
+            return JSONResponse({"detail": "Clé de coffre invalide"}, status_code=400)
+        if len(dek) != 32:
+            conn.close()
+            return JSONResponse({"detail": "Clé de coffre invalide"}, status_code=400)
+        # la DEK est prouvée par le déchiffrement réel (canary + blob)
+        if not _vault_check_canary(dek, vault["canary"] or ""):
+            conn.close()
+            _audit(uname, "Échec de récupération")
+            return JSONResponse({"detail": "Clé de récupération invalide"}, status_code=400)
+        try:
+            mem = _vault_mem_from_blob(dek, vault["blob"])
+        except Exception:
+            conn.close()
+            _audit(uname, "Échec de récupération")
+            return JSONResponse({"detail": "Clé de récupération invalide"}, status_code=400)
+        token = _mk_session(conn, uname)
+        conn.execute(
+            "UPDATE users SET password=?, must_change=0 WHERE username=?", (_hash(body.new_password), uname))
+        conn.execute(
+            "UPDATE vaults SET salt=?, wrapped=?, updated_at=datetime('now') WHERE username=?",
+            (body.salt, body.wrapped, uname))
+        conn.commit()
+    finally:
+        conn.close()
+    with _VAULT_GUARD:
+        old = _VAULTS.get(uname)
+        if old is not None and old["conn"] is not None:
+            try:
+                old["conn"]._hard_close()
+            except sqlite3.ProgrammingError:
+                pass
+        _VAULTS[uname] = {"conn": mem, "dek": dek, "sessions": {token: time.monotonic()},
+                          "username": uname}
+    response.set_cookie(COOKIE, token, max_age=TTL_DAYS * 86400, httponly=True,
+                        samesite="lax", secure=COOKIE_SECURE)
+    _audit(uname, "Récupération par clé de secours")
+    return {"ok": True, "must_change": False}
 
 
 # ---------------------------------------------------------------- famille (admin)

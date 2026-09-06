@@ -202,6 +202,7 @@
       <label for="lgPass" data-i18n="lgPass">Mot de passe</label>
       <input id="lgPass" type="password" autocomplete="current-password" required style="width:100%">
       <button class="btn primary" type="submit" data-i18n="lgBtn">Se connecter</button>
+      <div class="note" style="text-align:center;margin-top:10px"><a href="#" onclick="recoveryLogin();return false" style="font-size:12px" data-i18n="recLoginLink">Mot de passe oublié ?</a></div>
       <div class="note" id="loginNote" style="display:none"></div>
       <div class="err" id="loginErr"></div>
     </form>
@@ -423,6 +424,12 @@
             <a href="#" onclick="dlCsv('valuations');return false" data-i18n="csvVals">valorisations</a>
           </div>
         </div>
+        <div class="panel hidden" id="recPanel">
+          <h3>🔐 <span data-i18n="recTitle">Clé de récupération</span></h3>
+          <p class="note" data-i18n="recNote">Si vous perdez votre mot de passe, cette clé est le seul moyen de rouvrir le coffre — même l'administrateur ne peut rien.</p>
+          <div class="note" id="recStatus" style="margin-bottom:8px"></div>
+          <div class="btns"><button class="btn small primary" style="background:#1f6feb" id="recGenBtn" onclick="armRecovery()"><span data-i18n="recGen">Générer la clé</span></button></div>
+        </div>
         <div class="panel hidden" id="fxPanel">
           <h3>💱 <span data-i18n="fxTitle">Taux de change</span></h3>
           <p class="note" data-i18n="fxNote">Conversion EUR des actifs en devises (comptes manuels). Taux BCE du jour, ou taux fixe saisi sur l'actif (« 1 EUR = X ») — celui-ci prime.</p>
@@ -536,6 +543,7 @@ fr: {
   revTitle:'Revenus & dépenses', revAddRule:'Règle périodique', incTitle:'Revenus perçus',
   incHint:'12 derniers mois (opérations « revenu »)', incTot:'Total perçu sur la période : {v}',
   calTitle:'Échéances à venir', calHint:'12 prochains mois', calEmpty:'Aucune échéance à venir. Ajoutez une règle ci-dessous 👇',
+  recTitle:'Clé de récupération', recNote:'Si vous perdez votre mot de passe, cette clé est le seul moyen de rouvrir le coffre — même l\'administrateur ne peut rien.', recStatusArm:'Clé de récupération active', recStatusNo:'Aucune clé — générez-en une : sans elle, un mot de passe oublié rend le compte irrécupérable.', recGen:'Générer la clé', recRegen:'Régénérer la clé', recArmSub:'Confirmez votre mot de passe actuel — il déverrouille la clé du coffre une seule fois, rien n\'est stocké.', recShowTitle:'Votre clé de récupération', recShowSub:'Conservez-la hors de cette application (papier, gestionnaire de mots de passe). Elle permet de récupérer le compte si le mot de passe est perdu. Elle ne sera plus jamais affichée.', recCopy:'Copier', recPrint:'Imprimer', recDone:'J\'ai noté la clé', recPrintTitle:'Clé de récupération du coffre', recLoginLink:'Mot de passe oublié ?', recLoginTitle:'Récupérer le compte', recLoginSub:'Entrez votre identifiant, la clé de récupération, puis choisissez un nouveau mot de passe.', recKeyLabel:'Clé de récupération', recErrBad:'Clé de récupération invalide.', recErrBadPwd:'Mot de passe actuel incorrect.', recErrUser:'Identifiant requis.', recErrUnavail:'Récupération impossible pour ce compte.', recRecover:'Récupérer',
   evTitle:'Évolution du patrimoine', evAnnual:'Net worth par année', evAnnualHint:'dernière valorisation de décembre — année courante partielle', evDrvTitle:'Ce qui fait bouger le patrimoine', evDrvHint:'12 derniers mois — cliquez sur un mois pour le détail', evPoste:'Poste', evFlux:'Flux', evRev:'Revenus', evMkt:'Effet marché', evDelta:'Variation', evFlat:'Rien à signaler ce mois-ci — aucune classe n\'a bougé.', evFluxNote:'Flux = dépôts − retraits − dépenses · Revenus = dividendes, intérêts, loyers encaissés · Effet marché = tout le reste (prix et change)',
   ruleKind:'Type',
   cfTitle:'Projection de trésorerie', cfHint:'12 prochains mois (règles périodiques)', cfNote:'Solde de départ : {v} (trésorerie actuelle des comptes courants). Projection mensuelle indicative.', cfNet:'Net mensuel', cfBal:'Solde projeté', cfNeg:'⚠️ solde projeté négatif',
@@ -636,6 +644,7 @@ en: {
   revTitle:'Income & expenses', revAddRule:'Recurring rule', incTitle:'Income received',
   incHint:'last 12 months (“income” transactions)', incTot:'Total received over the period: {v}',
   calTitle:'Upcoming schedule', calHint:'next 12 months', calEmpty:'No upcoming entry. Add a rule below 👇',
+  recTitle:'Recovery key', recNote:'If you lose your password, this key is the only way to reopen the vault — even the administrator cannot help.', recStatusArm:'Recovery key active', recStatusNo:'No key yet — generate one: without it, a forgotten password makes the account unrecoverable.', recGen:'Generate the key', recRegen:'Regenerate the key', recArmSub:'Confirm your current password — it unlocks the vault key once, nothing is stored.', recShowTitle:'Your recovery key', recShowSub:'Store it outside this application (paper, password manager). It lets you recover the account if the password is lost. It will never be shown again.', recCopy:'Copy', recPrint:'Print', recDone:'I saved the key', recPrintTitle:'Vault recovery key', recLoginLink:'Forgot password?', recLoginTitle:'Recover the account', recLoginSub:'Enter your username, the recovery key, then choose a new password.', recKeyLabel:'Recovery key', recErrBad:'Invalid recovery key.', recErrBadPwd:'Current password incorrect.', recErrUser:'Username required.', recErrUnavail:'Recovery unavailable for this account.', recRecover:'Recover',
   evTitle:'Wealth evolution', evAnnual:'Net worth by year', evAnnualHint:'last December valuation — current year partial', evDrvTitle:'What is driving your wealth', evDrvHint:'last 12 months — click a month for the breakdown', evPoste:'Item', evFlux:'Flows', evRev:'Income', evMkt:'Market effect', evDelta:'Change', evFlat:'Nothing to report this month — no class moved.', evFluxNote:'Flows = deposits − withdrawals − expenses · Income = dividends, interest, rent received · Market effect = everything else (prices and FX)',
   ruleKind:'Type',
   cfTitle:'Cash-flow projection', cfHint:'next 12 months (recurring rules)', cfNote:'Starting balance: {v} (current cash accounts). Indicative monthly projection.', cfNet:'Monthly net', cfBal:'Projected balance', cfNeg:'⚠️ projected balance turns negative',
@@ -735,6 +744,7 @@ de: {
   revTitle:'Einnahmen & Ausgaben', revAddRule:'Periodische Regel', incTitle:'Erhaltene Einkünfte',
   incHint:'letzte 12 Monate (« Einkunft »-Transaktionen)', incTot:'Gesamt erhalten im Zeitraum: {v}',
   calTitle:'Kommende Fälligkeiten', calHint:'nächste 12 Monate', calEmpty:'Keine künftige Fälligkeit. Unten eine Regel hinzufügen 👇',
+  recTitle:'Wiederherstellungsschlüssel', recNote:'Wenn Sie Ihr Passwort verlieren, ist dieser Schlüssel der einzige Weg, den Tresor zu öffnen — auch der Administrator kann nichts tun.', recStatusArm:'Wiederherstellungsschlüssel aktiv', recStatusNo:'Noch kein Schlüssel — erzeugen Sie einen: ohne ihn ist ein vergessenes Passwort unwiederbringlich.', recGen:'Schlüssel erzeugen', recRegen:'Schlüssel neu erzeugen', recArmSub:'Bestätigen Sie Ihr aktuelles Passwort — es entsperrt den Tresorschlüssel einmalig, nichts wird gespeichert.', recShowTitle:'Ihr Wiederherstellungsschlüssel', recShowSub:'Bewahren Sie ihn außerhalb dieser Anwendung auf (Papier, Passwortmanager). Er erlaubt die Wiederherstellung bei verlorenem Passwort. Er wird nie wieder angezeigt.', recCopy:'Kopieren', recPrint:'Drucken', recDone:'Ich habe den Schlüssel notiert', recPrintTitle:'Wiederherstellungsschlüssel des Tresors', recLoginLink:'Passwort vergessen?', recLoginTitle:'Konto wiederherstellen', recLoginSub:'Benutzername, Wiederherstellungsschlüssel und neues Passwort eingeben.', recKeyLabel:'Wiederherstellungsschlüssel', recErrBad:'Ungültiger Wiederherstellungsschlüssel.', recErrBadPwd:'Aktuelles Passwort falsch.', recErrUser:'Benutzername erforderlich.', recErrUnavail:'Wiederherstellung für dieses Konto nicht möglich.', recRecover:'Wiederherstellen',
   evTitle:'Vermögensentwicklung', evAnnual:'Nettovermögen pro Jahr', evAnnualHint:'letzte Dezember-Bewertung — laufendes Jahr anteilig', evDrvTitle:'Was das Vermögen bewegt', evDrvHint:'letzte 12 Monate — Monat für Details anklicken', evPoste:'Position', evFlux:'Flüsse', evRev:'Einkünfte', evMkt:'Markteffekt', evDelta:'Veränderung', evFlat:'Diesen Monat nichts zu melden — keine Klasse hat sich bewegt.', evFluxNote:'Flüsse = Einzahlungen − Auszahlungen − Ausgaben · Einkünfte = erhaltene Dividenden, Zinsen, Mieten · Markteffekt = alles andere (Kurse und Wechselkurs)',
   ruleKind:'Typ',
   cfTitle:'Liquiditätsprojektion', cfHint:'nächste 12 Monate (periodische Regeln)', cfNote:'Startguthaben: {v} (aktuelle Girokonten). Monatliche Richtwert-Projektion.', cfNet:'Monatsnetto', cfBal:'Projizierter Saldo', cfNeg:'⚠️ projizierter Saldo negativ',
@@ -835,6 +845,7 @@ lu: {
   revTitle:'Akommen & Ausgaben', revAddRule:'Periodesch Regel', incTitle:'Erhale Akommes',
   incHint:'lescht 12 Méint (« Akommes »-Transaktiounen)', incTot:'Total erhale vum Zäitraum: {v}',
   calTitle:'Fällegkeeten déi kommen', calHint:'nächst 12 Méint', calEmpty:'Keng kënfteg Fällegkeet. Füügt hei drënner eng Regel derbäi 👇',
+  recTitle:'Erëmgewënnungsschlëssel', recNote:'Wann Dir Äert Passwuert verléiert, ass dëse Schlëssel deen eenzege Wee fir den Tresor opzemaachen — och den Administrator kann näischt maachen.', recStatusArm:'Erëmgewënnungsschlëssel aktiv', recStatusNo:'Nach kee Schlëssel — generéiert een: ouni hien ass e vergiesst Passwuert net ze recuperéieren.', recGen:'Schlëssel generéieren', recRegen:'Schlëssel nei generéieren', recArmSub:'Bestätegt Äert aktuellt Passwuert — et spärrt den Tresorschlëssel eemol op, näischt gëtt gespäichert.', recShowTitle:'Ären Erëmgewënnungsschlëssel', recShowSub:'Haalt en ausserhalb vun dëser Applikatioun (Pabeier, Passwuertmanager). E erlaabt d\'Konto ze recuperéieren wann d\'Passwuert verluer ass. E gëtt ni méi gewisen.', recCopy:'Kopéieren', recPrint:'Drécken', recDone:'Ech hunn de Schlëssel notéiert', recPrintTitle:'Erëmgewënnungsschlëssel vum Tresor', recLoginLink:'Passwuert vergiess?', recLoginTitle:'Konto recuperéieren', recLoginSub:'Benotzernumm, Erëmgewënnungsschlëssel an neit Passwuert aginn.', recKeyLabel:'Erëmgewënnungsschlëssel', recErrBad:'Ongëltegen Erëmgewënnungsschlëssel.', recErrBadPwd:'Aktuellt Passwuert falsch.', recErrUser:'Benotzernumm néideg.', recErrUnavail:'Erëmgewënnung fir dëst Konto net méiglech.', recRecover:'Recuperéieren',
   evTitle:'Entwécklung vum Verméigen', evAnnual:'Nettoverméigen pro Joer', evAnnualHint:'lescht Dezember-Bewäertung — aktuellt Joer deelweis', evDrvTitle:'Wat de Verméigen beweegt', evDrvHint:'lescht 12 Méint — klickt op e Mount fir Detailer', evPoste:'Post', evFlux:'Fléiss', evRev:'Akommen', evMkt:'Maarteffet', evDelta:'Verännerung', evFlat:'Dëse Mount näischt ze mellen — keng Klass huet sech beweegt.', evFluxNote:'Fléiss = Abezuelungen − Auszuelungen − Ausgaben · Akommen = Dividenden, Zënsen, Loyer · Maarteffet = alles anescht (Kursen a Wiesselkurs)',
   ruleKind:'Typ',
   cfTitle:'Projektioun vun der Liquiditéit', cfHint:'nächst 12 Méint (periodesch Regelen)', cfNote:'Startguthaben: {v} (aktuell Konten). Méintlech indikativ Projektioun.', cfNet:'Netto pro Mount', cfBal:'Projizéierte Saldo', cfNeg:'⚠️ projizéierte Saldo negativ',
@@ -994,6 +1005,8 @@ async function boot() {
       $('auditPanel').classList.toggle('hidden', !isAdmin);
       $('tokPanel').classList.toggle('hidden', ME.mode === 'protected');
       $('fxPanel').classList.toggle('hidden', ME.mode === 'protected');
+      $('recPanel').classList.toggle('hidden', ME.mode !== 'protected');
+      if (ME.mode === 'protected') renderRecStatus();
       $('pageLogin').classList.add('hidden'); $('app').classList.remove('hidden'); applyI18n(); switchPage('dash'); return;
     }
   } catch(e) {}
@@ -1051,6 +1064,141 @@ function askMustChange(){
     $('mcNew').focus();
   });
 }
+/* ---------- clé de récupération ---------- */
+function renderRecStatus(){
+  const st = $('recStatus'); if (!st) return;
+  st.innerHTML = ME.recovery_armed
+    ? '<span style="color:#3fb950">✅ '+esc(t('recStatusArm'))+'</span>'
+    : '<span class="muted">'+esc(t('recStatusNo'))+'</span>';
+  const b = $('recGenBtn');
+  if (b) b.innerHTML = (ME.recovery_armed ? '🔄 ' : '➕ ') + esc(t(ME.recovery_armed ? 'recRegen' : 'recGen'));
+}
+async function deriveKekBytes(raw, saltB64){
+  const km = await crypto.subtle.importKey('raw', raw, 'PBKDF2', false, ['deriveKey']);
+  return crypto.subtle.deriveKey({name:'PBKDF2', salt:b64d(saltB64), iterations:600000, hash:'SHA-256'},
+    km, {name:'AES-GCM', length:256}, false, ['encrypt','decrypt']);
+}
+async function pbkdf2Bits(raw, saltB64){
+  const km = await crypto.subtle.importKey('raw', raw, 'PBKDF2', false, ['deriveBits']);
+  return new Uint8Array(await crypto.subtle.deriveBits({name:'PBKDF2', salt:b64d(saltB64), iterations:600000, hash:'SHA-256'}, km, 256));
+}
+const B32ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+async function fmtRecoveryKey(raw16){
+  const h = new Uint8Array(await crypto.subtle.digest('SHA-256', raw16));
+  const p = new Uint8Array(20); p.set(raw16); p.set(h.slice(0,4), 16);
+  let bits = ''; for (const b of p) bits += b.toString(2).padStart(8,'0');
+  let out = ''; for (let i = 0; i < bits.length; i += 5) out += B32ALPHA[parseInt(bits.slice(i, i+5).padEnd(5,'0'), 2)];
+  return out.match(/.{1,4}/g).join('-');
+}
+async function parseRecoveryKey(s){
+  const clean = s.toUpperCase().replace(/[^A-Z2-7]/g, '');
+  if (clean.length !== 32) return null;
+  let bits = ''; for (const ch of clean) bits += B32ALPHA.indexOf(ch).toString(2).padStart(5,'0');
+  const b = new Uint8Array(20);
+  for (let i = 0; i < 20; i++) b[i] = parseInt(bits.slice(i*8, i*8+8), 2) || 0;
+  const h = new Uint8Array(await crypto.subtle.digest('SHA-256', b.slice(0,16)));
+  for (let i = 0; i < 4; i++) if (h[i] !== b[16+i]) return null;
+  return b.slice(0,16);
+}
+function printRecoveryKey(txt){
+  const w = window.open('', '_blank', 'width=560,height=380');
+  if (!w) return;
+  w.document.write('<style>body{font-family:monospace;padding:32px;text-align:center}h2{font-size:14px;letter-spacing:2px;color:#666;font-weight:400}div{font-size:26px;letter-spacing:3px;margin:26px 0;word-break:break-all}p{color:#999;font-size:11px;max-width:420px;margin:0 auto}</style>');
+  w.document.write('<h2>PATRIMONY — '+esc(t('recPrintTitle'))+'</h2><div>'+esc(txt)+'</div><p>'+esc(t('recShowSub'))+'</p>');
+  w.document.close(); w.focus(); w.print();
+}
+async function armRecovery(){
+  // étape 1 : mot de passe actuel (seul le détenteur de la DEK peut armer)
+  let pwd = null, dek = null;
+  for (;;) {
+    const p = await new Promise(res => {
+      openModal('<h2>🔐 '+esc(t('recTitle'))+'</h2><div class="sub">'+esc(t('recArmSub'))+'</div>'+
+        '<label>'+esc(t('pwdCur'))+'</label><input type="password" id="raPwd" style="width:100%">'+
+        '<div class="err" id="raErr"></div>'+
+        '<div class="modal-actions"><button class="btn ghost" id="raCancel">'+esc(t('cancel'))+'</button>'+
+        '<button class="btn primary" id="raOk">'+esc(t('pwdBtn'))+'</button></div>');
+      $('raOk').onclick = () => { closeModal(); res($('raPwd').value); };
+      $('raCancel').onclick = () => { closeModal(); res(null); };
+      $('raPwd').addEventListener('keydown', ev => { if (ev.key === 'Enter') $('raOk').click(); });
+      $('raPwd').focus();
+    });
+    if (!p) return;
+    dek = await kekUnwrap(await deriveKek(p, ME.salt), ME.wrapped);
+    if (dek) { pwd = p; break; }
+    alert('❌ '+t('recErrBadPwd'));
+  }
+  // étape 2 : génération + affichage UNE fois ; armement seulement après « j'ai noté »
+  const raw = crypto.getRandomValues(new Uint8Array(16));
+  const txt = await fmtRecoveryKey(raw);
+  const r_salt = b64e(crypto.getRandomValues(new Uint8Array(12)));
+  const r_auth_salt = b64e(crypto.getRandomValues(new Uint8Array(12)));
+  await new Promise(res => {
+    openModal('<h2>🔐 '+esc(t('recShowTitle'))+'</h2><div class="sub">'+esc(t('recShowSub'))+'</div>'+
+      '<div style="font-family:monospace;font-size:17px;letter-spacing:1.5px;background:#0d1420;border:1px dashed #30363d;border-radius:8px;padding:14px 10px;text-align:center;user-select:all;margin:4px 0 10px">'+esc(txt)+'</div>'+
+      '<div class="modal-actions" style="margin-bottom:10px">'+
+      '<button class="btn small" id="rkCopy">📋 '+esc(t('recCopy'))+'</button>'+
+      '<button class="btn small" id="rkPrint">🖨️ '+esc(t('recPrint'))+'</button></div>'+
+      '<div class="modal-actions"><button class="btn ghost" id="rkCancel">'+esc(t('cancel'))+'</button>'+
+      '<button class="btn primary" id="rkDone">'+esc(t('recDone'))+'</button></div>');
+    $('rkCopy').onclick = async () => { try { await navigator.clipboard.writeText(txt); } catch(e) {} };
+    $('rkPrint').onclick = () => printRecoveryKey(txt);
+    $('rkCancel').onclick = () => { closeModal(); res(false); };
+    $('rkDone').onclick = async () => {
+      try {
+        const kekr = await deriveKekBytes(raw, r_salt);
+        const r_wrapped = await kekWrap(kekr, dek);
+        const r_auth = b64e(await pbkdf2Bits(raw, r_auth_salt));
+        await api('/api/vault/recovery', {method:'POST', body: JSON.stringify({r_salt, r_auth_salt, r_wrapped, r_auth})});
+        ME.recovery_armed = true;
+        closeModal(); renderRecStatus(); res(true);
+      } catch(e) { alert('❌ '+e.message); }
+    };
+  });
+}
+async function recoveryLogin(){
+  for (;;) {
+    const got = await new Promise(res => {
+      openModal('<h2>🔑 '+esc(t('recLoginTitle'))+'</h2><div class="sub">'+esc(t('recLoginSub'))+'</div>'+
+        '<label>'+esc(t('lgUser'))+'</label><input id="rlUser" style="width:100%" value="'+(ME&&ME.username?esc(ME.username):'')+'">'+
+        '<label>'+esc(t('recKeyLabel'))+'</label><input id="rlKey" style="width:100%;font-family:monospace" placeholder="ABCD-EFGH-JKLM-NOPQ-RSTU-VWX2-3456-789A" autocomplete="off">'+
+        '<label>'+esc(t('pwdNew'))+'</label><input type="password" id="rlNew" style="width:100%" autocomplete="new-password">'+
+        '<label>'+esc(t('pwdNew2'))+'</label><input type="password" id="rlNew2" style="width:100%" autocomplete="new-password">'+
+        '<div class="err" id="rlErr"></div>'+
+        '<div class="modal-actions"><button class="btn ghost" id="rlCancel">'+esc(t('cancel'))+'</button>'+
+        '<button class="btn primary" id="rlOk">'+esc(t('recRecover'))+'</button></div>');
+      $('rlCancel').onclick = () => { closeModal(); res(null); };
+      $('rlOk').onclick = async () => {
+        const user = $('rlUser').value.trim(), key = $('rlKey').value, a = $('rlNew').value, b = $('rlNew2').value;
+        $('rlErr').textContent = '';
+        if (!user) { $('rlErr').textContent = t('recErrUser'); return; }
+        if (a.length < 12) { $('rlErr').textContent = t('pwdShort'); return; }
+        if (a !== b) { $('rlErr').textContent = t('pwdMismatch'); return; }
+        const raw = await parseRecoveryKey(key);
+        if (!raw) { $('rlErr').textContent = t('recErrBad'); return; }
+        $('rlOk').disabled = true; $('rlOk').textContent = t('pwdWait');
+        try {
+          const st = await api('/api/vault/recover/start', {method:'POST', body: JSON.stringify({username: user})});
+          const kekr = await deriveKekBytes(raw, st.r_salt);
+          const dek = await kekUnwrap(kekr, st.r_wrapped);
+          if (!dek) throw new Error('unwrap');
+          const proof = b64e(await pbkdf2Bits(raw, st.r_auth_salt));
+          const salt = b64e(crypto.getRandomValues(new Uint8Array(16)));
+          const wrapped = await kekWrap(await deriveKek(a, salt), dek);
+          await api('/api/vault/recover', {method:'POST', body: JSON.stringify({username: user, proof, dek: b64e(dek), new_password: a, wrapped, salt})});
+          closeModal(); VAULT_OK = true; res({done:true});
+        } catch(e) {
+          $('rlOk').disabled = false; $('rlOk').textContent = t('recRecover');
+          $('rlErr').textContent = e.message === 'unwrap' ? t('recErrBad') : (e.message || t('recErrUnavail'));
+        }
+      };
+      $('rlKey').addEventListener('keydown', ev => { if (ev.key === 'Enter') $('rlOk').click(); });
+      $('rlUser').focus();
+    });
+    if (!got) return;
+    if (got.done) { ME = null; boot(); return; }
+  }
+}
+
 $('loginForm').addEventListener('submit', async ev => {
   ev.preventDefault();
   const user = $('lgUser').value.trim(), pwd = $('lgPass').value;
