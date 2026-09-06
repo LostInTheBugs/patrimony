@@ -231,6 +231,7 @@ def _schema_data(conn: sqlite3.Connection) -> None:
             notes TEXT DEFAULT '',
             active INTEGER DEFAULT 1,
             fees_pct REAL,
+            wrapper TEXT,
             created_at TEXT DEFAULT (datetime('now')),
             updated_at TEXT
         );
@@ -319,6 +320,7 @@ def _schema_data(conn: sqlite3.Connection) -> None:
         ("owner", "ALTER TABLE accounts ADD COLUMN owner TEXT DEFAULT ''"),
         ("fx_override", "ALTER TABLE accounts ADD COLUMN fx_override REAL"),
         ("fees_pct", "ALTER TABLE accounts ADD COLUMN fees_pct REAL"),
+        ("wrapper", "ALTER TABLE accounts ADD COLUMN wrapper TEXT"),
     ):
         try:
             conn.execute(ddl)
@@ -1579,6 +1581,23 @@ class AccountIn(BaseModel):
     quantity: float = 0
     initial_value: float | None = None
     fees_pct: float | None = None  # frais de gestion annuels % (v2026.09.025)
+    wrapper: str | None = None  # enveloppe fiscale pea|av|cto (v2026.09.027)
+
+
+# enveloppe fiscale d'un actif : elle détermine la PV nette (règles FR/LU à
+# venir — v026 roadmap). Classes autorisées par enveloppe : PEA/CTO = titres
+# (bourse), AV = contrats d'assurance (bourse ou épargne fonds euros).
+_WRAPPER_ALLOW = {"pea": ("bourse",), "cto": ("bourse",), "av": ("bourse", "epargne")}
+
+
+def _wrapper_err(wrapper: str | None, asset_class: str) -> str | None:
+    if wrapper is None:
+        return None
+    if wrapper not in _WRAPPER_ALLOW:
+        return "Enveloppe fiscale invalide"
+    if asset_class not in _WRAPPER_ALLOW[wrapper]:
+        return "Enveloppe incompatible avec cette classe d'actif"
+    return None
 
 
 @app.post("/api/accounts")
@@ -1595,13 +1614,17 @@ async def create_account(body: AccountIn, request: Request):
         return JSONResponse({"detail": "Devise non supportée"}, status_code=400)
     if body.fees_pct is not None and body.fees_pct < 0:
         return JSONResponse({"detail": "Frais annuels invalides"}, status_code=400)
+    werr = _wrapper_err(body.wrapper, body.asset_class)
+    if werr:
+        return JSONResponse({"detail": werr}, status_code=400)
     conn = db()
     cur = conn.execute(
-        "INSERT INTO accounts (owner, name, asset_class, institution, currency, fx_override, cost_basis, fees_pct, open_date, notes, active,"
-        " valuation_mode, symbol, quantity) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO accounts (owner, name, asset_class, institution, currency, fx_override, cost_basis, fees_pct, wrapper, open_date, notes, active,"
+        " valuation_mode, symbol, quantity) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (u["username"], body.name.strip(), body.asset_class, body.institution.strip(), ccy,
          round(body.fx_override, 6) if body.fx_override else None, body.cost_basis or 0,
          round(body.fees_pct, 4) if body.fees_pct is not None else None,
+         body.wrapper,
          body.open_date, body.notes.strip(), body.active,
          mode,
          body.symbol.strip().upper(), body.quantity or 0),
@@ -1638,12 +1661,17 @@ async def update_account(aid: int, body: AccountIn, request: Request):
     if ccy not in FX_SUPPORTED:
         conn.close()
         return JSONResponse({"detail": "Devise non supportée"}, status_code=400)
+    werr = _wrapper_err(body.wrapper, body.asset_class)
+    if werr:
+        conn.close()
+        return JSONResponse({"detail": werr}, status_code=400)
     conn.execute(
-        "UPDATE accounts SET name=?, asset_class=?, institution=?, currency=?, fx_override=?, cost_basis=?, fees_pct=?, open_date=?, notes=?,"
+        "UPDATE accounts SET name=?, asset_class=?, institution=?, currency=?, fx_override=?, cost_basis=?, fees_pct=?, wrapper=?, open_date=?, notes=?,"
         " active=?, valuation_mode=?, symbol=?, quantity=?, updated_at=datetime('now') WHERE id=?",
         (body.name.strip(), body.asset_class, body.institution.strip(), ccy,
          round(body.fx_override, 6) if body.fx_override else None, body.cost_basis or 0,
          round(body.fees_pct, 4) if body.fees_pct is not None else None,
+         body.wrapper,
          body.open_date, body.notes.strip(), body.active,
          mode,
          body.symbol.strip().upper(), body.quantity or 0, aid),
@@ -2368,10 +2396,10 @@ def _do_import(u: sqlite3.Row, body: dict) -> str | None:
         for a in body["accounts"]:
             conn.execute(
                 "INSERT INTO accounts (id, owner, name, asset_class, institution, currency, valuation_mode,"
-                " cost_basis, fees_pct, open_date, close_date, notes, active, created_at, updated_at)"
+                " cost_basis, fees_pct, wrapper, open_date, close_date, notes, active, created_at, updated_at)"
                 " VALUES (:id,:owner,:name,:asset_class,:institution,:currency,:valuation_mode,:cost_basis,"
-                " :fees_pct,:open_date,:close_date,:notes,:active,:created_at,:updated_at)",
-                {**a, "owner": u["username"], "fees_pct": a.get("fees_pct")},
+                " :fees_pct,:wrapper,:open_date,:close_date,:notes,:active,:created_at,:updated_at)",
+                {**a, "owner": u["username"], "fees_pct": a.get("fees_pct"), "wrapper": a.get("wrapper")},
             )
         for v in body["valuations"]:
             conn.execute(

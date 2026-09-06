@@ -303,3 +303,48 @@ def test_csv_export_localized_values(admin_c):
     # langue inconnue → FR
     fr2 = admin_c.get("/api/export/csv/accounts", headers={"Accept-Language": "zh-CN"}).text
     assert "Bourse & assurances-vie" in fr2
+
+
+def test_wrapper_envelope_skeleton(admin_c):
+    """v2026.09.027 — enveloppe fiscale par actif (pea|av|cto) : stockée,
+    exposée dans le payload, validée par classe, préservée par l'export
+    JSON (les règles de PV nette arriveront avec le feuillet FR/LU)."""
+    # PEA sur un compte bourse + CTO + AV sur épargne
+    pea = admin_c.post("/api/accounts", json={
+        "name": "PEA Bourso", "asset_class": "bourse", "wrapper": "pea",
+        "open_date": "2021-05-01"}).json()["id"]
+    av = admin_c.post("/api/accounts", json={
+        "name": "AV Linxea", "asset_class": "epargne", "wrapper": "av"}).json()["id"]
+    accs = {a["id"]: a for a in admin_c.get("/api/accounts").json()["accounts"]}
+    assert accs[pea]["wrapper"] == "pea" and accs[av]["wrapper"] == "av"
+    assert accs[pea]["open_date"] == "2021-05-01"  # date d'ouverture (déjà existante)
+    # édition : changement d'enveloppe, remise à vide
+    assert admin_c.put(f"/api/accounts/{pea}", json={
+        "name": "PEA Bourso", "asset_class": "bourse", "wrapper": "cto"}).status_code == 200
+    accs = {a["id"]: a for a in admin_c.get("/api/accounts").json()["accounts"]}
+    assert accs[pea]["wrapper"] == "cto"
+    assert admin_c.put(f"/api/accounts/{pea}", json={
+        "name": "PEA Bourso", "asset_class": "bourse", "wrapper": None}).status_code == 200
+    accs = {a["id"]: a for a in admin_c.get("/api/accounts").json()["accounts"]}
+    assert accs[pea]["wrapper"] is None
+    # validations : enveloppe inconnue, enveloppe sur classe incompatible
+    assert admin_c.post("/api/accounts", json={
+        "name": "Bad1", "asset_class": "bourse", "wrapper": "livret"}).status_code == 400
+    assert admin_c.post("/api/accounts", json={
+        "name": "Bad2", "asset_class": "immobilier", "wrapper": "pea"}).status_code == 400
+    assert admin_c.post("/api/accounts", json={
+        "name": "Bad3", "asset_class": "epargne", "wrapper": "pea"}).status_code == 400
+    # export/import JSON : l'enveloppe voyage avec l'actif (roundtrip réel :
+    # on restaure SES données — ids AUTOINCREMENT partagés, jamais l'export
+    # d'un autre membre dans la même base)
+    dst = _new_member(admin_c, "env-dst")
+    dpea = dst.post("/api/accounts", json={
+        "name": "PEA Bourso", "asset_class": "bourse", "wrapper": "pea"}).json()["id"]
+    payload = dst.get("/api/export").json()
+    assert next(a for a in payload["accounts"] if a["id"] == dpea)["wrapper"] == "pea"
+    assert dst.delete(f"/api/accounts/{dpea}").status_code == 200
+    r_imp = dst.post("/api/import", json=payload)
+    assert r_imp.status_code == 200, r_imp.text
+    dst_acc = next(a for a in dst.get("/api/accounts").json()["accounts"]
+                   if a["name"] == "PEA Bourso")
+    assert dst_acc["wrapper"] == "pea"

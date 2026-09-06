@@ -466,6 +466,7 @@ let FAMILY_LIST = [];
 /* ---------------- i18n FR / DE / LU / EN ---------------- */
 const I18N = {
 fr: {
+  wrapper:'Enveloppe fiscale', wrpNone:'Aucune', wrpPea:'PEA (plan épargne actions)', wrpAv:'Assurance-vie (AV)', wrpCto:'Compte-titres ordinaire (CTO)',
   lgUser:'Identifiant', lgPass:'Mot de passe', lgBtn:'Se connecter', lgErr:'Identifiants invalides.', lgUnlock:'🔐 Entrez votre mot de passe pour déverrouiller votre coffre.',
   mcTitle:'Changement de mot de passe requis', mcDesc:'Compte protégé : choisissez votre propre mot de passe. Après ce changement, plus personne — même l\'administrateur — ne pourra réinitialiser le compte ni accéder à vos données.',
   pwdNew2:'Confirmer le nouveau mot de passe', pwdMismatch:'Les mots de passe ne correspondent pas.', pwdWait:'Chiffrement en cours, veuillez patienter…', vltErr:'Erreur de déverrouillage du coffre.', pwdShort:'Mot de passe trop court (min. 12 caractères).',
@@ -562,6 +563,7 @@ fr: {
   clsImmo:'Immobilier', clsCrowd:'Crowdfunding', clsCrypto:'Cryptomonnaies', clsMetaux:'Métaux précieux', clsDivers:'Divers'
 },
 en: {
+  wrapper:'Tax wrapper', wrpNone:'None', wrpPea:'PEA (French equity plan)', wrpAv:'Life insurance (AV)', wrpCto:'Taxable brokerage (CTO)',
   lgUser:'Username', lgPass:'Password', lgBtn:'Sign in', lgErr:'Invalid credentials.', lgUnlock:'🔐 Enter your password to unlock your vault.',
   mcTitle:'Password change required', mcDesc:'Protected account: choose your own password. After this change, no one — not even the administrator — can reset the account or access your data.',
   pwdNew2:'Confirm the new password', pwdMismatch:'Passwords do not match.', pwdWait:'Encrypting, please wait…', vltErr:'Vault unlock error.', pwdShort:'Password too short (min. 12 characters).',
@@ -658,6 +660,7 @@ en: {
   clsImmo:'Real estate', clsCrowd:'Crowdfunding', clsCrypto:'Cryptocurrencies', clsMetaux:'Precious metals', clsDivers:'Other'
 },
 de: {
+  wrapper:'Steuerhülle', wrpNone:'Keine', wrpPea:'PEA (Aktiensparplan)', wrpAv:'Lebensversicherung (AV)', wrpCto:'Wertpapierdepot (CTO)',
   lgUser:'Benutzername', lgPass:'Passwort', lgBtn:'Anmelden', lgErr:'Ungültige Zugangsdaten.', lgUnlock:'🔐 Geben Sie Ihr Passwort ein, um Ihren Tresor zu entsperren.',
   mcTitle:'Passwortänderung erforderlich', mcDesc:'Geschütztes Konto: Wählen Sie Ihr eigenes Passwort. Danach kann niemand — auch der Administrator nicht — das Konto zurücksetzen oder auf Ihre Daten zugreifen.',
   pwdNew2:'Neues Passwort bestätigen', pwdMismatch:'Die Passwörter stimmen nicht überein.', pwdWait:'Verschlüsselung läuft, bitte warten…', vltErr:'Fehler beim Entsperren des Tresors.', pwdShort:'Passwort zu kurz (min. 12 Zeichen).',
@@ -753,6 +756,7 @@ de: {
   clsImmo:'Immobilien', clsCrowd:'Crowdfunding', clsCrypto:'Kryptowährungen', clsMetaux:'Edelmetalle', clsDivers:'Sonstiges'
 },
 lu: {
+  wrapper:'Enveloppe fiscale', wrpNone:'Keng', wrpPea:'PEA (Plang spuere fir Aktien)', wrpAv:'Assurance-vie (AV)', wrpCto:'Compte-titres ordinaire (CTO)',
   lgUser:'Benotzernumm', lgPass:'Passwuert', lgBtn:'Aloggen', lgErr:'Ongëlteg Zouganksdaten.', lgUnlock:'🔐 Gitt Äert Passwuert an fir Ären Tresor opzemaachen.',
   mcTitle:'Passwuertännerung néideg', mcDesc:'Geschützt Kont: wielt Äert eegent Passwuert. Duerno kann kee Mënsch — och net den Administrator — d\'Kont zrécksetzen oder op Är Date zougräifen.',
   pwdNew2:'Neit Passwuert bestätegen', pwdMismatch:'D\'Passwierder stëmmen net iwwereneen.', pwdWait:'Verschlësselung am Gaang, wgl. waarden…', vltErr:'Feeler beim Opmaache vum Tresor.', pwdShort:'Passwuert ze kuerz (min. 12 Zeechen).',
@@ -1206,7 +1210,7 @@ function renderAccounts() {
     const costSub = a.cost_from_tx ? '<span class="smline">'+esc(t('actCostFromTx'))+'</span>'
       : (a.txn_count ? '<span class="smline">'+esc(t('actCostWarn'))+'</span>' : '');
     return '<tr>'+
-      '<td><div class="aname">'+esc(a.name)+(auto&&a.symbol?'<span class="sym" title="'+esc(t('symAuto'))+'">📡 '+esc(a.symbol)+'</span>':'')+(a.currency&&a.currency!=='EUR'?'<span class="sym" title="'+esc(a.currency)+'">'+ccySym(a.currency)+'</span>':'')+'</div>'+
+      '<td><div class="aname">'+esc(a.name)+(a.wrapper?wrpBadge(a.wrapper):'')+(auto&&a.symbol?'<span class="sym" title="'+esc(t('symAuto'))+'">📡 '+esc(a.symbol)+'</span>':'')+(a.currency&&a.currency!=='EUR'?'<span class="sym" title="'+esc(a.currency)+'">'+ccySym(a.currency)+'</span>':'')+'</div>'+
       (a.institution?'<div class="ainst">'+esc(a.institution)+'</div>':'')+
       (auto&&!pf?'<div class="smline">'+a.quantity+' '+esc(t('actQtyTimes'))+'</div>':'')+
       (pf?posChips(a):'')+'</td>'+
@@ -1273,6 +1277,12 @@ function openAccountModal(id) {
     '</div>'+
     '<div class="grid2">'+
       '<div><label>'+esc(t('mOpen'))+'</label><input id="fOpen" type="date" value="'+(a&&a.open_date?a.open_date.slice(0,10):'')+'" style="width:100%"></div>'+
+      '<div id="wrapWrp"><label>'+esc(t('wrapper'))+'</label><select id="fWrp" style="width:100%">'+
+        '<option value="">'+esc(t('wrpNone'))+'</option>'+
+        '<option value="pea"'+(a&&a.wrapper==='pea'?' selected':'')+'>'+esc(t('wrpPea'))+'</option>'+
+        '<option value="av"'+(a&&a.wrapper==='av'?' selected':'')+'>'+esc(t('wrpAv'))+'</option>'+
+        '<option value="cto"'+(a&&a.wrapper==='cto'?' selected':'')+'>'+esc(t('wrpCto'))+'</option>'+
+      '</select></div>'+
     '</div>'+
     (!a?'<label>'+esc(t('mInit'))+' <span class="muted" style="font-weight:400">'+esc(t('mInitHint'))+'</span></label><input id="fInit" type="number" step="0.01" style="width:100%">':'')+
     '<label>'+esc(t('mNotes'))+'</label><input id="fNotes" value="'+(a?esc(a.notes):'')+'" style="width:100%">'+
@@ -1292,6 +1302,10 @@ function modeChanged() {
   const showSymQty = auto && !isBourse;
   $('wrapQty').classList.toggle('hidden', !showSymQty);
   $('wrapSym').classList.toggle('hidden', !showSymQty);
+  // enveloppe fiscale : PEA/AV/CTO n'ont de sens que pour bourse (titres)
+  // et épargne (assurance-vie, fonds euros)
+  const wrpOk = ['bourse','epargne'].includes($('fClass').value);
+  const ww = $('wrapWrp'); if (ww) ww.classList.toggle('hidden', !wrpOk);
   $('symHint').textContent = auto ? (isBourse ? t('posHint') : (isCrypto ? 'ex : BTC, ETH, SOL' : 'ex : IWDA.DE, MC.PA')) : '';
   if (!showSymQty && $('fSym')) { $('fSym').value = ''; }
   if (!showSymQty && $('fQty')) { $('fQty').value = ''; }
@@ -1319,6 +1333,7 @@ async function saveAccount(id) {
     quantity: (mode==='auto' && !isBourseAuto) ? (parseFloat($('fQty').value)||0) : 0,
     currency: mode==='auto' ? 'EUR' : ($('fCcy').value || 'EUR'),
     fees_pct: $('fFees') && $('fFees').value!=='' ? parseFloat($('fFees').value) : null,
+    wrapper: ['bourse','epargne'].includes($('fClass').value) && $('fWrp') ? ($('fWrp').value || null) : null,
     fx_override: (mode==='manual' && $('fCcy').value!=='EUR' && $('fFxOv').value) ? parseFloat($('fFxOv').value) : null
   };
   if (!body.name.trim()) return;
@@ -1361,6 +1376,11 @@ async function saveVal(id) {
 }
 
 /* ---------- positions (portefeuille) ---------- */
+const WRAP = {pea:['PEA','wrpPea'], av:['AV','wrpAv'], cto:['CTO','wrpCto']};
+function wrpBadge(w) {
+  const m = WRAP[w];
+  return m ? '<span class="sym" title="'+esc(t(m[1]))+'">'+m[0]+'</span>' : '';
+}
 function posAcc(aid) { return ACCOUNTS.find(x => x.id===aid); }
 function posPriceAgeDays(ts) {
   if (!ts) return null;

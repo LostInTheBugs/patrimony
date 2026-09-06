@@ -2,6 +2,24 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.027] — 2026-09-06
+
+### Added
+
+- **Tax wrapper per asset (`accounts.wrapper`)** — skeleton of the envelope
+  work: PEA / AV (assurance-vie) / CTO flags on any stock or savings
+  account (`bourse` and `epargne` classes only, 400 otherwise), with the
+  account `open_date` acting as the envelope opening date (PEA 5-year
+  clock, AV seniority). UI: envelope selector in the asset modal (hidden
+  for classes where it makes no sense), PEA/AV/CTO badge next to the
+  account name, i18n ×4. The field travels through the vault copy,
+  JSON/encrypted export-import round trips and CSV exports untouched.
+  **Net capital-gains rules (FR/LU per-envelope rates, allowances,
+  social levies) are intentionally NOT computed yet — they will plug in
+  once the rule sheet is provided; the payload already exposes the
+  wrapper for each account.** Test locks storage, payload exposure,
+  class validation and round-trip preservation.
+
 ## [2026.09.026] — 2026-09-06
 
 ### Fixed
