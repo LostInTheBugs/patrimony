@@ -2,6 +2,37 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.028] — 2026-09-06
+
+### Added
+
+- **Cash-flow projection (recurring expense rules).** `income_rules` gains a
+  `kind` (`income` default — existing data and old exports stay valid — or
+  `expense`); rules of both signs feed the upcoming schedule and a new
+  `GET /api/cashflow?months=N` endpoint (3-36): per-month forecast
+  `in`/`out`/`net` and a cumulative `balance` starting from the current
+  real cash (last valuation of `comptes`-class accounts). Same recurrence
+  engine as the income calendar (monthly/quarterly/yearly/custom, day
+  clamping), inactive rules excluded, ownership-isolated.
+- **UI** — the Income page becomes "Income & expenses": rules list with
+  direction arrows and signed colored amounts, upcoming schedule showing
+  both signs with a monthly net, and a cash-flow projection chart (net
+  bars + projected balance line on its own axis) with the starting balance
+  and an explicit "indicative projection" note; warning when the projected
+  balance turns negative. i18n ×4. Chart month labels no longer overlap
+  (auto-skip on multi-month charts).
+- Rules of both kinds travel through JSON/encrypted export-import
+  (old files without `kind` import as income).
+
+### Tests
+
+- `tests/test_cashflow.py` (4): kind default/validation/calendar presence,
+  projection math (starting balance = cash accounts only, monthly and
+  quarterly rules, net and cumulative balance, deactivated rule excluded,
+  member isolation), round-trip preserving `expense` + legacy export
+  without `kind`, future-dated rules not weighing earlier months.
+  61 passing.
+
 ## [2026.09.027] — 2026-09-06
 
 ### Added

@@ -263,7 +263,8 @@ def _schema_data(conn: sqlite3.Connection) -> None:
             freq TEXT NOT NULL DEFAULT 'monthly',
             months_int INTEGER DEFAULT 1,
             next_date TEXT NOT NULL,
-            active INTEGER DEFAULT 1
+            active INTEGER DEFAULT 1,
+            kind TEXT NOT NULL DEFAULT 'income'
         );
         CREATE TABLE IF NOT EXISTS prices (
             symbol TEXT PRIMARY KEY,
@@ -326,6 +327,10 @@ def _schema_data(conn: sqlite3.Connection) -> None:
             conn.execute(ddl)
         except sqlite3.OperationalError:
             pass  # colonne déjà présente
+    try:
+        conn.execute("ALTER TABLE income_rules ADD COLUMN kind TEXT NOT NULL DEFAULT 'income'")
+    except sqlite3.OperationalError:
+        pass  # colonne déjà présente
     try:
         conn.execute("CREATE INDEX IF NOT EXISTS idx_acc_owner ON accounts(owner, asset_class)")
     except sqlite3.OperationalError:
@@ -2415,9 +2420,9 @@ def _do_import(u: sqlite3.Row, body: dict) -> str | None:
             )
         for ir in body.get("income_rules") or []:
             conn.execute(
-                "INSERT INTO income_rules (id, account_id, label, amount, freq, months_int, next_date, active)"
-                " VALUES (:id,:account_id,:label,:amount,:freq,:months_int,:next_date,:active)",
-                ir,
+                "INSERT INTO income_rules (id, account_id, label, amount, freq, months_int, next_date, active, kind)"
+                " VALUES (:id,:account_id,:label,:amount,:freq,:months_int,:next_date,:active,:kind)",
+                {**ir, "kind": ir.get("kind") or "income"},
             )
         for p in body.get("positions") or []:
             conn.execute(
@@ -2876,6 +2881,7 @@ class RuleIn(BaseModel):
     months_int: int = 1
     next_date: str
     active: int = 1
+    kind: str = "income"  # v2026.09.028 : income | expense (règles de dépenses)
 
 
 def _freq_months(freq: str, months_int: int) -> int:
@@ -2899,6 +2905,8 @@ async def add_rule(body: RuleIn, request: Request):
     u = _need(request)
     if body.amount <= 0 or not body.label.strip():
         return JSONResponse({"detail": "Libellé ou montant invalide"}, status_code=400)
+    if body.kind not in ("income", "expense"):
+        return JSONResponse({"detail": "Type de règle invalide"}, status_code=400)
     conn = db()
     row = conn.execute(
         "SELECT id FROM accounts WHERE id=? AND owner=?", (body.account_id, u["username"])
@@ -2907,10 +2915,10 @@ async def add_rule(body: RuleIn, request: Request):
         conn.close()
         return JSONResponse({"detail": "Actif introuvable"}, status_code=404)
     cur = conn.execute(
-        "INSERT INTO income_rules (account_id, label, amount, freq, months_int, next_date, active)"
-        " VALUES (?,?,?,?,?,?,?)",
+        "INSERT INTO income_rules (account_id, label, amount, freq, months_int, next_date, active, kind)"
+        " VALUES (?,?,?,?,?,?,?,?)",
         (body.account_id, body.label.strip(), round(body.amount, 2), body.freq,
-         body.months_int, body.next_date[:10], body.active),
+         body.months_int, body.next_date[:10], body.active, body.kind),
     )
     conn.commit()
     conn.close()
@@ -2929,11 +2937,14 @@ async def update_rule(rid: int, body: RuleIn, request: Request):
     if row is None:
         conn.close()
         return JSONResponse({"detail": "Règle introuvable"}, status_code=404)
+    if body.kind not in ("income", "expense"):
+        conn.close()
+        return JSONResponse({"detail": "Type de règle invalide"}, status_code=400)
     conn.execute(
         "UPDATE income_rules SET account_id=?, label=?, amount=?, freq=?, months_int=?, next_date=?,"
-        " active=? WHERE id=?",
+        " active=?, kind=? WHERE id=?",
         (body.account_id, body.label.strip(), round(body.amount, 2), body.freq, body.months_int,
-         body.next_date[:10], body.active, rid),
+         body.next_date[:10], body.active, body.kind, rid),
     )
     conn.commit()
     conn.close()
@@ -2995,6 +3006,7 @@ async def income_calendar(request: Request, months: int = 12):
                 "account_name": r["account_name"],
                 "asset_class": r["asset_class"],
                 "amount": r["amount"],
+                "kind": r["kind"],
             })
             d = _adv(d)
             n += 1
@@ -3024,6 +3036,65 @@ async def income_actual(request: Request, months: int = 12):
         labels.append(ym)
         totals.append(round(by_ym.get(ym, 0.0), 2))
     return {"labels": labels, "totals": totals}
+
+
+@app.get("/api/cashflow")
+async def cashflow(request: Request, months: int = 12):
+    """Projection de trésorerie : règles récurrentes (revenus ET dépenses)
+    sur les mois à venir, solde cumulé à partir de la trésorerie réelle
+    (dernière valorisation des comptes de classe « comptes »)."""
+    u = _need(request)
+    months = max(3, min(months, 36))
+    conn = db()
+    try:
+        rules = conn.execute(
+            "SELECT r.* FROM income_rules r JOIN accounts a ON a.id=r.account_id"
+            " WHERE r.active=1 AND a.owner=? ORDER BY r.label", (u["username"],),
+        ).fetchall()
+        bal_row = conn.execute(
+            "SELECT COALESCE(SUM(v.value), 0) FROM valuations v"
+            " WHERE v.id IN (SELECT MAX(id) FROM valuations"
+            "  WHERE account_id IN (SELECT id FROM accounts WHERE owner=? AND asset_class='comptes')"
+            "  GROUP BY account_id)", (u["username"],),
+        ).fetchone()
+    finally:
+        conn.close()
+    start = round(bal_row[0] or 0.0, 2)
+    today = date.today()
+    labels = []
+    for k in range(months):
+        y = today.year + (today.month - 1 + k) // 12
+        m = (today.month - 1 + k) % 12 + 1
+        labels.append(f"{y:04d}-{m:02d}")
+    last_day = lambda dt: calendar.monthrange(dt.year, dt.month)[1]
+    in_m = {ym: 0.0 for ym in labels}
+    out_m = {ym: 0.0 for ym in labels}
+    end_ym = labels[-1]
+    for r in rules:
+        step = _freq_months(r["freq"], r["months_int"])
+        d = date.fromisoformat(r["next_date"][:10])
+        day0 = min(d.day, 28)
+        n = 0
+        while d.strftime("%Y-%m") <= end_ym and n < 400:
+            ym = d.strftime("%Y-%m")
+            if ym in in_m:
+                if (r["kind"] or "income") == "expense":
+                    out_m[ym] += r["amount"]
+                else:
+                    in_m[ym] += r["amount"]
+            y2 = d.year + (d.month - 1 + step) // 12
+            m2 = (d.month - 1 + step) % 12 + 1
+            d = date(y2, m2, min(day0, last_day(date(y2, m2, 1))))
+            n += 1
+    ins, outs, nets, bals = [], [], [], []
+    bal = start
+    for ym in labels:
+        i, o = round(in_m[ym], 2), round(out_m[ym], 2)
+        net = round(i - o, 2)
+        bal = round(bal + net, 2)
+        ins.append(i); outs.append(o); nets.append(net); bals.append(bal)
+    return {"starting_balance": start, "labels": labels,
+            "in": ins, "out": outs, "net": nets, "balance": bals}
 
 
 # ---------------------------------------------------------------- valorisation auto

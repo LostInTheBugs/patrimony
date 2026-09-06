@@ -342,8 +342,8 @@
 
     <!-- ---------- REVENUS ---------- -->
     <section id="pageRev" class="hidden">
-      <div class="page-title"><h1>📅 <span data-i18n="revTitle">Revenus passifs</span></h1>
-        <button class="btn primary" onclick="openRuleModal()">➕ <span data-i18n="revAddRule">Règle de revenu</span></button>
+      <div class="page-title"><h1>📅 <span data-i18n="revTitle">Revenus &amp; dépenses</span></h1>
+        <button class="btn primary" onclick="openRuleModal()">➕ <span data-i18n="revAddRule">Règle périodique</span></button>
       </div>
       <div class="chart-row">
         <div class="panel">
@@ -352,12 +352,17 @@
           <div class="muted" id="incomeTot" style="font-size:12px;margin-top:6px"></div>
         </div>
         <div class="panel">
-          <h3>📅 <span data-i18n="calTitle">Calendrier des revenus attendus</span> <span class="hint" data-i18n="calHint">12 prochains mois</span></h3>
+          <h3>📅 <span data-i18n="calTitle">Échéances à venir</span> <span class="hint" data-i18n="calHint">12 prochains mois</span></h3>
           <div id="calWrap" style="max-height:280px;overflow:auto"></div>
         </div>
       </div>
-      <div class="panel">
-        <h3>⚙️ <span data-i18n="rulesTitle">Règles de revenus périodiques</span> <span class="hint" id="rulesHint"></span></h3>
+      <div class="panel" style="margin-top:14px">
+        <h3>🔮 <span data-i18n="cfTitle">Projection de trésorerie</span> <span class="hint" data-i18n="cfHint">12 prochains mois (règles périodiques)</span></h3>
+        <div class="chartbox" style="height:220px"><canvas id="chCash"></canvas></div>
+        <div class="muted" id="cfNote" style="font-size:12px;margin-top:6px"></div>
+      </div>
+      <div class="panel" style="margin-top:14px">
+        <h3>⚙️ <span data-i18n="rulesTitle">Règles périodiques</span> <span class="hint" id="rulesHint"></span></h3>
         <div id="rulesWrap"></div>
       </div>
     </section>
@@ -455,7 +460,7 @@
 const $ = id => document.getElementById(id);
 let DISCRET = localStorage.getItem('pat_discret') === '1';
 let ACCOUNTS = [], SUMMARY = null, HIST = null;
-let chDough = null, chLine = null, chIncome = null;
+let chDough = null, chLine = null, chIncome = null, chCash = null;
 const CLASS_META = {}; // enrichi depuis /api/summary (couleurs + présence)
 let CUR_PAGE = 'dash';
 let ME = null;          // {username, role, mode, display_name} depuis /api/auth/me
@@ -513,10 +518,12 @@ fr: {
   txTitle:'➕ Nouvelle opération', txSub:'Dépôts & retraits font varier le coût investi ; les revenus alimentent le suivi des revenus passifs.',
   txAsset:'Actif *', txType:'Type', txAmt:'Montant (€, positif) *', txDate:'Date *', txNote:'Note',
   txNeedAsset:'Créez d\'abord un actif.', txKindIncome:'📈 Revenu (intérêt/dividende/loyer)', txKindExpense:'🧾 Frais / dépense',
-  revTitle:'Revenus passifs', revAddRule:'Règle de revenu', incTitle:'Revenus perçus',
+  revTitle:'Revenus & dépenses', revAddRule:'Règle périodique', incTitle:'Revenus perçus',
   incHint:'12 derniers mois (opérations « revenu »)', incTot:'Total perçu sur la période : {v}',
-  calTitle:'Calendrier des revenus attendus', calHint:'12 prochains mois', calEmpty:'Aucune règle de revenu à venir. Ajoutez-en une ci-dessous 👇',
-  rulesTitle:'Règles de revenus périodiques', rulesN:'{n} règle(s) active(s)', rules0:'aucune règle — les revenus attendus apparaîtront dans le calendrier',
+  calTitle:'Échéances à venir', calHint:'12 prochains mois', calEmpty:'Aucune échéance à venir. Ajoutez une règle ci-dessous 👇',
+  ruleKind:'Type',
+  cfTitle:'Projection de trésorerie', cfHint:'12 prochains mois (règles périodiques)', cfNote:'Solde de départ : {v} (trésorerie actuelle des comptes courants). Projection mensuelle indicative.', cfNet:'Net mensuel', cfBal:'Solde projeté', cfNeg:'⚠️ solde projeté négatif',
+  rulesTitle:'Règles périodiques', rulesN:'{n} règle(s) active(s)', rules0:'aucune règle — les flux apparaîtront dans le calendrier et la projection',
   rulesEmpty:'Aucune règle. Exemple : « Loyer appartement — 650 € / mois, prochaine échéance le 10 ».',
   rulesColLabel:'Libellé', rulesColAmt:'Montant', rulesColFreq:'Fréquence', rulesColNext:'Prochaine échéance',
   freqMonth:'/ mois', freqQuarter:'/ trimestre', freqYear:'/ an', freqCustom:'/ pers.', freqMonths:'{n} mois',
@@ -610,10 +617,12 @@ en: {
   txTitle:'➕ New transaction', txSub:'Deposits & withdrawals change the invested cost; income feeds the passive income tracking.',
   txAsset:'Asset *', txType:'Type', txAmt:'Amount (€, positive) *', txDate:'Date *', txNote:'Note',
   txNeedAsset:'Create an asset first.', txKindIncome:'📈 Income (interest/dividend/rent)', txKindExpense:'🧾 Fee / expense',
-  revTitle:'Passive income', revAddRule:'Income rule', incTitle:'Income received',
+  revTitle:'Income & expenses', revAddRule:'Recurring rule', incTitle:'Income received',
   incHint:'last 12 months (“income” transactions)', incTot:'Total received over the period: {v}',
-  calTitle:'Expected income calendar', calHint:'next 12 months', calEmpty:'No upcoming income rule. Add one below 👇',
-  rulesTitle:'Recurring income rules', rulesN:'{n} active rule(s)', rules0:'no rule — expected income will appear in the calendar',
+  calTitle:'Upcoming schedule', calHint:'next 12 months', calEmpty:'No upcoming entry. Add a rule below 👇',
+  ruleKind:'Type',
+  cfTitle:'Cash-flow projection', cfHint:'next 12 months (recurring rules)', cfNote:'Starting balance: {v} (current cash accounts). Indicative monthly projection.', cfNet:'Monthly net', cfBal:'Projected balance', cfNeg:'⚠️ projected balance turns negative',
+  rulesTitle:'Recurring rules', rulesN:'{n} active rule(s)', rules0:'no rule — flows will appear in the calendar and projection',
   rulesEmpty:'No rule. Example: “Flat rent — €650 / month, next due date on the 10th”.',
   rulesColLabel:'Label', rulesColAmt:'Amount', rulesColFreq:'Frequency', rulesColNext:'Next due date',
   freqMonth:'/ month', freqQuarter:'/ quarter', freqYear:'/ year', freqCustom:'/ pers.', freqMonths:'{n} months',
@@ -706,10 +715,12 @@ de: {
   txTitle:'➕ Neue Transaktion', txSub:'Ein- & Auszahlungen verändern die investierten Kosten; Einkünfte speisen das Einkunfts-Tracking.',
   txAsset:'Vermögenswert *', txType:'Typ', txAmt:'Betrag (€, positiv) *', txDate:'Datum *', txNote:'Notiz',
   txNeedAsset:'Zuerst einen Vermögenswert anlegen.', txKindIncome:'📈 Einkunft (Zins/Dividende/Miete)', txKindExpense:'🧾 Gebühr / Ausgabe',
-  revTitle:'Passive Einkünfte', revAddRule:'Einkunftsregel', incTitle:'Erhaltene Einkünfte',
+  revTitle:'Einnahmen & Ausgaben', revAddRule:'Periodische Regel', incTitle:'Erhaltene Einkünfte',
   incHint:'letzte 12 Monate (« Einkunft »-Transaktionen)', incTot:'Gesamt erhalten im Zeitraum: {v}',
-  calTitle:'Kalender erwarteter Einkünfte', calHint:'nächste 12 Monate', calEmpty:'Keine künftige Einkunftsregel. Unten eine hinzufügen 👇',
-  rulesTitle:'Regelmäßige Einkunftsregeln', rulesN:'{n} aktive Regel(n)', rules0:'keine Regel — erwartete Einkünfte erscheinen im Kalender',
+  calTitle:'Kommende Fälligkeiten', calHint:'nächste 12 Monate', calEmpty:'Keine künftige Fälligkeit. Unten eine Regel hinzufügen 👇',
+  ruleKind:'Typ',
+  cfTitle:'Liquiditätsprojektion', cfHint:'nächste 12 Monate (periodische Regeln)', cfNote:'Startguthaben: {v} (aktuelle Girokonten). Monatliche Richtwert-Projektion.', cfNet:'Monatsnetto', cfBal:'Projizierter Saldo', cfNeg:'⚠️ projizierter Saldo negativ',
+  rulesTitle:'Periodische Regeln', rulesN:'{n} aktive Regel(n)', rules0:'keine Regel — Flüsse erscheinen im Kalender und der Projektion',
   rulesEmpty:'Keine Regel. Beispiel: « Miete Wohnung — 650 € / Monat, nächste Fälligkeit am 10. ».',
   rulesColLabel:'Bezeichnung', rulesColAmt:'Betrag', rulesColFreq:'Häufigkeit', rulesColNext:'Nächste Fälligkeit',
   freqMonth:'/ Monat', freqQuarter:'/ Quartal', freqYear:'/ Jahr', freqCustom:'/ pers.', freqMonths:'{n} Monate',
@@ -803,10 +814,12 @@ lu: {
   txTitle:'➕ Nei Transaktioun', txSub:'Abe- & Auszuelungen änneren d\'Käschten; Akommes speist d\'Akommes-Suivi.',
   txAsset:'Aktiva *', txType:'Typ', txAmt:'Betrag (€, positiv) *', txDate:'Datum *', txNote:'Notiz',
   txNeedAsset:'Maacht fir d\'éischt en Aktiva.', txKindIncome:'📈 Akommes (Zëns/Dividend/Loyer)', txKindExpense:'🧾 Fraisen / Ausgab',
-  revTitle:'Passiv Akommes', revAddRule:'Akommes-Regel', incTitle:'Erhale Akommes',
+  revTitle:'Akommen & Ausgaben', revAddRule:'Periodesch Regel', incTitle:'Erhale Akommes',
   incHint:'lescht 12 Méint (« Akommes »-Transaktiounen)', incTot:'Total erhale vum Zäitraum: {v}',
-  calTitle:'Kalennar vum erwaarten Akommes', calHint:'nächst 12 Méint', calEmpty:'Keng kënfteg Akommes-Regel. Füügt hei drënner eng derbäi 👇',
-  rulesTitle:'Periodesch Akommes-Regelen', rulesN:'{n} aktiv Regel(en)', rules0:'kee Regel — erwaart Akommes erschéngt am Kalennar',
+  calTitle:'Fällegkeeten déi kommen', calHint:'nächst 12 Méint', calEmpty:'Keng kënfteg Fällegkeet. Füügt hei drënner eng Regel derbäi 👇',
+  ruleKind:'Typ',
+  cfTitle:'Projektioun vun der Liquiditéit', cfHint:'nächst 12 Méint (periodesch Regelen)', cfNote:'Startguthaben: {v} (aktuell Konten). Méintlech indikativ Projektioun.', cfNet:'Netto pro Mount', cfBal:'Projizéierte Saldo', cfNeg:'⚠️ projizéierte Saldo negativ',
+  rulesTitle:'Periodesch Regelen', rulesN:'{n} aktiv Regel(en)', rules0:'kee Regel — Fléiss erschéngen am Kalennar an der Projektioun',
   rulesEmpty:'Keng Regel. Beispill: « Loyer Appartement — 650 € / Mount, nächsten Termin den 10. ».',
   rulesColLabel:'Bezeechnung', rulesColAmt:'Betrag', rulesColFreq:'Frequenz', rulesColNext:'Nächsten Termin',
   freqMonth:'/ Mount', freqQuarter:'/ Trimester', freqYear:'/ Joer', freqCustom:'/ pers.', freqMonths:'{n} Méint',
@@ -1658,12 +1671,39 @@ async function importTxCsv() {
 let RULES = [], CAL = [];
 async function loadRev() {
   await loadAccounts();
-  const [rules, cal, act] = await Promise.all([
-    api('/api/income-rules'), api('/api/income-calendar?months=12'), api('/api/income-actual?months=12')
+  const [rules, cal, act, cf] = await Promise.all([
+    api('/api/income-rules'), api('/api/income-calendar?months=12'), api('/api/income-actual?months=12'),
+    api('/api/cashflow?months=12')
   ]);
   RULES = rules.rules; CAL = cal.calendar;
   renderRules(); renderCalendar();
   renderIncomeChart(act.labels, act.totals);
+  renderCashflow(cf);
+}
+function renderCashflow(d) {
+  const ctx = $('chCash').getContext('2d');
+  if (chCash) chCash.destroy();
+  chCash = new Chart(ctx, {
+    data: { labels: d.labels.map(ymLabel), datasets: [
+      { type: 'bar', label: t('cfNet'), data: d.net,
+        backgroundColor: d.net.map(v => v>=0 ? '#3fb950' : '#f85149'), borderRadius: 4 },
+      { type: 'line', label: t('cfBal'), data: d.balance, borderColor: '#d4af37',
+        backgroundColor: 'rgba(212,175,55,0.08)', fill: true, tension: 0.25, pointRadius: 2, yAxisID: 'y1' }
+    ]},
+    options: {
+      maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#8b949e', font: {size: 10}, boxWidth: 10 } },
+        tooltip: { callbacks: { label: c => DISCRET ? ' ' : ' '+fmt(c.parsed.y) } } },
+      scales: {
+        x: { grid: {display:false}, ticks: {color:'#8b949e', font:{size:9}, autoSkip:true, maxTicksLimit:8, maxRotation:45} },
+        y: { position:'left', grid:{color:'#1c242f'}, ticks:{color:'#8b949e', font:{size:9}, callback: v => DISCRET ? '' : fmt(v)} },
+        y1: { position:'right', grid:{display:false}, ticks:{color:'#8b949e', font:{size:9}, callback: v => DISCRET ? '' : fmt(v)} }
+      }
+    }
+  });
+  const neg = d.balance.some(v => v < 0);
+  $('cfNote').innerHTML = (DISCRET ? '' : esc(tF('cfNote',{v:mon(d.starting_balance)})))+
+    (neg ? ' <span class="neg">'+esc(t('cfNeg'))+'</span>' : '');
 }
 function renderCalendar() {
   const byMonth = {};
@@ -1672,13 +1712,18 @@ function renderCalendar() {
   if (!yms.length) { $('calWrap').innerHTML = '<div class="muted">'+esc(t('calEmpty'))+'</div>'; return; }
   $('calWrap').innerHTML = yms.map(ym => {
     const items = byMonth[ym];
-    const tot = items.reduce((s, i) => s + i.amount, 0);
-    const total = DISCRET ? '•••' : fmt(tot);
+    const net = items.reduce((s, i) => s + (i.kind==='expense' ? -i.amount : i.amount), 0);
+    const total = DISCRET ? '•••' : fmt(Math.abs(net));
+    const netCls = net<0 ? 'neg' : (net>0 ? 'pos' : '');
     return '<div style="margin-bottom:8px;border:1px solid var(--border);border-radius:10px;padding:8px 12px">'+
       '<div style="display:flex;align-items:center"><b style="color:var(--gold2)">'+ymLabel(ym)+'</b>'+
-      '<span class="amt" style="margin-left:auto;font-weight:800">'+total+'</span></div>'+
-      items.map(i => '<div style="display:flex;gap:8px;font-size:12.5px;color:var(--muted);margin-top:3px">'+
-        '<span>'+esc(i.label)+'</span><span style="margin-left:auto">'+esc(i.account_name)+' · '+(DISCRET?'•••':fmt(i.amount))+'</span></div>').join('')+
+      '<span class="amt '+netCls+'" style="margin-left:auto;font-weight:800">'+(DISCRET?'•••':(net>0?'+':'−')+total)+'</span></div>'+
+      items.map(i => {
+        const exp = i.kind==='expense';
+        return '<div style="display:flex;gap:8px;font-size:12.5px;color:var(--muted);margin-top:3px">'+
+          '<span class="'+(exp?'neg':'pos')+'" style="font-weight:700">'+(exp?'↓':'↑')+'</span>'+
+          '<span>'+esc(i.label)+'</span><span style="margin-left:auto">'+esc(i.account_name)+' · '+(DISCRET?'•••':((exp?'−':'+')+fmt(i.amount)))+'</span></div>';
+      }).join('')+
       '</div>';
   }).join('');
 }
@@ -1695,7 +1740,7 @@ function renderIncomeChart(labels, totals) {
       plugins: { legend: {display:false},
         tooltip: { callbacks: { label: c => DISCRET ? ' ' : ' '+fmt(c.parsed.y) } } },
       scales: {
-        x: { grid:{display:false}, ticks:{color:'#8b949e', font:{size:9}, maxRotation:0, autoSkip:false} },
+        x: { grid:{display:false}, ticks:{color:'#8b949e', font:{size:9}, autoSkip:true, maxTicksLimit:8, maxRotation:45} },
         y: { grid:{color:'#1c242f'}, ticks:{color:'#8b949e', font:{size:9}, callback: v => DISCRET ? '' : fmt(v)} }
       }
     }
@@ -1710,17 +1755,18 @@ function renderRules() {
     return;
   }
   const freqLabel = f => ({monthly:t('freqMonth'), quarterly:t('freqQuarter'), yearly:t('freqYear'), custom:t('freqCustom')}[f] || f);
-  const rows = RULES.map(r =>
-    '<tr>'+
-      '<td><div class="aname">'+esc(r.label)+'</div><div class="ainst">'+esc(r.account_name)+'</div></td>'+
-      '<td class="num" style="font-weight:700">'+mon(r.amount)+'</td>'+
+  const rows = RULES.map(r => {
+    const exp = r.kind==='expense';
+    return '<tr>'+
+      '<td><div class="aname">'+(exp?'<span class="neg">↓</span> ':'<span class="pos">↑</span> ')+esc(r.label)+'</div><div class="ainst">'+esc(r.account_name)+'</div></td>'+
+      '<td class="num '+(exp?'neg':'pos')+'" style="font-weight:700">'+(exp?'−':'+')+mon(r.amount)+'</td>'+
       '<td class="muted">'+freqLabel(r.freq)+(r.freq==='custom'?' ('+tF('freqMonths',{n:r.months_int})+')':'')+'</td>'+
       '<td class="num muted">'+fmtDate(r.next_date)+'</td>'+
       '<td class="rowacts">'+
         '<button class="btn small" onclick="openRuleModal('+r.id+')">✏️</button>'+
         '<button class="btn small danger" onclick="delRule('+r.id+')">🗑️</button>'+
-      '</td></tr>'
-  ).join('');
+      '</td></tr>';
+  }).join('');
   $('rulesWrap').innerHTML = '<table><thead><tr><th>'+esc(t('rulesColLabel'))+'</th><th class="num">'+esc(t('rulesColAmt'))+'</th><th>'+esc(t('rulesColFreq'))+'</th>'+
     '<th class="num">'+esc(t('rulesColNext'))+'</th><th></th></tr></thead><tbody>'+rows+'</tbody></table>';
 }
@@ -1731,8 +1777,12 @@ function openRuleModal(id) {
     '<h2>'+(r?esc(t('ruleEdit')):esc(t('ruleAdd')))+'</h2>'+
     '<div class="sub">'+esc(t('ruleSub'))+'</div>'+
     '<label>'+esc(t('ruleAsset'))+'</label><select id="rAcc" style="width:100%">'+accOpts+'</select>'+
+    '<label>'+esc(t('ruleLabel'))+'</label><input id="rLabel" value="'+(r?esc(r.label):'')+'" style="width:100%">'+
     '<div class="grid2">'+
-      '<div><label>'+esc(t('ruleLabel'))+'</label><input id="rLabel" value="'+(r?esc(r.label):'')+'" style="width:100%"></div>'+
+      '<div><label>'+esc(t('ruleKind'))+'</label><select id="rKind" style="width:100%">'+
+        '<option value="income"'+(r&&r.kind==='income'?' selected':'')+'>'+esc(t('kindIncome'))+'</option>'+
+        '<option value="expense"'+(r&&r.kind==='expense'?' selected':'')+'>'+esc(t('kindExpense'))+'</option>'+
+      '</select></div>'+
       '<div><label>'+esc(t('ruleAmt'))+'</label><input id="rAmt" type="number" step="0.01" min="0.01" value="'+(r?r.amount:'')+'" style="width:100%"></div>'+
     '</div>'+
     '<div class="grid2">'+
@@ -1758,7 +1808,8 @@ async function saveRule(id) {
   if (!amt || amt<=0 || !$('rLabel').value.trim() || !$('rNext').value) return;
   const body = {
     account_id: parseInt($('rAcc').value,10), label: $('rLabel').value, amount: amt,
-    freq: $('rFreq').value, months_int: parseInt($('rInt').value,10)||1, next_date: $('rNext').value, active: 1
+    freq: $('rFreq').value, months_int: parseInt($('rInt').value,10)||1, next_date: $('rNext').value, active: 1,
+    kind: $('rKind') ? $('rKind').value : 'income'
   };
   if (id) await api('/api/income-rules/'+id, {method:'PUT', body: JSON.stringify(body)});
   else await api('/api/income-rules', {method:'POST', body: JSON.stringify(body)});
