@@ -333,6 +333,9 @@ def _schema_data(conn: sqlite3.Connection) -> None:
         ("fees_pct", "ALTER TABLE accounts ADD COLUMN fees_pct REAL"),
         ("wrapper", "ALTER TABLE accounts ADD COLUMN wrapper TEXT"),
         ("tax_country", "ALTER TABLE accounts ADD COLUMN tax_country TEXT DEFAULT ''"),
+        ("loan_principal", "ALTER TABLE accounts ADD COLUMN loan_principal REAL NOT NULL DEFAULT 0"),
+        ("loan_rate", "ALTER TABLE accounts ADD COLUMN loan_rate REAL NOT NULL DEFAULT 0"),
+        ("loan_monthly", "ALTER TABLE accounts ADD COLUMN loan_monthly REAL NOT NULL DEFAULT 0"),
     ):
         try:
             conn.execute(ddl)
@@ -548,6 +551,12 @@ def _seed_demo() -> None:
             (owner, name, cls, inst, cost, open_ym + "-01"),
         )
         aid = cur.lastrowid
+        if name == "Appartement locatif":
+            # crédit lié au bien (démo v2026.09.033) : équité = valeur − restant
+            conn.execute(
+                "UPDATE accounts SET loan_principal=92000, loan_rate=2.8, loan_monthly=520 WHERE id=?",
+                (aid,),
+            )
         oy, om = int(open_ym[:4]), int(open_ym[5:7])
         start = date(oy, om, 1)
         months = (today.year - start.year) * 12 + (today.month - start.month) + 1
@@ -1942,6 +1951,9 @@ class AccountIn(BaseModel):
     fees_pct: float | None = None  # frais de gestion annuels % (v2026.09.025)
     wrapper: str | None = None  # enveloppe fiscale pea|av|cto (v2026.09.027)
     tax_country: str = ""  # pays fiscal fr|lu|'' (v2026.09.031)
+    loan_principal: float = 0  # capital restant dû du crédit lié (immo, v2026.09.033)
+    loan_rate: float = 0  # taux nominal annuel % du crédit lié (v2026.09.033)
+    loan_monthly: float = 0  # mensualité hors assurance du crédit lié (v2026.09.033)
 
 
 # enveloppe fiscale d'un actif : elle détermine la PV nette (règles FR/LU à
@@ -1966,6 +1978,19 @@ def _tax_country_err(tax_country: str | None) -> str | None:
     return None
 
 
+# Crédit lié à l'actif (v2026.09.033) : seuls les biens immobiliers portent un
+# prêt — le « conteneur reste l'actif » (option ③-a validée Fred).
+def _loan_err(principal: float, rate: float, monthly: float,
+              asset_class: str) -> str | None:
+    if principal < 0 or rate < 0 or monthly < 0:
+        return "Montants du crédit invalides (négatifs)"
+    if rate > 100:
+        return "Taux du crédit invalide (> 100 %)"
+    if (principal > 0 or rate > 0 or monthly > 0) and asset_class != "immobilier":
+        return "Un crédit ne peut être lié qu'à un actif immobilier"
+    return None
+
+
 @app.post("/api/accounts")
 async def create_account(body: AccountIn, request: Request):
     u = _need(request)
@@ -1986,14 +2011,21 @@ async def create_account(body: AccountIn, request: Request):
     terr = _tax_country_err(body.tax_country)
     if terr:
         return JSONResponse({"detail": terr}, status_code=400)
+    lerr = _loan_err(body.loan_principal, body.loan_rate, body.loan_monthly,
+                    body.asset_class)
+    if lerr:
+        return JSONResponse({"detail": lerr}, status_code=400)
     conn = db()
     cur = conn.execute(
-        "INSERT INTO accounts (owner, name, asset_class, institution, currency, fx_override, cost_basis, fees_pct, wrapper, tax_country, open_date, notes, active,"
-        " valuation_mode, symbol, quantity) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO accounts (owner, name, asset_class, institution, currency, fx_override, cost_basis, fees_pct, wrapper, tax_country, loan_principal, loan_rate, loan_monthly, open_date, notes, active,"
+        " valuation_mode, symbol, quantity) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (u["username"], body.name.strip(), body.asset_class, body.institution.strip(), ccy,
          round(body.fx_override, 6) if body.fx_override else None, body.cost_basis or 0,
          round(body.fees_pct, 4) if body.fees_pct is not None else None,
          body.wrapper, body.tax_country or "",
+         round(body.loan_principal, 2) if body.loan_principal else 0,
+         round(body.loan_rate, 4) if body.loan_rate else 0,
+         round(body.loan_monthly, 2) if body.loan_monthly else 0,
          body.open_date, body.notes.strip(), body.active,
          mode,
          body.symbol.strip().upper(), body.quantity or 0),
@@ -2038,13 +2070,21 @@ async def update_account(aid: int, body: AccountIn, request: Request):
     if terr:
         conn.close()
         return JSONResponse({"detail": terr}, status_code=400)
+    lerr = _loan_err(body.loan_principal, body.loan_rate, body.loan_monthly,
+                    body.asset_class)
+    if lerr:
+        conn.close()
+        return JSONResponse({"detail": lerr}, status_code=400)
     conn.execute(
-        "UPDATE accounts SET name=?, asset_class=?, institution=?, currency=?, fx_override=?, cost_basis=?, fees_pct=?, wrapper=?, tax_country=?, open_date=?, notes=?,"
+        "UPDATE accounts SET name=?, asset_class=?, institution=?, currency=?, fx_override=?, cost_basis=?, fees_pct=?, wrapper=?, tax_country=?, loan_principal=?, loan_rate=?, loan_monthly=?, open_date=?, notes=?,"
         " active=?, valuation_mode=?, symbol=?, quantity=?, updated_at=datetime('now') WHERE id=?",
         (body.name.strip(), body.asset_class, body.institution.strip(), ccy,
          round(body.fx_override, 6) if body.fx_override else None, body.cost_basis or 0,
          round(body.fees_pct, 4) if body.fees_pct is not None else None,
          body.wrapper, body.tax_country or "",
+         round(body.loan_principal, 2) if body.loan_principal else 0,
+         round(body.loan_rate, 4) if body.loan_rate else 0,
+         round(body.loan_monthly, 2) if body.loan_monthly else 0,
          body.open_date, body.notes.strip(), body.active,
          mode,
          body.symbol.strip().upper(), body.quantity or 0, aid),
@@ -2591,6 +2631,7 @@ async def summary(request: Request, family: int = 0):
     rows = conn.execute(f"SELECT * FROM accounts WHERE active=1 AND {wc}", args).fetchall()
     by_class = {k: {"key": k, "value": 0.0, "cost": 0.0, "count": 0} for k in CLASS_KEYS}
     total_value = total_cost = 0.0
+    total_debt = 0.0
     asof = None
     fx_missing: list[str] = []
     fx_dates: set[str] = set()
@@ -2617,6 +2658,10 @@ async def summary(request: Request, family: int = 0):
             c["cost"] += cost_eur
         total_value += value_eur
         total_cost += cost_eur
+        # crédit lié (v2026.09.033) : passif converti au même taux que la valo
+        if r["asset_class"] == "immobilier" and r["loan_principal"]:
+            debt_eur = r["loan_principal"] / fx["rate"] if ccy != "EUR" else r["loan_principal"]
+            total_debt += debt_eur
         if fx.get("date"):
             fx_dates.add(fx["date"])
         if asof is None or lv["date"] > asof:
@@ -2634,9 +2679,12 @@ async def summary(request: Request, family: int = 0):
         c["color"] = CLASS_META[k]["color"]
         classes.append(c)
     gain = round(total_value - total_cost, 2) if total_cost else None
+    net_worth = round(total_value - total_debt, 2)
     fx_asof = max(fx_dates) if fx_dates else None
     return {
         "total_value": round(total_value, 2),
+        "total_debt": round(total_debt, 2),  # passifs (crédits liés, v2026.09.033)
+        "net_worth": net_worth,  # patrimoine net = actifs − passifs
         "total_cost": round(total_cost, 2),
         "gain": gain,
         "gain_pct": round(gain / total_cost * 100, 2) if gain is not None and total_cost else None,
@@ -2897,11 +2945,13 @@ def _do_import(u: sqlite3.Row, body: dict) -> str | None:
         for a in body["accounts"]:
             conn.execute(
                 "INSERT INTO accounts (id, owner, name, asset_class, institution, currency, valuation_mode,"
-                " cost_basis, fees_pct, wrapper, tax_country, open_date, close_date, notes, active, created_at, updated_at)"
+                " cost_basis, fees_pct, wrapper, tax_country, loan_principal, loan_rate, loan_monthly, open_date, close_date, notes, active, created_at, updated_at)"
                 " VALUES (:id,:owner,:name,:asset_class,:institution,:currency,:valuation_mode,:cost_basis,"
-                " :fees_pct,:wrapper,:tax_country,:open_date,:close_date,:notes,:active,:created_at,:updated_at)",
+                " :fees_pct,:wrapper,:tax_country,:loan_principal,:loan_rate,:loan_monthly,:open_date,:close_date,:notes,:active,:created_at,:updated_at)",
                 {**a, "owner": u["username"], "fees_pct": a.get("fees_pct"), "wrapper": a.get("wrapper"),
-                 "tax_country": a.get("tax_country") or ""},
+                 "tax_country": a.get("tax_country") or "",
+                 "loan_principal": a.get("loan_principal", 0), "loan_rate": a.get("loan_rate", 0),
+                 "loan_monthly": a.get("loan_monthly", 0)},
             )
         for v in body["valuations"]:
             conn.execute(

@@ -2,6 +2,38 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.033] — 2026-09-06
+
+### Added
+
+- **Loan linked to the property (option ③-a: liabilities live inside the
+  asset — no "debt" class).** Real-estate assets can carry their mortgage:
+  `accounts.loan_principal/loan_rate/loan_monthly` (validation: immo only,
+  non-negative, rate ≤ 100%; clearing the principal resets the loan).
+  - Summary: `total_debt` + `net_worth` (= total_value − total_debt) —
+    strictly additive, 0 loan → net_worth == total_value (nothing else
+    changed: classes/donut/history remain gross assets; the hero shows the
+    net with a fine "Assets − liabilities" line when debt > 0).
+  - Assets table: value cell shows the debt and the clickable equity
+    (value − remaining principal); footer gains "Liabilities" and "Net
+    total (after loans)" rows when the selection holds loans.
+  - Asset modal (immo): loan fields (remaining principal, annual rate,
+    monthly payment) + note (update the principal like the property value;
+    track the payment as a recurring expense for cash-flow).
+  - 🧮-style 📉 modal: French-amortization projection from the stated
+    principal (months-to-go formula, monthly simulation aggregated by
+    year), yearly table (principal paid / interest / remaining), Chart.js
+    curve of the remaining principal, estimated end date + remaining
+    interest; explicit warnings when the payment does not cover interest
+    (never repaid) or is missing.
+  - Demo seed: the rental flat now carries a realistic loan (€92k @ 2.8%,
+    €520/mo) — net worth visible on the public demo.
+  - JSON export/import round-trips the loan columns; vault (protected
+    members) stores them with the rest of the data (nothing in clear).
+  - Tests: `tests/test_loans.py` (5, isolated members per test) — immo-only
+    validation, CRUD + summary net, CHF conversion at the valuation rate,
+    export/import round-trip, protected vault white-box. 128 passing.
+
 ## [2026.09.032] — 2026-09-06
 
 ### Added
