@@ -40,6 +40,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 from src.backup_crypto import decrypt_bytes, encrypt_bytes
+from src.tax import compute as tax_compute
+from src.tax import TaxInput
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 PUBLIC_DIR = BASE_DIR / "public"
@@ -233,6 +235,7 @@ def _schema_data(conn: sqlite3.Connection) -> None:
             active INTEGER DEFAULT 1,
             fees_pct REAL,
             wrapper TEXT,
+            tax_country TEXT DEFAULT '',
             created_at TEXT DEFAULT (datetime('now')),
             updated_at TEXT
         );
@@ -323,6 +326,7 @@ def _schema_data(conn: sqlite3.Connection) -> None:
         ("fx_override", "ALTER TABLE accounts ADD COLUMN fx_override REAL"),
         ("fees_pct", "ALTER TABLE accounts ADD COLUMN fees_pct REAL"),
         ("wrapper", "ALTER TABLE accounts ADD COLUMN wrapper TEXT"),
+        ("tax_country", "ALTER TABLE accounts ADD COLUMN tax_country TEXT DEFAULT ''"),
     ):
         try:
             conn.execute(ddl)
@@ -1751,6 +1755,75 @@ async def list_accounts(request: Request):
     return {"accounts": out}
 
 
+@app.get("/api/tax-estimate")
+async def tax_estimate(account_id: int, request: Request, year: int = 2026):
+    """Estimation fiscale « si liquidation aujourd'hui » d'un actif
+    (v2026.09.031) : appelle le moteur PUR src/tax (règles FR/LU versionnées)
+    avec le profil de l'actif — coût effectif, dernière valorisation,
+    date d'ouverture, enveloppe, pays fiscal. Réponse = breakdown complet
+    (lignes à ids de règles auditable, warnings/assumptions explicites)."""
+    u = _need(request)
+    conn = db()
+    try:
+        row = conn.execute(
+            "SELECT * FROM accounts WHERE id=? AND owner=?",
+            (account_id, u["username"]),
+        ).fetchone()
+        if row is None:
+            return JSONResponse({"detail": "Actif introuvable"}, status_code=404)
+        if not (row["tax_country"] or "").strip():
+            return JSONResponse(
+                {"detail": "Pays fiscal non renseigné — définissez-le dans l'actif"},
+                status_code=400,
+            )
+        latest = _latest_valuations(conn).get(account_id)
+        if latest is None:
+            return JSONResponse(
+                {"detail": "Aucune valorisation — impossible d'estimer"},
+                status_code=400,
+            )
+        cost = row["cost_basis"] or 0.0
+        txn = _txn_summary(conn).get(account_id)
+        if txn and txn["has_tx"]:
+            cost = txn["cost"]
+        try:
+            res = tax_compute(TaxInput(
+                country=(row["tax_country"] or "").strip().lower(),
+                asset_class=row["asset_class"],
+                wrapper=row["wrapper"] or "",
+                open_date=row["open_date"] or "",
+                acquisition_cost=round(cost, 2),
+                current_value=round(latest["value"], 2),
+                year=year,
+            ))
+        except KeyError as exc:  # année fiscale non versionnée
+            return JSONResponse({"detail": str(exc)}, status_code=400)
+        out = {
+            "account_id": account_id,
+            "currency": row["currency"] or "EUR",
+            "regime": res.regime,
+            "ruleset_version": res.ruleset_version,
+            "gross_gain": res.gross_gain,
+            "losses_applied": res.losses_applied,
+            "taxable_gain": res.taxable_gain,
+            "income_tax": res.income_tax,
+            "social_contributions": res.social_contributions,
+            "extra_tax": res.extra_tax,
+            "estimated_net_gain": res.estimated_net_gain,
+            "lines": [{"id": l.id, "kind": l.kind, "amount": l.amount,
+                       "pct": l.pct} for l in res.lines],
+            "warnings": list(res.warnings),
+            "assumptions": list(res.assumptions),
+        }
+        if row["currency"] not in (None, "EUR"):
+            # estimation en devise native : la conversion fiscale réelle des
+            # opérations historiques s'opère au taux de chaque date
+            out["warnings"].insert(0, "FX_DEVISE_NON_EUR")
+        return out
+    finally:
+        conn.close()
+
+
 class AccountIn(BaseModel):
     name: str
     asset_class: str
@@ -1767,6 +1840,7 @@ class AccountIn(BaseModel):
     initial_value: float | None = None
     fees_pct: float | None = None  # frais de gestion annuels % (v2026.09.025)
     wrapper: str | None = None  # enveloppe fiscale pea|av|cto (v2026.09.027)
+    tax_country: str = ""  # pays fiscal fr|lu|'' (v2026.09.031)
 
 
 # enveloppe fiscale d'un actif : elle détermine la PV nette (règles FR/LU à
@@ -1782,6 +1856,12 @@ def _wrapper_err(wrapper: str | None, asset_class: str) -> str | None:
         return "Enveloppe fiscale invalide"
     if asset_class not in _WRAPPER_ALLOW[wrapper]:
         return "Enveloppe incompatible avec cette classe d'actif"
+    return None
+
+
+def _tax_country_err(tax_country: str | None) -> str | None:
+    if tax_country is not None and tax_country not in ("", "fr", "lu"):
+        return "Pays fiscal invalide (fr, lu ou vide)"
     return None
 
 
@@ -1802,14 +1882,17 @@ async def create_account(body: AccountIn, request: Request):
     werr = _wrapper_err(body.wrapper, body.asset_class)
     if werr:
         return JSONResponse({"detail": werr}, status_code=400)
+    terr = _tax_country_err(body.tax_country)
+    if terr:
+        return JSONResponse({"detail": terr}, status_code=400)
     conn = db()
     cur = conn.execute(
-        "INSERT INTO accounts (owner, name, asset_class, institution, currency, fx_override, cost_basis, fees_pct, wrapper, open_date, notes, active,"
-        " valuation_mode, symbol, quantity) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        "INSERT INTO accounts (owner, name, asset_class, institution, currency, fx_override, cost_basis, fees_pct, wrapper, tax_country, open_date, notes, active,"
+        " valuation_mode, symbol, quantity) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (u["username"], body.name.strip(), body.asset_class, body.institution.strip(), ccy,
          round(body.fx_override, 6) if body.fx_override else None, body.cost_basis or 0,
          round(body.fees_pct, 4) if body.fees_pct is not None else None,
-         body.wrapper,
+         body.wrapper, body.tax_country or "",
          body.open_date, body.notes.strip(), body.active,
          mode,
          body.symbol.strip().upper(), body.quantity or 0),
@@ -1850,13 +1933,17 @@ async def update_account(aid: int, body: AccountIn, request: Request):
     if werr:
         conn.close()
         return JSONResponse({"detail": werr}, status_code=400)
+    terr = _tax_country_err(body.tax_country)
+    if terr:
+        conn.close()
+        return JSONResponse({"detail": terr}, status_code=400)
     conn.execute(
-        "UPDATE accounts SET name=?, asset_class=?, institution=?, currency=?, fx_override=?, cost_basis=?, fees_pct=?, wrapper=?, open_date=?, notes=?,"
+        "UPDATE accounts SET name=?, asset_class=?, institution=?, currency=?, fx_override=?, cost_basis=?, fees_pct=?, wrapper=?, tax_country=?, open_date=?, notes=?,"
         " active=?, valuation_mode=?, symbol=?, quantity=?, updated_at=datetime('now') WHERE id=?",
         (body.name.strip(), body.asset_class, body.institution.strip(), ccy,
          round(body.fx_override, 6) if body.fx_override else None, body.cost_basis or 0,
          round(body.fees_pct, 4) if body.fees_pct is not None else None,
-         body.wrapper,
+         body.wrapper, body.tax_country or "",
          body.open_date, body.notes.strip(), body.active,
          mode,
          body.symbol.strip().upper(), body.quantity or 0, aid),

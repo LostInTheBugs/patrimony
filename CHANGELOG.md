@@ -2,6 +2,69 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.031] — 2026-09-06
+
+### Added
+
+- **Tax engine `src/tax/` — pure module, versioned rulesets.** "If I
+  liquidate today" estimate per asset (FEUILLET-FISCAL-2026.md is the
+  normative v1 source, validated by Fred after cross-checking every rule
+  against official sources; PDF in the repo docs, never pushed).
+  - `src/tax/` is pure calculation: zero I/O, no dashboard dependency.
+    `compute(TaxInput)` → `TaxResult` with `gross_gain → losses →
+    taxable_gain → income_tax → social_contributions → extra_tax →
+    estimated_net_gain`, a line-by-line breakdown where **every line
+    carries its auditable rule id** (FR_CTO_PFU_IR_2026 …), plus
+    `warnings[]` and `assumptions[]`. Input takes country, asset class,
+    wrapper, acquisition date, cost, value, losses, tax options
+    (progressive 2OP/3CN) and household assumptions (marginal rates,
+    married, premiums cap, substantial holding).
+  - **Rules are versioned by (country, year)**: `rules_fr.py` /
+    `rules_lu.py` behind a registry (`FR-2026`, `LU-2026`); an unknown
+    year refuses to compute. FR 2026: PFU 31.4% (12.8 + 18.6, LFSS 2026),
+    PEA (IR exemption after 5 years, PS at current rate with the
+    historical-layering warning, closure before 5 years at 31.4%), AV
+    strates (12.8 / 7.5 within €150k / 12.8 above, PS 17.2% — never a
+    single 30% rate), real estate (19% + 17.2%, 7.5% fees + 15% works
+    uplift, distinct 6%/1.65% holding allowances, full IR exemption at 22
+    years / PS at 30, >€50k surtax schedule), crypto (31.4%, separate 3CN
+    progressive option, crypto→crypto sursis). LU 2026: securities
+    exemption (<10% and >6 months), 6-month speculation at the marginal
+    rate (42.8%/43.6% caps from guichet.lu — modelled as barème +
+    employment fund + dependency insurance, never a single rate),
+    substantial holding (>10%: half-rate capped 21.4%, €50k allowance
+    doubled when married), 5-year real estate boundary (law of
+    22/05/2024), half-rate + €50/100k decennial allowance beyond, AV
+    exempt (art. 115 LIR), crypto same 6-month rule, €500 franchises.
+  - **Never a silent rule** (Fred's corrigenda): every INCONFIRMED point
+    (PEA layering, LU revaluation coefficients, AV pre-2017 contracts,
+    early AV redemption, non-EUR currency conversion, fees, losses…)
+    surfaces as an explicit warning/assumption — the estimate shows its
+    own limits instead of hiding them.
+  - `accounts.tax_country` (fr|lu|'' — idempotent ALTER, validated 400,
+    travels through vaults/imports/exports via the existing column copy).
+    `GET /api/tax-estimate?account_id=N&year=` feeds the engine with the
+    effective cost (transactions), last valuation, open date, wrapper and
+    tax country; 404 for foreign assets, 400 with clear reasons when the
+    country/valuation/date is missing or the year is not versioned.
+  - UI: tax country select in the asset modal (shown for
+    securities/savings/real estate/crypto), country badges (🇫🇷/🇱🇺) next
+    to wrapper badges, 🧮 button per estimable asset opening the estimate
+    modal: breakdown with rule ids under each line, ⚠️ warnings and ℹ️
+    assumptions blocks, ruleset version in the header. i18n ×4.
+
+### Tests
+
+- `tests/test_tax_engine.py` (43): pure engine — exact amounts on every
+  regime (the 42,800 example matches the display contract to the cent),
+  MV-before-allowance ordering, 2OP/3CN independence, no 30% shortcut for
+  AV, PEA warnings pre-2018, real-estate surtax schedule boundaries,
+  LU exemption/speculation/substantial holding, 5-year immo boundary,
+  non-estimated classes, missing-date refusals, unknown year KeyError,
+  every assumption explicitly emitted.
+- `tests/test_tax_api.py` (6): route wiring, clean 400/404s, per-member
+  isolation, invalid country 400, non-EUR warning. 118 passing.
+
 ## [2026.09.030] — 2026-09-06
 
 ### Added

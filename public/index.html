@@ -493,7 +493,24 @@ let FAMILY_LIST = [];
 /* ---------------- i18n FR / DE / LU / EN ---------------- */
 const I18N = {
 fr: {
-  wrapper:'Enveloppe fiscale', wrpNone:'Aucune', wrpPea:'PEA (plan épargne actions)', wrpAv:'Assurance-vie (AV)', wrpCto:'Compte-titres ordinaire (CTO)',
+  wrapper:'Enveloppe fiscale', wrapperHint:'détermine l\'estimation fiscale ⚖️ (avec le pays)', wrpNone:'Aucune', wrpPea:'PEA (plan épargne actions)', wrpAv:'Assurance-vie (AV)', wrpCto:'Compte-titres ordinaire (CTO)',
+  txCountry:'Pays fiscal', txCountryNone:'— non renseigné', txCountryFr:'France', txCountryLu:'Luxembourg',
+  txBtn:'Estimation fiscale (si liquidation aujourd\'hui)', txEstTitle:'Estimation fiscale', txEstSub:'« Si je liquide aujourd\'hui » — {name}',
+  txNotEst:'Aucune estimation pour cet actif (périmètre v1 : titres/PEA/AV, immobilier, crypto — métaux et autres classes suivront).',
+  txClose:'Fermer', txGross:'PV brute', txLosses:'Moins-values', txAllowance:'Abattement / ajustement', txTaxable:'PV nette fiscale',
+  txTaxablePs:'Base prélèvements sociaux', txIr:'Impôt sur le revenu (estimé)', txPs:'Prélèvements sociaux', txExtra:'Taxe / contribution additionnelle', txExempt:'Exonération', txNet:'PV nette estimée', txMisc:'Ligne',
+  txwNeg:'Perte : aucun impôt — imputation/report non simulés (estimation mono-actif).', txwPeaHist:'PS estimés à 18,6 % (taux en vigueur au retrait) — stratification historique des gains non implémentée (⚠️ plan ouvert avant 2018).',
+  txwAv2017:'Contrat ouvert avant le 27/09/2017 : ancien régime non modélisé — ordre de grandeur seulement.', txwLuImmo:'Coefficients de réévaluation monétaire LU non appliqués — impôt surestimé pour les détentions longues.',
+  txwLuAv:'Rachat très précoce (< 6 mois) : imposition au barème possible selon doctrine — non confirmé officiellement.', txwMissDate:'Date d\'acquisition manquante — renseignez-la pour estimer.',
+  txwNotEst:'Combinaison hors périmètre v1 du moteur fiscal.', txwMismatch:'PEA hors France : enveloppe incohérente avec le pays fiscal.', txwNoTmi:'Option barème sans taux marginal renseigné (paramétrage à venir).',
+  txwFx:'Devise non-EUR : estimation en devise de l\'actif — la conversion fiscale réelle s\'opère au taux de chaque opération.',
+  txaTmiFr:'Taux marginal FR d\'hypothèse appliqué au barème.', txaTmiLu:'Taux marginal LU d\'hypothèse (le barème réel dépend du revenu du foyer).',
+  txaFees:'Frais de cession non saisis — non déduits.', txaLosses:'Moins-values non saisies — non déduites.',
+  txaAv150:'Hypothèse : primes versées ≤ 150 000 €.', txaAv150o:'Hypothèse : primes > 150 000 € — part excédentaire taxée à 12,8 %.',
+  txaSubNo:'Hypothèse : participation < 10 % du capital.', txaSubYes:'Hypothèse : participation > 10 % (détention substantielle).',
+  txaDec:'Hypothèse : abattement décennal disponible (non déjà utilisé sur 10 ans).', txaBuilt:'Hypothèse : bien bâti (la surtaxe ne vise pas les terrains à bâtir).',
+  txaLuC:'Hypothèse : contrat d\'assurance luxembourgeois.', txaFund:'Contribution fonds pour l\'emploi 7 % (hypothèse revenu ≤ 150 k€).',
+  txaMarried:'Imposition collective (abattements doublés).', txaSingle:'Imposition individuelle.', txaProg:'Option barème simulée.',
   lgUser:'Identifiant', lgPass:'Mot de passe', lgBtn:'Se connecter', lgErr:'Identifiants invalides.', lgUnlock:'🔐 Entrez votre mot de passe pour déverrouiller votre coffre.',
   mcTitle:'Changement de mot de passe requis', mcDesc:'Compte protégé : choisissez votre propre mot de passe. Après ce changement, plus personne — même l\'administrateur — ne pourra réinitialiser le compte ni accéder à vos données.',
   pwdNew2:'Confirmer le nouveau mot de passe', pwdMismatch:'Les mots de passe ne correspondent pas.', pwdWait:'Chiffrement en cours, veuillez patienter…', vltErr:'Erreur de déverrouillage du coffre.', pwdShort:'Mot de passe trop court (min. 12 caractères).',
@@ -594,7 +611,24 @@ fr: {
   clsImmo:'Immobilier', clsCrowd:'Crowdfunding', clsCrypto:'Cryptomonnaies', clsMetaux:'Métaux précieux', clsDivers:'Divers'
 },
 en: {
-  wrapper:'Tax wrapper', wrpNone:'None', wrpPea:'PEA (French equity plan)', wrpAv:'Life insurance (AV)', wrpCto:'Taxable brokerage (CTO)',
+  wrapper:'Tax wrapper', wrapperHint:'drives the tax estimate ⚖️ (with the country)', wrpNone:'None', wrpPea:'PEA (French equity plan)', wrpAv:'Life insurance (AV)', wrpCto:'Taxable brokerage (CTO)',
+  txCountry:'Tax country', txCountryNone:'— not set', txCountryFr:'France', txCountryLu:'Luxembourg',
+  txBtn:'Tax estimate (if liquidated today)', txEstTitle:'Tax estimate', txEstSub:'"If I liquidate today" — {name}',
+  txNotEst:'No estimate for this asset (v1 scope: securities/PEA/life insurance, real estate, crypto — metals and others to follow).',
+  txClose:'Close', txGross:'Gross capital gain', txLosses:'Capital losses', txAllowance:'Allowance / adjustment', txTaxable:'Taxable gain',
+  txTaxablePs:'Social contributions base', txIr:'Income tax (estimated)', txPs:'Social contributions', txExtra:'Additional tax / contribution', txExempt:'Exemption', txNet:'Estimated net gain', txMisc:'Line',
+  txwNeg:'Loss: no tax — offset/carryover not simulated (single-asset estimate).', txwPeaHist:'Social contributions estimated at 18.6% (rate at withdrawal) — historical layering not implemented (⚠️ plan opened before 2018).',
+  txwAv2017:'Contract opened before 27/09/2017: former regime not modelled — order of magnitude only.', txwLuImmo:'LU monetary revaluation coefficients not applied — tax overestimated for long holdings.',
+  txwLuAv:'Very early redemption (< 6 months): progressive taxation possible per doctrine — not officially confirmed.', txwMissDate:'Missing acquisition date — set it to estimate.',
+  txwNotEst:'Combination out of the v1 tax engine scope.', txwMismatch:'PEA outside France: wrapper inconsistent with tax country.', txwNoTmi:'Progressive option without a marginal rate (settings to come).',
+  txwFx:'Non-EUR currency: estimate in the asset currency — actual tax conversion applies each transaction\'s FX rate.',
+  txaTmiFr:'Assumed FR marginal rate applied to the progressive schedule.', txaTmiLu:'Assumed LU marginal rate (the actual schedule depends on household income).',
+  txaFees:'Disposal fees not recorded — not deducted.', txaLosses:'Capital losses not recorded — not deducted.',
+  txaAv150:'Assumption: premiums paid ≤ €150,000.', txaAv150o:'Assumption: premiums > €150,000 — excess taxed at 12.8%.',
+  txaSubNo:'Assumption: holding < 10% of the capital.', txaSubYes:'Assumption: holding > 10% (substantial holding).',
+  txaDec:'Assumption: 10-year allowance available (unused over the last 10 years).', txaBuilt:'Assumption: built property (surtax excludes building land).',
+  txaLuC:'Assumption: Luxembourg insurance contract.', txaFund:'Employment fund contribution 7% (assumed income ≤ €150k).',
+  txaMarried:'Joint taxation (doubled allowances).', txaSingle:'Individual taxation.', txaProg:'Progressive option simulated.',
   lgUser:'Username', lgPass:'Password', lgBtn:'Sign in', lgErr:'Invalid credentials.', lgUnlock:'🔐 Enter your password to unlock your vault.',
   mcTitle:'Password change required', mcDesc:'Protected account: choose your own password. After this change, no one — not even the administrator — can reset the account or access your data.',
   pwdNew2:'Confirm the new password', pwdMismatch:'Passwords do not match.', pwdWait:'Encrypting, please wait…', vltErr:'Vault unlock error.', pwdShort:'Password too short (min. 12 characters).',
@@ -695,7 +729,24 @@ en: {
   clsImmo:'Real estate', clsCrowd:'Crowdfunding', clsCrypto:'Cryptocurrencies', clsMetaux:'Precious metals', clsDivers:'Other'
 },
 de: {
-  wrapper:'Steuerhülle', wrpNone:'Keine', wrpPea:'PEA (Aktiensparplan)', wrpAv:'Lebensversicherung (AV)', wrpCto:'Wertpapierdepot (CTO)',
+  wrapper:'Steuerhülle', wrapperHint:'bestimmt die Steuerschätzung ⚖️ (mit dem Land)', wrpNone:'Keine', wrpPea:'PEA (Aktiensparplan)', wrpAv:'Lebensversicherung (AV)', wrpCto:'Wertpapierdepot (CTO)',
+  txCountry:'Steuerland', txCountryNone:'— nicht angegeben', txCountryFr:'Frankreich', txCountryLu:'Luxemburg',
+  txBtn:'Steuerschätzung (bei Liquidation heute)', txEstTitle:'Steuerschätzung', txEstSub:'« Liquidiere ich heute » — {name}',
+  txNotEst:'Keine Schätzung für diesen Vermögenswert (v1-Umfang: Wertpapiere/PEA/Lebensversicherung, Immobilien, Krypto — Metalle u. a. folgen).',
+  txClose:'Schließen', txGross:'Brutto-Kursgewinn', txLosses:'Verluste', txAllowance:'Freibetrag / Anpassung', txTaxable:'Steuerpflichtiger Gewinn',
+  txTaxablePs:'Bemessungsgrundlage Sozialabgaben', txIr:'Einkommensteuer (geschätzt)', txPs:'Sozialabgaben', txExtra:'Zusatzsteuer / Beitrag', txExempt:'Steuerbefreiung', txNet:'Geschätzter Nettogewinn', txMisc:'Zeile',
+  txwNeg:'Verlust: keine Steuer — Verrechnung/Vortrag nicht simuliert (Einzelvermögen-Schätzung).', txwPeaHist:'Sozialabgaben mit 18,6 % geschätzt (Satz bei Abhebung) — historische Schichtung nicht implementiert (⚠️ Plan vor 2018 eröffnet).',
+  txwAv2017:'Vertrag vor dem 27.09.2017 eröffnet: altes Regime nicht modelliert — nur Größenordnung.', txwLuImmo:'LU-Geldentwertungsfaktoren nicht angewendet — Steuer bei langen Haltedauern überschätzt.',
+  txwLuAv:'Sehr früher Rückkauf (< 6 Monate): Besteuerung nach Tarif möglich (Lehre) — nicht offiziell bestätigt.', txwMissDate:'Erwerbsdatum fehlt — bitte angeben.',
+  txwNotEst:'Kombination außerhalb des v1-Steuermoduls.', txwMismatch:'PEA außerhalb Frankreichs: Hülle inkonsistent mit dem Steuerland.', txwNoTmi:'Tarifoption ohne Grenzsteuersatz (Einstellung folgt).',
+  txwFx:'Nicht-EUR-Währung: Schätzung in der Vermögenswährung — die reale Steuerumrechnung erfolgt zum Kurs jeder Transaktion.',
+  txaTmiFr:'Angenommener FR-Grenzsteuersatz auf den Tarif angewendet.', txaTmiLu:'Angenommener LU-Grenzsteuersatz (der tatsächliche Tarif hängt vom Haushaltseinkommen ab).',
+  txaFees:'Verkaufskosten nicht erfasst — nicht abgezogen.', txaLosses:'Verluste nicht erfasst — nicht abgezogen.',
+  txaAv150:'Annahme: eingezahlte Prämien ≤ 150 000 €.', txaAv150o:'Annahme: Prämien > 150 000 € — Überschuss mit 12,8 % besteuert.',
+  txaSubNo:'Annahme: Beteiligung < 10 % des Kapitals.', txaSubYes:'Annahme: Beteiligung > 10 % (wesentliche Beteiligung).',
+  txaDec:'Annahme: Zehnjahresfreibetrag verfügbar (in den letzten 10 Jahren ungenutzt).', txaBuilt:'Annahme: bebautes Grundstück (Zusatzsteuer betrifft keine Baugrundstücke).',
+  txaLuC:'Annahme: luxemburgischer Versicherungsvertrag.', txaFund:'Arbeitsmarktfonds-Beitrag 7 % (angenommenes Einkommen ≤ 150 k€).',
+  txaMarried:'Gemeinsame Veranlagung (doppelte Freibeträge).', txaSingle:'Einzelveranlagung.', txaProg:'Tarifoption simuliert.',
   lgUser:'Benutzername', lgPass:'Passwort', lgBtn:'Anmelden', lgErr:'Ungültige Zugangsdaten.', lgUnlock:'🔐 Geben Sie Ihr Passwort ein, um Ihren Tresor zu entsperren.',
   mcTitle:'Passwortänderung erforderlich', mcDesc:'Geschütztes Konto: Wählen Sie Ihr eigenes Passwort. Danach kann niemand — auch der Administrator nicht — das Konto zurücksetzen oder auf Ihre Daten zugreifen.',
   pwdNew2:'Neues Passwort bestätigen', pwdMismatch:'Die Passwörter stimmen nicht überein.', pwdWait:'Verschlüsselung läuft, bitte warten…', vltErr:'Fehler beim Entsperren des Tresors.', pwdShort:'Passwort zu kurz (min. 12 Zeichen).',
@@ -795,7 +846,24 @@ de: {
   clsImmo:'Immobilien', clsCrowd:'Crowdfunding', clsCrypto:'Kryptowährungen', clsMetaux:'Edelmetalle', clsDivers:'Sonstiges'
 },
 lu: {
-  wrapper:'Enveloppe fiscale', wrpNone:'Keng', wrpPea:'PEA (Plang spuere fir Aktien)', wrpAv:'Assurance-vie (AV)', wrpCto:'Compte-titres ordinaire (CTO)',
+  wrapper:'Enveloppe fiscale', wrapperHint:'bestëmmt d\'Steierschätzung ⚖️ (mat dem Land)', wrpNone:'Keng', wrpPea:'PEA (Plang spuere fir Aktien)', wrpAv:'Assurance-vie (AV)', wrpCto:'Compte-titres ordinaire (CTO)',
+  txCountry:'Steierland', txCountryNone:'— net aginn', txCountryFr:'Frankräich', txCountryLu:'Lëtzebuerg',
+  txBtn:'Steierschätzung (wann haut liquidéiert)', txEstTitle:'Steierschätzung', txEstSub:'« Wann ech haut liquidéieren » — {name}',
+  txNotEst:'Keng Schätzung méiglech fir dësen Actif (v1-Ëmfang: Wäertpabeieren/PEA/Liewensversécherung, Immobilien, Krypto — Metaller an anerer kommen duerno).',
+  txClose:'Zoumaachen', txGross:'Brutto-Capitalgain', txLosses:'Verloschter', txAllowance:'Fréibetrag / Upassung', txTaxable:'Besteierbare Gewënn',
+  txTaxablePs:'Bemessungsgrondlag Sozialbäiträg', txIr:'Akommessteier (geschat)', txPs:'Sozialbäiträg', txExtra:'Zousazsteier / Bäitrag', txExempt:'Steierbefreiung', txNet:'Geschate Nettogewënn', txMisc:'Zeil',
+  txwNeg:'Verloscht: keng Steier — Verrechnung/Virdro net simuléiert (Schätzung eenzel Actif).', txwPeaHist:'Sozialbäiträg mat 18,6 % geschat (Saz bei Retrait) — historesch Schichtung net implementéiert (⚠️ Plan virun 2018 opgemaach).',
+  txwAv2017:'Kontrakt virum 27.09.2017 opgemaach: aalt Regime net modelliséiert — nëmme Gréisstenuerdnung.', txwLuImmo:'LU-Geldentwäertungsfaktoren net applizéiert — Steier bei laange Besëtzdauer iwwerschat.',
+  txwLuAv:'Ganz fréie Réckkaf (< 6 Méint): Besteierung nom Tarif méiglech (Doctrine) — net offiziell confirméiert.', txwMissDate:'Acquisitiounsdatum feelt — gitt et un fir ze schätzen.',
+  txwNotEst:'Kombinatioun ausserhalb vum v1-Steiermoteur.', txwMismatch:'PEA ausserhalb vu Frankräich: Hüll inkonsistent mam Steierland.', txwNoTmi:'Tarifsoptioun ouni Marginalsteiersaz (Astellunge kommen).',
+  txwFx:'Net-EUR-Währung: Schätzung an der Währung vum Actif — déi real Steierkonversioun geschitt zum Taux vun all Transaktioun.',
+  txaTmiFr:'Ugehollene FR-Marginalsteiersaz op den Tarif applizéiert.', txaTmiLu:'Ugehollene LU-Marginalsteiersaz (den Tarif hänkt vum Haushaltsakommes of).',
+  txaFees:'Verkafskäschten net erfaasst — net ofgezunn.', txaLosses:'Verloschter net erfaasst — net ofgezunn.',
+  txaAv150:'Unnam: Primen ≤ 150 000 € bezuelt.', txaAv150o:'Unnam: Primen > 150 000 € — Iwwerschoss mat 12,8 % besteiert.',
+  txaSubNo:'Unnam: Beteilegung < 10 % vum Kapital.', txaSubYes:'Unnam: Beteilegung > 10 % (wesentlech Beteilegung).',
+  txaDec:'Unnam: Zéngjoerfräibetrag disponibel (déi lescht 10 Joer onbenotzt).', txaBuilt:'Unnam: bebauten Terrain (Zousazsteier betrëfft keng Baugrondstécker).',
+  txaLuC:'Unnam: Lëtzebuerger Versécherungskontrakt.', txaFund:'Bäitrag Fong fir d\'Aarbecht 7 % (ugeholl Akommes ≤ 150 k€).',
+  txaMarried:'Gemeinsam Besteierung (duebel Fräibeträg).', txaSingle:'Eenzelbesteierung.', txaProg:'Tarifsoptioun simuléiert.',
   lgUser:'Benotzernumm', lgPass:'Passwuert', lgBtn:'Aloggen', lgErr:'Ongëlteg Zouganksdaten.', lgUnlock:'🔐 Gitt Äert Passwuert an fir Ären Tresor opzemaachen.',
   mcTitle:'Passwuertännerung néideg', mcDesc:'Geschützt Kont: wielt Äert eegent Passwuert. Duerno kann kee Mënsch — och net den Administrator — d\'Kont zrécksetzen oder op Är Date zougräifen.',
   pwdNew2:'Neit Passwuert bestätegen', pwdMismatch:'D\'Passwierder stëmmen net iwwereneen.', pwdWait:'Verschlësselung am Gaang, wgl. waarden…', vltErr:'Feeler beim Opmaache vum Tresor.', pwdShort:'Passwuert ze kuerz (min. 12 Zeechen).',
@@ -1391,7 +1459,7 @@ function renderAccounts() {
     const costSub = a.cost_from_tx ? '<span class="smline">'+esc(t('actCostFromTx'))+'</span>'
       : (a.txn_count ? '<span class="smline">'+esc(t('actCostWarn'))+'</span>' : '');
     return '<tr>'+
-      '<td><div class="aname">'+esc(a.name)+(a.wrapper?wrpBadge(a.wrapper):'')+(auto&&a.symbol?'<span class="sym" title="'+esc(t('symAuto'))+'">📡 '+esc(a.symbol)+'</span>':'')+(a.currency&&a.currency!=='EUR'?'<span class="sym" title="'+esc(a.currency)+'">'+ccySym(a.currency)+'</span>':'')+'</div>'+
+      '<td><div class="aname">'+esc(a.name)+(a.wrapper?wrpBadge(a.wrapper):'')+countryBadge(a.tax_country)+(auto&&a.symbol?'<span class="sym" title="'+esc(t('symAuto'))+'">📡 '+esc(a.symbol)+'</span>':'')+(a.currency&&a.currency!=='EUR'?'<span class="sym" title="'+esc(a.currency)+'">'+ccySym(a.currency)+'</span>':'')+'</div>'+
       (a.institution?'<div class="ainst">'+esc(a.institution)+'</div>':'')+
       (auto&&!pf?'<div class="smline">'+a.quantity+' '+esc(t('actQtyTimes'))+'</div>':'')+
       (pf?posChips(a):'')+'</td>'+
@@ -1403,6 +1471,7 @@ function renderAccounts() {
       '<td class="num">'+(a.cost_effective?mon(a.cost_effective, a.currency):'—')+'</td>'+
       '<td class="num"><span class="'+gCls+'">'+(g==null?'—':mon(g, a.currency))+'</span>'+(gp!=null?' <span class="muted" style="font-size:11px">'+pctTxt(gp)+'</span>':'')+'</td>'+
       '<td class="rowacts">'+
+        (['bourse','epargne','immobilier','crypto'].includes(a.asset_class)?'<button class="btn small" title="'+esc(t('txBtn'))+'" onclick="taxModal('+a.id+')">🧮</button>':'')+
         (pf?'<button class="btn small" title="'+esc(t('posTitle'))+'" onclick="openPosModal('+a.id+')">⚖️</button>':'')+
         (!auto?'<button class="btn small primary" title="'+esc(t('actValTitle'))+'" onclick="openValModal('+a.id+')">💶</button>':'')+
         '<button class="btn small" title="'+esc(t('actEditTitle'))+'" onclick="openAccountModal('+a.id+')">✏️</button>'+
@@ -1458,13 +1527,18 @@ function openAccountModal(id) {
     '</div>'+
     '<div class="grid2">'+
       '<div><label>'+esc(t('mOpen'))+'</label><input id="fOpen" type="date" value="'+(a&&a.open_date?a.open_date.slice(0,10):'')+'" style="width:100%"></div>'+
-      '<div id="wrapWrp"><label>'+esc(t('wrapper'))+'</label><select id="fWrp" style="width:100%">'+
-        '<option value="">'+esc(t('wrpNone'))+'</option>'+
-        '<option value="pea"'+(a&&a.wrapper==='pea'?' selected':'')+'>'+esc(t('wrpPea'))+'</option>'+
-        '<option value="av"'+(a&&a.wrapper==='av'?' selected':'')+'>'+esc(t('wrpAv'))+'</option>'+
-        '<option value="cto"'+(a&&a.wrapper==='cto'?' selected':'')+'>'+esc(t('wrpCto'))+'</option>'+
+      '<div id="wrapTax"><label>'+esc(t('txCountry'))+'</label><select id="fTaxCountry" style="width:100%">'+
+        '<option value="">'+esc(t('txCountryNone'))+'</option>'+
+        '<option value="fr"'+(a&&a.tax_country==='fr'?' selected':'')+'>🇫🇷 '+esc(t('txCountryFr'))+'</option>'+
+        '<option value="lu"'+(a&&a.tax_country==='lu'?' selected':'')+'>🇱🇺 '+esc(t('txCountryLu'))+'</option>'+
       '</select></div>'+
     '</div>'+
+    '<div id="wrapWrp"><label>'+esc(t('wrapper'))+' <span class="muted" style="font-weight:400">'+esc(t('wrapperHint'))+'</span></label><select id="fWrp" style="width:100%">'+
+      '<option value="">'+esc(t('wrpNone'))+'</option>'+
+      '<option value="pea"'+(a&&a.wrapper==='pea'?' selected':'')+'>'+esc(t('wrpPea'))+'</option>'+
+      '<option value="av"'+(a&&a.wrapper==='av'?' selected':'')+'>'+esc(t('wrpAv'))+'</option>'+
+      '<option value="cto"'+(a&&a.wrapper==='cto'?' selected':'')+'>'+esc(t('wrpCto'))+'</option>'+
+    '</select></div>'+
     (!a?'<label>'+esc(t('mInit'))+' <span class="muted" style="font-weight:400">'+esc(t('mInitHint'))+'</span></label><input id="fInit" type="number" step="0.01" style="width:100%">':'')+
     '<label>'+esc(t('mNotes'))+'</label><input id="fNotes" value="'+(a?esc(a.notes):'')+'" style="width:100%">'+
     '<div class="modal-actions">'+
@@ -1483,6 +1557,10 @@ function modeChanged() {
   const showSymQty = auto && !isBourse;
   $('wrapQty').classList.toggle('hidden', !showSymQty);
   $('wrapSym').classList.toggle('hidden', !showSymQty);
+  // pays fiscal : utile pour toutes les classes à PV (titres, épargne,
+  // immobilier, crypto) — c'est lui qui déclenche l'estimation ⚖️
+  const taxOk = ['bourse','epargne','immobilier','crypto'].includes($('fClass').value);
+  const wt = $('wrapTax'); if (wt) wt.classList.toggle('hidden', !taxOk);
   // enveloppe fiscale : PEA/AV/CTO n'ont de sens que pour bourse (titres)
   // et épargne (assurance-vie, fonds euros)
   const wrpOk = ['bourse','epargne'].includes($('fClass').value);
@@ -1515,6 +1593,7 @@ async function saveAccount(id) {
     currency: mode==='auto' ? 'EUR' : ($('fCcy').value || 'EUR'),
     fees_pct: $('fFees') && $('fFees').value!=='' ? parseFloat($('fFees').value) : null,
     wrapper: ['bourse','epargne'].includes($('fClass').value) && $('fWrp') ? ($('fWrp').value || null) : null,
+    tax_country: $('fTaxCountry') ? ($('fTaxCountry').value || '') : '',
     fx_override: (mode==='manual' && $('fCcy').value!=='EUR' && $('fFxOv').value) ? parseFloat($('fFxOv').value) : null
   };
   if (!body.name.trim()) return;
@@ -1555,6 +1634,67 @@ async function saveVal(id) {
   await api('/api/accounts/'+id+'/valuation', {method:'POST', body: JSON.stringify({value:v, val_date:$('fValDate').value||null})});
   closeModal(); loadAccounts(); loadSummary(); loadHistory();
 }
+
+/* ---------- estimation fiscale (v2026.09.031) ---------- */
+const TAX_KINDS = {
+  gross:'txGross', losses:'txLosses', allowance:'txAllowance', taxable:'txTaxable',
+  taxable_ps:'txTaxablePs', ir:'txIr', ps:'txPs', extra:'txExtra', exempt:'txExempt',
+  net:'txNet', note:'txMisc'
+};
+const TXW = {
+  NEGATIVE_GAIN:'txwNeg', FR_PEA_PS_HISTORICAL:'txwPeaHist', FR_AV_BEFORE_2017:'txwAv2017',
+  LU_IMMO_REVALUATION_NI:'txwLuImmo', LU_AV_EARLY_REDEMPTION:'txwLuAv', MISSING_ACQUISITION_DATE:'txwMissDate',
+  NOT_ESTIMATED:'txwNotEst', WRAPPER_COUNTRY_MISMATCH:'txwMismatch', PROGRESSIVE_NO_TMI:'txwNoTmi',
+  FX_DEVISE_NON_EUR:'txwFx'
+};
+const TXA = {
+  ASSUME_TMI_FR:'txaTmiFr', ASSUME_TMI_LU:'txaTmiLu', ASSUME_NO_CESSION_FEES:'txaFees',
+  ASSUME_NO_LOSSES:'txaLosses', ASSUME_AV_PRIMES_150K:'txaAv150', ASSUME_AV_PRIMES_OVER_150K:'txaAv150o',
+  ASSUME_SUBSTANTIAL_NO:'txaSubNo', ASSUME_SUBSTANTIAL_YES:'txaSubYes', ASSUME_DECENNIAL_AVAILABLE:'txaDec',
+  ASSUME_PROPERTY_BUILT:'txaBuilt', ASSUME_LU_CONTRACT:'txaLuC', ASSUME_LU_FUND_7:'txaFund',
+  ASSUME_MARRIED:'txaMarried', ASSUME_SINGLE:'txaSingle', ASSUME_PROGRESSIVE_OPTION:'txaProg'
+};
+function txCodeLabel(map, code) { const k = map[code]; return k ? t(k) : code; }
+function countryBadge(c) {
+  if (c==='fr') return '<span class="sym" title="'+esc(t('txCountry'))+'">🇫🇷 FR</span>';
+  if (c==='lu') return '<span class="sym" title="'+esc(t('txCountry'))+'">🇱🇺 LU</span>';
+  return '';
+}
+function txMoney(v, ccy) { return (v<0?'−':'')+mon(Math.abs(v), ccy||'EUR'); }
+async function taxModal(id) {
+  const a = ACCOUNTS.find(x => x.id===id);
+  if (!a) return;
+  let d;
+  try { d = await api('/api/tax-estimate?account_id='+id); }
+  catch(e) { alert(e.message); return; }  // pays manquant, pas de valorisation…
+  const ccy = d.currency || 'EUR';
+  if (d.regime==='not_estimated') {
+    const warns = (d.warnings||[]).map(w => '⚠️ '+esc(txCodeLabel(TXW,w))).join('<br>');
+    openModal(
+      '<h2>🧮 '+esc(t('txEstTitle'))+'</h2>'+
+      '<div class="sub">'+esc(tF('txEstSub',{name:esc(a.name)}))+'</div>'+
+      '<div class="note">'+esc(t('txNotEst'))+(warns?'<br>'+warns:'')+'</div>'+
+      '<div class="modal-actions"><button class="btn primary" onclick="closeModal()">'+esc(t('txClose'))+'</button></div>');
+    return;
+  }
+  const rows = d.lines.map(l => {
+    const bold = (l.kind==='net') ? ' style="font-weight:800;border-top:1px solid var(--border)"' : '';
+    const pct = l.pct!=null ? ' <span class="muted" style="font-size:11px">('+pctTxt(l.pct)+')</span>' : '';
+    return '<tr'+bold+'><td>'+esc(t(TAX_KINDS[l.kind]||'txMisc'))+pct+
+      '<div style="font-size:10px;color:var(--muted)">'+esc(l.id)+'</div></td>'+
+      '<td class="num" style="font-weight:'+(l.kind==='net'||l.kind==='gross'?'600':'400')+'">'+txMoney(l.amount, ccy)+'</td></tr>';
+  }).join('');
+  const warns = (d.warnings||[]).map(w => '⚠️ '+esc(txCodeLabel(TXW,w))).join('<br>');
+  const assums = (d.assumptions||[]).map(x => 'ℹ️ '+esc(txCodeLabel(TXA,x))).join('<br>');
+  openModal(
+    '<h2>🧮 '+esc(t('txEstTitle'))+'</h2>'+
+    '<div class="sub">'+esc(tF('txEstSub',{name:esc(a.name)}))+' · '+esc(d.ruleset_version)+'</div>'+
+    '<table style="width:100%;border-collapse:collapse">'+rows+'</table>'+
+    (warns?'<div class="note">'+warns+'</div>':'')+
+    (assums?'<div class="note" style="border-left-color:#39c5cf">'+assums+'</div>':'')+
+    '<div class="modal-actions"><button class="btn primary" onclick="closeModal()">'+esc(t('txClose'))+'</button></div>');
+}
+
 
 /* ---------- positions (portefeuille) ---------- */
 const WRAP = {pea:['PEA','wrpPea'], av:['AV','wrpAv'], cto:['CTO','wrpCto']};
