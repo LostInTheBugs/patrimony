@@ -2,6 +2,20 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.039] — 2026-09-07
+
+### Fixed
+
+- **CSV exports: class/kind values finally follow Luxembourgish** — the
+  value tables in `src/transfer.py` dated from v025 with a `lb` language
+  key that the UI never sends (the front uses `pat_lang` fr/de/lu/en), so
+  `Accept-Language: lu` silently fell back to French *values* while headers
+  were already translated. Tables now use the `lu` key with wording aligned
+  on the front i18n (Lafend Konten, Spuerkonten, Aktien &
+  Liewensversécherung…, Abezuelung/Auszuelung/Akommes/Fraisen / Ausgab) and
+  `_CSV_LANG_ORDER` is `(fr, en, de, lu)`. Identifiers stay canonical and
+  re-importable. Regression test added; 140 tests.
+
 ## [2026.09.038] — 2026-09-07
 
 ### Changed

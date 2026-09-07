@@ -140,7 +140,7 @@ _CSV_L10N: dict[str, dict[str, dict[str, str]]] = {
         "de": {"comptes": "Girokonten", "epargne": "Sparkonten", "bourse": "Aktien & Lebensversicherung",
                "immobilier": "Immobilien", "crowdfunding": "Crowdfunding", "crypto": "Kryptowährungen",
                "metaux": "Edelmetalle", "divers": "Sonstiges"},
-        "lb": {"comptes": "Lafend Konten", "epargne": "Spuerkonten", "bourse": "Aktien & Liewensversécherung",
+        "lu": {"comptes": "Lafend Konten", "epargne": "Spuerkonten", "bourse": "Aktien & Liewensversécherung",
                "immobilier": "Immobilien", "crowdfunding": "Crowdfunding", "crypto": "Kryptowährungen",
                "metaux": "Edelmetaller", "divers": "Divis"},
     },
@@ -148,10 +148,10 @@ _CSV_L10N: dict[str, dict[str, dict[str, str]]] = {
         "fr": {"deposit": "Dépôt", "withdrawal": "Retrait", "income": "Revenu", "expense": "Frais / dépense"},
         "en": {"deposit": "Deposit", "withdrawal": "Withdrawal", "income": "Income", "expense": "Fee / expense"},
         "de": {"deposit": "Einzahlung", "withdrawal": "Auszahlung", "income": "Einkommen", "expense": "Gebühr / Ausgabe"},
-        "lb": {"deposit": "Akommes", "withdrawal": "Ofhuelen", "income": "Akommes (Zënssaz…)", "expense": "Frais / Ausgab"},
+        "lu": {"deposit": "Abezuelung", "withdrawal": "Auszuelung", "income": "Akommes", "expense": "Fraisen / Ausgab"},
     },
 }
-_CSV_LANG_ORDER = ("fr", "en", "de", "lb")
+_CSV_LANG_ORDER = ("fr", "en", "de", "lu")
 
 TX_KINDS = {"deposit", "withdrawal", "income", "expense"}
 _TX_SIGN_FLIP = {

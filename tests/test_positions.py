@@ -300,6 +300,12 @@ def test_csv_export_localized_values(admin_c):
     assert "Stocks & life insurance" in en
     de = admin_c.get("/api/export/csv/transactions", headers={"Accept-Language": "de-DE"}).text
     assert "Einkommen" in de and ",income," not in de
+    # LU (v2026.09.039) : le front envoie pat_lang 'lu' — les VALEURS suivent
+    # enfin (le bloc hérité v025 utilisait 'lb' → repli FR silencieux)
+    lu_acc = admin_c.get("/api/export/csv/accounts", headers={"Accept-Language": "lu"}).text
+    assert "Aktien & Liewensversécherung" in lu_acc and ",bourse," not in lu_acc
+    lu_tx = admin_c.get("/api/export/csv/transactions", headers={"Accept-Language": "lu"}).text
+    assert "Akommes" in lu_tx and ",income," not in lu_tx
     # langue inconnue → FR
     fr2 = admin_c.get("/api/export/csv/accounts", headers={"Accept-Language": "zh-CN"}).text
     assert "Bourse & assurances-vie" in fr2
