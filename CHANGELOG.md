@@ -2,6 +2,25 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.040] — 2026-09-07
+
+### Changed
+
+- **Tax UI: explicit non-value framing + playful trend gauge** (Fred):
+  - Every tax surface now carries the same strong notice — modal 🧮 banner at
+    the top (replacing the discreet footnote), and the tax-assumptions panel:
+    « Démonstration — aucune valeur officielle : une simple idée de ce que
+    serait votre impôt, et cela ne remplace pas un fiscaliste. » (FR/DE/LU/EN,
+    same `txEstNote` key — one wording everywhere).
+  - New 5-segment trend gauge under the estimate breakdown: qualitative level
+    from the share of levies (income tax + social contributions + extra tax)
+    in the gross gain — thresholds 10/20/35 % → levels
+    « Rien à payer — tranquille 😎 » → « Ouhla, vraiment beaucoup… fais gaffe 🚨 »
+    (FR/DE/LU/EN). A trend, not a rate: humorous on purpose, framed by the
+    banner above. Segments stay grey when an estimate is not possible.
+  - All front-only; 140 server tests + i18n check + visual recipe across the
+    four languages.
+
 ## [2026.09.039] — 2026-09-07
 
 ### Fixed
