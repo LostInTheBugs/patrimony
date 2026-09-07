@@ -168,6 +168,16 @@
   #offBanner{position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:99;background:#8a6d1a;color:#fff;padding:7px 16px;border-radius:20px;font-size:12.5px;box-shadow:0 4px 18px rgba(0,0,0,.5)}
   .note{font-size:11.5px;color:var(--muted);margin-top:8px;line-height:1.45}
 
+  /* ---------- mode membre (v2026.09.043) ---------- */
+  #mbBar{display:flex;align-items:center;gap:10px;background:linear-gradient(90deg,#16263f,#101c33);
+    border:1px solid #2c4968;color:#c9d7ec;padding:8px 12px;border-radius:12px;margin-bottom:12px;
+    font-size:13px;flex-wrap:wrap}
+  #mbBar .mbRo{color:#8b949e;font-size:11.5px}
+  #mbBar button{margin-left:auto}
+  body[data-member] #navFire,body[data-member] #navParams,body[data-member] #segScope{display:none!important}
+  body[data-member] #pageDash .btn,body[data-member] #pageEv .btn,body[data-member] #pageActifs .btn,
+  body[data-member] #pageOps .btn,body[data-member] #pageRev .btn{display:none} /* pages de données = lecture pure */
+
   /* ---------- mobile ---------- */
   @media (max-width:900px){
     #sidebar{width:auto;right:0;flex-direction:row;align-items:center;top:auto;bottom:0;border-top:1px solid var(--border);border-right:none;padding:4px 6px env(safe-area-inset-bottom);z-index:30}
@@ -239,6 +249,12 @@
   </aside>
 
   <div id="main">
+
+    <div id="mbBar" class="hidden">
+      <span class="e">👁</span> <span data-i18n="mbTitle">Consultation du membre</span>
+      <span id="mbName"></span><span class="mbRo" id="mbRo" data-i18n="mbRo">(lecture seule)</span>
+      <button id="mbExit" class="btn small" onclick="exitMemberView()" data-i18n="mbExit">✕ Revenir à mes données</button>
+    </div>
 
     <!-- ---------- DASHBOARD ---------- -->
     <section id="pageDash">
@@ -549,6 +565,8 @@ let CUR_PAGE = 'dash';
 let ME = null;          // {username, role, mode, display_name} depuis /api/auth/me
 let VAULT_OK = false;   // compte protégé : clé de coffre présente dans la session navigateur
 let FAMILY = false;     // vue consolidée admin (membres standard inclus)
+let MEMBER = null;       // vue consultation d'un membre (admin, lecture seule, v2026.09.043)
+let MEMBER_NAME = '';
 let FAMILY_LIST = [];
 
 /* ---------------- i18n FR / DE / LU / EN ---------------- */
@@ -666,6 +684,7 @@ fr: {
   famColMember:'Membre', famColMode:'Mode', famColTotal:'Patrimoine', famColActions:'Actions',
   famYou:'(vous)', famStdBadge:'🔓 Standard', famProtBadge:'🔐 Protégé', famNoTotal:'— invisible —',
   famReset:'Réinitialiser le mdp', famDelete:'Supprimer', famProtOnly:'chiffré — suppression seule possible',
+  mbSee:'Voir les données de {name} (lecture)', mbTitle:'👁 Consultation du membre', mbRo:'(lecture seule)', mbExit:'✕ Revenir à mes données', mbRoShort:'Lecture seule — mode consultation',
   famDelStd:'Supprimer le compte « {name} » et toutes ses données ?', famDelProt:'⚠️ Supprimer le compte protégé « {name} » ? Ses données chiffrées seront détruites définitivement — irréversible.',
   famResetTitle:'🔑 Réinitialiser le mot de passe', famResetSub:'« {name} » — le membre sera déconnecté.',
   famNewPwd:'Nouveau mot de passe *', famResetBtn:'Réinitialiser',
@@ -810,6 +829,7 @@ en: {
   famColMember:'Member', famColMode:'Mode', famColTotal:'Net worth', famColActions:'Actions',
   famYou:'(you)', famStdBadge:'🔓 Standard', famProtBadge:'🔐 Protected', famNoTotal:'— invisible —',
   famReset:'Reset password', famDelete:'Delete', famProtOnly:'encrypted — deletion only',
+  mbSee:'View {name} data (read-only)', mbTitle:'👁 Member view', mbRo:'(read-only)', mbExit:'✕ Back to my data', mbRoShort:'Read-only — member view',
   famDelStd:'Delete account “{name}” and all its data?', famDelProt:'⚠️ Delete the protected account “{name}”? Its encrypted data will be destroyed forever — irreversible.',
   famResetTitle:'🔑 Reset password', famResetSub:'“{name}” — the member will be signed out.',
   famNewPwd:'New password *', famResetBtn:'Reset',
@@ -953,6 +973,7 @@ de: {
   famColMember:'Mitglied', famColMode:'Modus', famColTotal:'Vermögen', famColActions:'Aktionen',
   famYou:'(Sie)', famStdBadge:'🔓 Standard', famProtBadge:'🔐 Geschützt', famNoTotal:'— unsichtbar —',
   famReset:'Passwort zurücksetzen', famDelete:'Löschen', famProtOnly:'verschlüsselt — nur Löschen möglich',
+  mbSee:'Daten von {name} ansehen (nur lesen)', mbTitle:'👁 Mitgliederansicht', mbRo:'(nur lesen)', mbExit:'✕ Zurück zu meinen Daten', mbRoShort:'Nur lesen — Ansichtsmodus',
   famDelStd:'Konto « {name} » mit allen Daten löschen?', famDelProt:'⚠️ Geschütztes Konto « {name} » löschen? Die verschlüsselten Daten werden endgültig zerstört — unumkehrbar.',
   famResetTitle:'🔑 Passwort zurücksetzen', famResetSub:'« {name} » — das Mitglied wird abgemeldet.',
   famNewPwd:'Neues Passwort *', famResetBtn:'Zurücksetzen',
@@ -1097,6 +1118,7 @@ lu: {
   famColMember:'Member', famColMode:'Modus', famColTotal:'Verméigen', famColActions:'Aktiounen',
   famYou:'(Dir)', famStdBadge:'🔓 Standard', famProtBadge:'🔐 Geschützt', famNoTotal:'— onsichtbar —',
   famReset:'Passwuert zrécksetzen', famDelete:'Läschen', famProtOnly:'verschlësselt — nëmmen Läschen méiglech',
+  mbSee:'Donnéeë vun {name} ugesinn (nëmmen ze liesen)', mbTitle:'👁 Vue vum Member', mbRo:'(nëmmen ze liesen)', mbExit:'✕ Zréck op meng Donnéeën', mbRoShort:'Nëmmen ze liesen — Consultatiounsmodus',
   famDelStd:'Kont « {name} » mat allen Donnéeën läschen?', famDelProt:'⚠️ Geschützt Kont « {name} » läschen? Déi verschlësselt Donnéeë ginn definitiv zerstéiert — net zréckzemaachen.',
   famResetTitle:'🔑 Passwuert zrécksetzen', famResetSub:'« {name} » — de Member gëtt ofgemellt.',
   famNewPwd:'Neit Passwuert *', famResetBtn:'Zrécksetzen',
@@ -1180,6 +1202,11 @@ function applyI18n() {
 
 /* ---------------- formats & api ---------------- */
 async function api(path, opts={}) {
+  const meth = (opts.method || 'GET').toUpperCase();
+  if (MEMBER && meth !== 'GET') throw new Error(t('mbRoShort'));  // vue membre = lecture seule
+  if (MEMBER && meth === 'GET' && path.charAt(0) === '/') {
+    path += (path.includes('?') ? '&' : '?') + 'member=' + encodeURIComponent(MEMBER);
+  }
   const r = await fetch(path, Object.assign({headers:{'Content-Type':'application/json','Accept-Language':LANG}}, opts));
   let d = {};
   try { d = await r.json(); } catch(e) {}
@@ -1190,6 +1217,7 @@ async function api(path, opts={}) {
 
 /* ---------- pages ---------- */
 function switchPage(p) {
+  if (MEMBER && (p === 'fire' || p === 'params')) p = 'dash';  // hors périmètre vue membre
   CUR_PAGE = p;
   ['dash','ev','actifs','ops','rev','fire','params'].forEach(x => $('page'+x[0].toUpperCase()+x.slice(1)).classList.toggle('hidden', x!==p));
   document.querySelectorAll('nav a').forEach(a => a.classList.toggle('active', a.id === 'nav'+p[0].toUpperCase()+p.slice(1)));
@@ -1211,7 +1239,23 @@ function setScope(f) {
   document.querySelectorAll('#segScope button').forEach(b => b.classList.toggle('on', parseInt(b.dataset.f,10) === (FAMILY?1:0)));
   switchPage('dash');
 }
-function famSuffix() { return FAMILY ? '?family=1' : ''; }
+function scopeSuffix() {
+  if (MEMBER) return '';   // member est injecté par api() — un seul point (sinon doublon ?member=…)
+  return FAMILY ? '?family=1' : '';
+}
+function openMemberView(name, disp) {
+  MEMBER = name; MEMBER_NAME = disp || name;
+  document.body.dataset.member = '1';
+  $('mbName').textContent = MEMBER_NAME;  // seuls le nom est dynamique — les data-i18n restent traduits par applyI18n
+  $('mbBar').classList.remove('hidden');
+  switchPage('dash');
+}
+function exitMemberView() {
+  MEMBER = null; MEMBER_NAME = '';
+  delete document.body.dataset.member;
+  $('mbBar').classList.add('hidden');
+  switchPage('params');
+}
 
 function showLogin() {
   $('app').classList.add('hidden'); $('pageLogin').classList.remove('hidden');
@@ -1474,7 +1518,7 @@ function updateDiscretBtn() {
 
 /* ---------- dashboard ---------- */
 async function loadSummary() {
-  try { SUMMARY = await api('/api/summary'+famSuffix()); } catch(e) { return; }
+  try { SUMMARY = await api('/api/summary'+scopeSuffix()); } catch(e) { return; }
   const s = SUMMARY;
   $('heroNet').textContent = monShort(s.net_worth != null ? s.net_worth : s.total_value);
   // passifs liés (v2026.09.033) : le net worth = actifs − crédits
@@ -1537,7 +1581,7 @@ async function loadSummary() {
 
 async function loadHistory() {
   const months = parseInt($('selMonths').value || '60', 10);
-  try { HIST = await api('/api/history?months='+months+famSuffix().replace('?','&')); } catch(e) { return; }
+  try { HIST = await api('/api/history?months='+months+scopeSuffix().replace('?','&')); } catch(e) { return; }
   const h = HIST;
   const labels = h.labels.map(l => new Date(l+'-01T12:00:00').toLocaleDateString(locale(),{month:'short',year:'2-digit'}));
   const present = Object.keys(h.series).filter(k => h.series[k].some(v => v>0));
@@ -2307,7 +2351,7 @@ async function importTxCsv() {
 let EV = null, chEv = null;
 const EV_CLS_ORDER = ['comptes','epargne','bourse','immobilier','crowdfunding','crypto','metaux','divers'];
 async function loadEv() {
-  try { EV = await api('/api/evolution?months=12' + famSuffix().replace('?','&')); } catch(e) { return; }
+  try { EV = await api('/api/evolution?months=12' + scopeSuffix().replace('?','&')); } catch(e) { return; }
   renderEvAnnual(); renderEvDrivers();
 }
 function renderEvAnnual() {
@@ -2667,7 +2711,7 @@ async function delRule(id) {
 /* ---------- benchmarks ---------- */
 async function loadBench() {
   try {
-    const d = await api('/api/benchmarks'+famSuffix());
+    const d = await api('/api/benchmarks'+scopeSuffix());
     const u = d.user, bs = d.benchmarks;
     $('benchHint').textContent = d.end_ym ? tF('benchHint',{ym:ymLabel(d.end_ym)}) : '';
     const userRow = '<tr style="background:#1a2440"><td style="font-weight:800">'+(FAMILY?'👨‍👩‍👧‍👦 ':'👤 ')+esc(FAMILY?t('benchUserFamily'):t('benchUser'))+'</td>'+
@@ -2691,7 +2735,7 @@ async function refreshBench() {
   const b = $('btnRefreshBench');
   b.disabled = true; b.textContent = '…';
   await loadBench();
-  await api('/api/refresh-benchmarks'+famSuffix(), {method:'POST'});
+  await api('/api/refresh-benchmarks'+scopeSuffix(), {method:'POST'});
   b.disabled = false; b.textContent = '🔄';
   $('benchWrap').innerHTML = '<div class="muted">'+esc(t('benchUpdated'))+'</div>';
   await loadBench();
@@ -2717,7 +2761,8 @@ function renderFamily() {
       : (x.totals && x.totals.total_value != null ? monShort(x.totals.total_value) : '—');
     const actions = prot
       ? '<button class="btn small danger" title="'+esc(t('famDelete'))+'" onclick="famDelete(\''+x.username+'\', \''+x.mode+'\', \''+esc(x.display_name||x.username).replace(/'/g,"\'")+'\')">🗑️</button>'
-      : '<button class="btn small" title="'+esc(t('famReset'))+'" onclick="famResetModal(\''+x.username+'\', \''+esc(x.display_name||x.username).replace(/'/g,"\'")+'\')">🔑</button>'+
+      : '<button class="btn small" title="'+esc(tF('mbSee',{name:esc(x.display_name||x.username)}))+'" onclick="openMemberView(\''+x.username+'\', \''+esc(x.display_name||x.username).replace(/'/g,"\'")+'\')">👁</button>'+
+        '<button class="btn small" title="'+esc(t('famReset'))+'" onclick="famResetModal(\''+x.username+'\', \''+esc(x.display_name||x.username).replace(/'/g,"\'")+'\')">🔑</button>'+
         '<button class="btn small danger" title="'+esc(t('famDelete'))+'" onclick="famDelete(\''+x.username+'\', \''+x.mode+'\', \''+esc(x.display_name||x.username).replace(/'/g,"\'")+'\')">🗑️</button>';
     return '<tr>'+
       '<td><div class="mrow"><span class="aname">'+esc(x.display_name||x.username)+'</span>'+badge+'</div>'+

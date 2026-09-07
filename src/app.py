@@ -469,6 +469,15 @@ class TokenScopeDenied(Exception):
     """Jeton API à portée 'capture' utilisé hors de ses deux appels autorisés."""
 
 
+class ScopeError(Exception):
+    """Cible de consultation membre invalide (membre=...)."""
+
+    def __init__(self, detail: str, status: int):
+        super().__init__(detail)
+        self.detail = detail
+        self.status = status
+
+
 
 
 # ---------------------------------------------------------------- auth
@@ -558,9 +567,28 @@ def _need(request: Request) -> sqlite3.Row:
     return row
 
 
-def _visible_owners(conn: sqlite3.Connection, u: sqlite3.Row, family: bool = False) -> list[str]:
+def _member_target(conn: sqlite3.Connection, u: sqlite3.Row, member: str) -> str:
+    """Valide la cible d'une consultation membre (v2026.09.043) : admin requis ;
+    cible standard UNIQUEMENT — un compte protected répond 404 indistinguable
+    d'un compte inexistant (garantie coffre : l'admin ne voit rien des coffres)."""
+    if u["role"] != "admin":
+        raise ScopeError("Administrateur requis", 403)
+    row = conn.execute(
+        "SELECT username FROM users WHERE username=? AND role='member' AND mode='standard'",
+        (member,),
+    ).fetchone()
+    if row is None:
+        raise ScopeError("Membre introuvable", 404)
+    return row["username"]
+
+
+def _visible_owners(conn: sqlite3.Connection, u: sqlite3.Row, family: bool = False,
+                    member: str | None = None) -> list[str]:
     """Propriétaires dont les données sont visibles : soi-même, et si l'admin
-    demande la vue famille, tous les membres 'standard' (jamais 'protected')."""
+    demande la vue famille, tous les membres 'standard' (jamais 'protected') ;
+    member=... = vue d'UN membre (admin, standard uniquement)."""
+    if member:
+        return [_member_target(conn, u, member)]
     if family and u["role"] == "admin":
         rows = conn.execute(
             "SELECT username FROM users WHERE role='member' AND mode='standard'"
@@ -632,6 +660,11 @@ async def _ts_h(_req, _exc):
         {"detail": "Jeton à portée limitée — action non autorisée", "code": "scope_denied"},
         status_code=403,
     )
+
+
+@app.exception_handler(ScopeError)
+async def _scope_err(_req, exc):
+    return JSONResponse({"detail": exc.detail}, status_code=exc.status)
 
 
 # ---------------------------------------------------------------- auth routes
@@ -1331,14 +1364,15 @@ def _account_payload(row: sqlite3.Row, latest: dict | None, txn: dict | None = N
 
 # ---------------------------------------------------------------- routes actifs
 @app.get("/api/accounts")
-async def list_accounts(request: Request):
+async def list_accounts(request: Request, member: str = ""):
     u = _need(request)
     conn = db()
+    owner = _member_target(conn, u, member) if member else u["username"]
     try:
         latest = _latest_valuations(conn)
         txns = _txn_summary(conn)
         rows = conn.execute(
-            "SELECT * FROM accounts WHERE owner=? ORDER BY asset_class, name", (u["username"],)
+            "SELECT * FROM accounts WHERE owner=? ORDER BY asset_class, name", (owner,)
         ).fetchall()
         out = [_account_payload(r, latest.get(r["id"]), txns.get(r["id"]), conn) for r in rows]
         # portefeuille : composition des comptes bourse auto (v2026.09.025)
@@ -2265,10 +2299,10 @@ async def fx_history_backfill(request: Request):
 
 # ---------------------------------------------------------------- synthèse
 @app.get("/api/summary")
-async def summary(request: Request, family: int = 0):
+async def summary(request: Request, family: int = 0, member: str = ""):
     u = _need(request)
     conn = db()
-    owners = _visible_owners(conn, u, bool(family))
+    owners = _visible_owners(conn, u, bool(family), member or None)
     wc, args = _owner_clause(owners)
     latest = _latest_valuations(conn)
     txns = _txn_summary(conn)
@@ -2344,11 +2378,11 @@ async def summary(request: Request, family: int = 0):
 
 # ---------------------------------------------------------------- historique
 @app.get("/api/history")
-async def history(request: Request, months: int = 60, family: int = 0):
+async def history(request: Request, months: int = 60, family: int = 0, member: str = ""):
     u = _need(request)
     months = max(6, min(months, 240))
     conn = db()
-    owners = _visible_owners(conn, u, bool(family))
+    owners = _visible_owners(conn, u, bool(family), member or None)
     wc, args = _owner_clause(owners)
     rows = conn.execute(
         f"SELECT id, name, asset_class, currency, fx_override, open_date, close_date, active"
@@ -2433,7 +2467,7 @@ def _month_end(y: int, m: int) -> date:
 
 
 @app.get("/api/evolution")
-async def evolution(request: Request, months: int = 12, family: int = 0):
+async def evolution(request: Request, months: int = 12, family: int = 0, member: str = ""):
     """Pourquoi le patrimoine change : décomposition additive par mois
     (Flux = dépôts − retraits − dépenses, Revenus = opérations income,
     Effet marché = résidu) + snapshots annuels par classe (dernière
@@ -2441,7 +2475,7 @@ async def evolution(request: Request, months: int = 12, family: int = 0):
     u = _need(request)
     months = max(3, min(months, 60))
     conn = db()
-    owners = _visible_owners(conn, u, bool(family))
+    owners = _visible_owners(conn, u, bool(family), member or None)
     wc, args = _owner_clause(owners)
     rows = conn.execute(
         f"SELECT id, name, asset_class, currency, fx_override, open_date, close_date, active"
@@ -2717,30 +2751,34 @@ class TxIn(BaseModel):
 
 @app.get("/api/transactions")
 async def list_transactions(request: Request, account_id: int | None = None,
-                            kind: str | None = None, limit: int = 300):
+                            kind: str | None = None, limit: int = 300,
+                            member: str = ""):
     u = _need(request)
     limit = max(1, min(limit, 1000))
-    where, args = ["a.owner=?"], [u["username"]]
-    if account_id:
-        where.append("t.account_id=?")
-        args.append(account_id)
-    if kind and kind in KIND_LABELS:
-        where.append("t.kind=?")
-        args.append(kind)
-    sql = ("SELECT t.*, a.name AS account_name, a.asset_class, a.institution FROM transactions t"
-           " JOIN accounts a ON a.id=t.account_id")
-    sql += " WHERE " + " AND ".join(where)
-    sql += " ORDER BY t.op_date DESC, t.id DESC LIMIT ?"
-    args.append(limit)
     conn = db()
-    rows = conn.execute(sql, args).fetchall()
-    conn.close()
-    out = []
-    for r in rows:
-        d = {k: r[k] for k in r.keys()}
-        d["signed"] = round(r["amount"] * KIND_SIGN.get(r["kind"], 1), 2)
-        d["kind_label"] = KIND_LABELS.get(r["kind"], r["kind"])
-        out.append(d)
+    owner = _member_target(conn, u, member) if member else u["username"]
+    try:
+        where, args = ["a.owner=?"], [owner]
+        if account_id:
+            where.append("t.account_id=?")
+            args.append(account_id)
+        if kind and kind in KIND_LABELS:
+            where.append("t.kind=?")
+            args.append(kind)
+        sql = ("SELECT t.*, a.name AS account_name, a.asset_class, a.institution FROM transactions t"
+               " JOIN accounts a ON a.id=t.account_id")
+        sql += " WHERE " + " AND ".join(where)
+        sql += " ORDER BY t.op_date DESC, t.id DESC LIMIT ?"
+        args.append(limit)
+        rows = conn.execute(sql, args).fetchall()
+        out = []
+        for r in rows:
+            d = {k: r[k] for k in r.keys()}
+            d["signed"] = round(r["amount"] * KIND_SIGN.get(r["kind"], 1), 2)
+            d["kind_label"] = KIND_LABELS.get(r["kind"], r["kind"])
+            out.append(d)
+    finally:
+        conn.close()
     return {"transactions": out, "total": len(out)}
 
 
@@ -2806,14 +2844,17 @@ def _freq_months(freq: str, months_int: int) -> int:
 
 
 @app.get("/api/income-rules")
-async def list_rules(request: Request):
+async def list_rules(request: Request, member: str = ""):
     u = _need(request)
     conn = db()
-    rows = conn.execute(
-        "SELECT r.*, a.name AS account_name FROM income_rules r JOIN accounts a ON a.id=r.account_id"
-        " WHERE a.owner=? ORDER BY r.next_date, r.label", (u["username"],)
-    ).fetchall()
-    conn.close()
+    try:
+        owner = _member_target(conn, u, member) if member else u["username"]
+        rows = conn.execute(
+            "SELECT r.*, a.name AS account_name FROM income_rules r JOIN accounts a ON a.id=r.account_id"
+            " WHERE a.owner=? ORDER BY r.next_date, r.label", (owner,)
+        ).fetchall()
+    finally:
+        conn.close()
     return {"rules": [dict(r) for r in rows]}
 
 
@@ -2884,16 +2925,19 @@ async def delete_rule(rid: int, request: Request):
 
 
 @app.get("/api/income-calendar")
-async def income_calendar(request: Request, months: int = 12):
+async def income_calendar(request: Request, months: int = 12, member: str = ""):
     u = _need(request)
     months = max(3, min(months, 36))
     conn = db()
-    rows = conn.execute(
-        "SELECT r.*, a.name AS account_name, a.asset_class FROM income_rules r"
-        " JOIN accounts a ON a.id=r.account_id WHERE r.active=1 AND a.owner=? ORDER BY r.label",
-        (u["username"],),
-    ).fetchall()
-    conn.close()
+    try:
+        owner = _member_target(conn, u, member) if member else u["username"]
+        rows = conn.execute(
+            "SELECT r.*, a.name AS account_name, a.asset_class FROM income_rules r"
+            " JOIN accounts a ON a.id=r.account_id WHERE r.active=1 AND a.owner=? ORDER BY r.label",
+            (owner,),
+        ).fetchall()
+    finally:
+        conn.close()
     today = date.today()
     end = date(today.year + (today.month - 1 + months) // 12, (today.month - 1 + months) % 12 + 1, 1)
     out = []
@@ -2932,17 +2976,20 @@ async def income_calendar(request: Request, months: int = 12):
 
 
 @app.get("/api/income-actual")
-async def income_actual(request: Request, months: int = 12):
+async def income_actual(request: Request, months: int = 12, member: str = ""):
     u = _need(request)
     months = max(3, min(months, 36))
     conn = db()
-    rows = conn.execute(
-        "SELECT substr(t.op_date,1,7) ym, SUM(t.amount) total FROM transactions t"
-        " JOIN accounts a ON a.id=t.account_id"
-        " WHERE t.kind='income' AND a.owner=? GROUP BY ym ORDER BY ym DESC LIMIT ?",
-        (u["username"], months),
-    ).fetchall()
-    conn.close()
+    try:
+        owner = _member_target(conn, u, member) if member else u["username"]
+        rows = conn.execute(
+            "SELECT substr(t.op_date,1,7) ym, SUM(t.amount) total FROM transactions t"
+            " JOIN accounts a ON a.id=t.account_id"
+            " WHERE t.kind='income' AND a.owner=? GROUP BY ym ORDER BY ym DESC LIMIT ?",
+            (owner, months),
+        ).fetchall()
+    finally:
+        conn.close()
     by_ym = {r["ym"]: r["total"] for r in rows}
     today = date.today()
     labels, totals = [], []
@@ -2956,23 +3003,24 @@ async def income_actual(request: Request, months: int = 12):
 
 
 @app.get("/api/cashflow")
-async def cashflow(request: Request, months: int = 12):
+async def cashflow(request: Request, months: int = 12, member: str = ""):
     """Projection de trésorerie : règles récurrentes (revenus ET dépenses)
     sur les mois à venir, solde cumulé à partir de la trésorerie réelle
     (dernière valorisation des comptes de classe « comptes »)."""
     u = _need(request)
     months = max(3, min(months, 36))
     conn = db()
+    owner = _member_target(conn, u, member) if member else u["username"]
     try:
         rules = conn.execute(
             "SELECT r.* FROM income_rules r JOIN accounts a ON a.id=r.account_id"
-            " WHERE r.active=1 AND a.owner=? ORDER BY r.label", (u["username"],),
+            " WHERE r.active=1 AND a.owner=? ORDER BY r.label", (owner,),
         ).fetchall()
         bal_row = conn.execute(
             "SELECT COALESCE(SUM(v.value), 0) FROM valuations v"
             " WHERE v.id IN (SELECT MAX(id) FROM valuations"
             "  WHERE account_id IN (SELECT id FROM accounts WHERE owner=? AND asset_class='comptes')"
-            "  GROUP BY account_id)", (u["username"],),
+            "  GROUP BY account_id)", (owner,),
         ).fetchone()
     finally:
         conn.close()
@@ -3179,11 +3227,11 @@ async def refresh_prices(request: Request):
 
 # ---------------------------------------------------------------- benchmarks
 @app.get("/api/benchmarks")
-async def benchmarks(request: Request, family: int = 0):
+async def benchmarks(request: Request, family: int = 0, member: str = ""):
     u = _need(request)
     conn = db()
     try:
-        owners = _visible_owners(conn, u, bool(family))
+        owners = _visible_owners(conn, u, bool(family), member or None)
         latest = _latest_valuations(conn)
         today = date.today()
         start = bench.start_ym(conn, owners, today)
@@ -3195,11 +3243,11 @@ async def benchmarks(request: Request, family: int = 0):
     finally:
         conn.close()
 @app.post("/api/refresh-benchmarks")
-async def refresh_benchmarks(request: Request, family: int = 0):
+async def refresh_benchmarks(request: Request, family: int = 0, member: str = ""):
     u = _need(request)
     conn = db()
     try:
-        owners = _visible_owners(conn, u, bool(family))
+        owners = _visible_owners(conn, u, bool(family), member or None)
         today = date.today()
         start = bench.start_ym(conn, owners, today)
         need = bench.needs(conn, start, True, today)
@@ -3208,7 +3256,7 @@ async def refresh_benchmarks(request: Request, family: int = 0):
             bench.store_levels(conn, start, charts)
     finally:
         conn.close()
-    return await benchmarks(request, family=family)
+    return await benchmarks(request, family=family, member=member)
 @app.get("/manifest.webmanifest")
 async def manifest_pwa():
     return JSONResponse(

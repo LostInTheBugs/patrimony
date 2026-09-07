@@ -2,6 +2,32 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.043] — 2026-09-07
+
+### Added
+
+- **Per-member family view (read-only consultation mode)** — Fred's design
+  2026-09-07 (« vue détaillée par membre pour la famille »):
+  - Server: `ScopeError` (+ handler) and `_member_target()`; the existing
+    `_visible_owners` scope gains `member=` — admin only, target must be a
+    standard member; a protected account answers 404 indistinguishable from
+    an unknown one (vault guarantee untouched). `member` param added to the
+    GET routes: summary, history, evolution, benchmarks,
+    refresh-benchmarks, accounts, transactions, income-rules,
+    income-calendar, income-actual, cashflow. Writes are never scoped
+    (structural guarantee); routes without the param ignore it.
+  - Front: 👁 button per standard member in the family list → consultation
+    mode on the member's own pages (Dashboard, Evolution, Assets,
+    Transactions, Income) with a banner « 👁 Consultation du membre {name}
+    (lecture seule) — ✕ Revenir à mes données »; nav reduced (no FIRE, no
+    Settings, no Moi/Famille scope switch); write buttons hidden by CSS;
+    api() rejects any non-GET while in member mode and injects `member=`
+    on GET (single injection point); FR/DE/LU/EN.
+  - Visual recipe (real data): member kelly with 2 assets (11 250 €) viewed
+    by the admin — hero shows kelly's net worth, banner FR/EN/DE/LU
+    verified, no action button visible, write guard active, exit returns to
+    Settings.
+
 ## [2026.09.042] — 2026-09-07
 
 ### Added
