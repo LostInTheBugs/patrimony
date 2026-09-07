@@ -15,9 +15,7 @@ Multi-user "family mode" (v2026.09.005+):
   rules at application level.
 """
 import calendar
-import csv
 import hashlib
-import io
 import json
 import os
 import random
@@ -42,6 +40,7 @@ from src.tax import compute as tax_compute
 from src.tax import TaxInput
 from src import fire
 from src import l10n
+from src import transfer
 from src import vault
 from src.schema import schema_data
 
@@ -2558,108 +2557,12 @@ async def version():
     return {"version": VERSION, "disclaimer": (os.environ.get("DISCLAIMER") or "").strip() or None}
 
 
-def _export_data(conn: sqlite3.Connection, username: str) -> dict:
-    """Payload JSON complet d'un propriétaire : actifs, valorisations,
-    opérations ET règles de revenu (une restauration ne doit rien perdre)."""
-    return {
-        "app": "patrimony",
-        "version": VERSION,
-        "exported_at": datetime.now(timezone.utc).isoformat(),
-        "owner": username,
-        "accounts": [dict(r) for r in conn.execute(
-            "SELECT * FROM accounts WHERE owner=?", (username,)).fetchall()],
-        "valuations": [dict(r) for r in conn.execute(
-            "SELECT v.* FROM valuations v JOIN accounts a ON a.id=v.account_id"
-            " WHERE a.owner=?", (username,)).fetchall()],
-        "transactions": [dict(r) for r in conn.execute(
-            "SELECT t.* FROM transactions t JOIN accounts a ON a.id=t.account_id"
-            " WHERE a.owner=?", (username,)).fetchall()],
-        "income_rules": [dict(r) for r in conn.execute(
-            "SELECT ir.* FROM income_rules ir JOIN accounts a ON a.id=ir.account_id"
-            " WHERE a.owner=?", (username,)).fetchall()],
-        "positions": [dict(r) for r in conn.execute(
-            "SELECT p.* FROM positions p JOIN accounts a ON a.id=p.account_id"
-            " WHERE a.owner=?", (username,)).fetchall()],
-        "dividend_events": [dict(r) for r in conn.execute(
-            "SELECT d.* FROM dividend_events d JOIN positions p ON p.id=d.position_id"
-            " JOIN accounts a ON a.id=p.account_id WHERE a.owner=?", (username,)).fetchall()],
-        "settings": [dict(r) for r in conn.execute(
-            "SELECT key, value FROM settings WHERE member=?", (username,)).fetchall()],
-    }
-
-
-def _do_import(u: sqlite3.Row, body: dict) -> str | None:
-    """Remplace les données du propriétaire par le payload. Retourne une
-    erreur lisible ou None. Transactions + règles incluses (v2026.09.019) ;
-    les fichiers anciens (actifs+valorisations seuls) restent acceptés."""
-    if body.get("app") != "patrimony" or "accounts" not in body or "valuations" not in body:
-        return "Fichier non reconnu"
-    conn = db()
-    try:
-        conn.execute("BEGIN")
-        conn.execute("DELETE FROM accounts WHERE owner=?", (u["username"],))  # cascade enfants
-        for a in body["accounts"]:
-            conn.execute(
-                "INSERT INTO accounts (id, owner, name, asset_class, institution, currency, valuation_mode,"
-                " cost_basis, fees_pct, wrapper, tax_country, loan_principal, loan_rate, loan_monthly, open_date, close_date, notes, active, created_at, updated_at)"
-                " VALUES (:id,:owner,:name,:asset_class,:institution,:currency,:valuation_mode,:cost_basis,"
-                " :fees_pct,:wrapper,:tax_country,:loan_principal,:loan_rate,:loan_monthly,:open_date,:close_date,:notes,:active,:created_at,:updated_at)",
-                {**a, "owner": u["username"], "fees_pct": a.get("fees_pct"), "wrapper": a.get("wrapper"),
-                 "tax_country": a.get("tax_country") or "",
-                 "loan_principal": a.get("loan_principal", 0), "loan_rate": a.get("loan_rate", 0),
-                 "loan_monthly": a.get("loan_monthly", 0)},
-            )
-        for v in body["valuations"]:
-            conn.execute(
-                "INSERT INTO valuations (id, account_id, val_date, value, source, note)"
-                " VALUES (:id,:account_id,:val_date,:value,:source,:note)",
-                v,
-            )
-        for t in body.get("transactions") or []:
-            conn.execute(
-                "INSERT INTO transactions (id, account_id, op_date, kind, amount, note, source_id, created_at)"
-                " VALUES (:id,:account_id,:op_date,:kind,:amount,:note,:source_id,:created_at)",
-                t,
-            )
-        for ir in body.get("income_rules") or []:
-            conn.execute(
-                "INSERT INTO income_rules (id, account_id, label, amount, freq, months_int, next_date, active, kind)"
-                " VALUES (:id,:account_id,:label,:amount,:freq,:months_int,:next_date,:active,:kind)",
-                {**ir, "kind": ir.get("kind") or "income"},
-            )
-        for p in body.get("positions") or []:
-            conn.execute(
-                "INSERT INTO positions (id, account_id, symbol, label, quantity, pru, active, created_at, updated_at)"
-                " VALUES (:id,:account_id,:symbol,:label,:quantity,:pru,:active,:created_at,:updated_at)",
-                p,
-            )
-        for d in body.get("dividend_events") or []:
-            conn.execute(
-                "INSERT INTO dividend_events (id, position_id, ex_date, per_share, note, created_at)"
-                " VALUES (:id,:position_id,:ex_date,:per_share,:note,:created_at)",
-                d,
-            )
-        conn.execute("DELETE FROM settings WHERE member=?", (u["username"],))
-        for s in body.get("settings") or []:
-            conn.execute(
-                "INSERT INTO settings (member, key, value) VALUES (?,?,?)",
-                (u["username"], s["key"], s["value"]),
-            )
-        conn.commit()
-    except Exception as e:
-        conn.rollback()
-        conn.close()
-        return f"Import impossible : {e}"
-    conn.close()
-    return None
-
-
 @app.get("/api/export")
 async def export(request: Request):
     u = _need(request)
     conn = db()
     try:
-        data = _export_data(conn, u["username"])
+        data = transfer.export_data(conn, u["username"], VERSION)
     finally:
         conn.close()
     _audit(u["username"], "Export JSON", f"{len(data['accounts'])} actifs")
@@ -2680,7 +2583,7 @@ async def export_encrypted(body: EncIn, request: Request):
         return JSONResponse({"detail": "Mot de passe trop court (8 caractères minimum)"}, status_code=400)
     conn = db()
     try:
-        data = _export_data(conn, u["username"])
+        data = transfer.export_data(conn, u["username"], VERSION)
     finally:
         conn.close()
     try:
@@ -2706,7 +2609,11 @@ async def import_encrypted(body: EncIn, request: Request):
         return JSONResponse({"detail": str(e)}, status_code=400)
     except Exception:
         return JSONResponse({"detail": "Fichier illisible"}, status_code=400)
-    err = _do_import(u, data)
+    conn = db()
+    try:
+        err = transfer.do_import(conn, u["username"], data)
+    finally:
+        conn.close()
     if err:
         return JSONResponse({"detail": err}, status_code=400)
     _audit(u["username"], "Restauration chiffrée", f"{len(data['accounts'])} actifs")
@@ -2720,53 +2627,15 @@ async def import_data(request: Request):
         body = await request.json()
     except Exception:
         return JSONResponse({"detail": "JSON invalide"}, status_code=400)
-    err = _do_import(u, body)
+    conn = db()
+    try:
+        err = transfer.do_import(conn, u["username"], body)
+    finally:
+        conn.close()
     if err:
         return JSONResponse({"detail": err}, status_code=400)
     _audit(u["username"], "Import JSON", f"{len(body['accounts'])} actifs")
     return {"ok": True}
-
-
-# ---------------------------------------------------------------- imports/exports CSV
-# Libellés humains des exports CSV : la langue suit le navigateur
-# (Accept-Language, défaut FR) — les IDENTIFIANTS restent canoniques.
-_CSV_L10N: dict[str, dict[str, dict[str, str]]] = {
-    "cls": {
-        "fr": {"comptes": "Comptes courants", "epargne": "Livrets & épargne", "bourse": "Bourse & assurances-vie",
-               "immobilier": "Immobilier", "crowdfunding": "Crowdfunding", "crypto": "Cryptomonnaies",
-               "metaux": "Métaux précieux", "divers": "Divers"},
-        "en": {"comptes": "Current accounts", "epargne": "Savings accounts", "bourse": "Stocks & life insurance",
-               "immobilier": "Real estate", "crowdfunding": "Crowdfunding", "crypto": "Cryptocurrencies",
-               "metaux": "Precious metals", "divers": "Other"},
-        "de": {"comptes": "Girokonten", "epargne": "Sparkonten", "bourse": "Aktien & Lebensversicherung",
-               "immobilier": "Immobilien", "crowdfunding": "Crowdfunding", "crypto": "Kryptowährungen",
-               "metaux": "Edelmetalle", "divers": "Sonstiges"},
-        "lb": {"comptes": "Lafend Konten", "epargne": "Spuerkonten", "bourse": "Aktien & Liewensversécherung",
-               "immobilier": "Immobilien", "crowdfunding": "Crowdfunding", "crypto": "Kryptowährungen",
-               "metaux": "Edelmetaller", "divers": "Divis"},
-    },
-    "kind": {
-        "fr": {"deposit": "Dépôt", "withdrawal": "Retrait", "income": "Revenu", "expense": "Frais / dépense"},
-        "en": {"deposit": "Deposit", "withdrawal": "Withdrawal", "income": "Income", "expense": "Fee / expense"},
-        "de": {"deposit": "Einzahlung", "withdrawal": "Auszahlung", "income": "Einkommen", "expense": "Gebühr / Ausgabe"},
-        "lb": {"deposit": "Akommes", "withdrawal": "Ofhuelen", "income": "Akommes (Zënssaz…)", "expense": "Frais / Ausgab"},
-    },
-}
-_CSV_LANG_ORDER = ("fr", "en", "de", "lb")
-
-
-def _csv_lang(request: Request) -> str:
-    hdr = request.headers.get("accept-language", "")
-    for part in hdr.split(","):
-        tag = part.strip().split(";")[0].lower()
-        base = tag.split("-")[0]
-        if base in _CSV_LANG_ORDER:
-            return base
-    return "fr"
-
-
-def _l10n_map(kind: str, lang: str) -> dict[str, str]:
-    return _CSV_L10N[kind].get(lang) or _CSV_L10N[kind]["fr"]
 
 
 class TxCsvIn(BaseModel):
@@ -2775,56 +2644,15 @@ class TxCsvIn(BaseModel):
     csv_text: str
 
 
-TX_KINDS = {"deposit", "withdrawal", "income", "expense"}
-_TX_SIGN_FLIP = {
-    "deposit": "withdrawal", "withdrawal": "deposit",
-    "income": "expense", "expense": "income",
-}
-
-
-def _csv_num(s):
-    """Montant CSV -> float ou None. Gère '1 234,56', '1.234,56', débit/crédit '(', '€'."""
-    if s is None:
-        return None
-    s = s.replace("\u00a0", " ").replace(" ", "").replace("€", "").replace("EUR", "").strip()
-    if not s:
-        return None
-    neg = s.startswith("-") or s.startswith("(")
-    s = s.lstrip("-(+").rstrip(")")
-    if "," in s and "." in s:
-        s = s.replace(".", "") if s.rfind(",") > s.rfind(".") else s.replace(",", "")
-    s = s.replace(",", ".")
-    try:
-        v = float(s)
-    except ValueError:
-        return None
-    return -v if neg else v
-
-
-def _csv_date(s):
-    """Date CSV -> 'YYYY-MM-DD' ou None. Accepte JJ/MM/AAAA, JJ.MM.AAAA, AAAA-MM-JJ…"""
-    if not s:
-        return None
-    s = s.strip().strip('"').split(" ")[0].split("T")[0]
-    for pat in ("%Y-%m-%d", "%d/%m/%Y", "%d.%m.%Y", "%Y/%m/%d", "%d-%m-%Y"):
-        try:
-            if s == datetime.strptime(s, pat).strftime(pat):
-                return datetime.strptime(s, pat).date().isoformat()
-        except ValueError:
-            continue
-    return None
-
-
 @app.post("/api/transactions/import-csv")
 async def import_tx_csv(body: TxCsvIn, request: Request):
     """Importe un CSV bancaire (opérations) dans un actif appartenant à l'utilisateur.
     Colonnes d'en-tête : date + libellé + montant (ou débit/crédit).
-    Montant négatif = type inversé (dépôt↔retrait, revenu↔dépense). Doublons ignorés."""
+    Montant négatif = type inversé (dépôt↔retrait, revenu↔dépense). Doublons ignorés.
+    Le parsing/l'insertion vivent dans src/transfer.py."""
     u = _need(request)
-    if body.default_kind not in TX_KINDS:
+    if body.default_kind not in transfer.TX_KINDS:
         return JSONResponse({"detail": "Type inconnu"}, status_code=400)
-    if not body.csv_text or len(body.csv_text) > 2_000_000:
-        return JSONResponse({"detail": "Fichier vide ou trop volumineux (2 Mo max)"}, status_code=400)
     conn = db()
     try:
         acc = conn.execute(
@@ -2832,114 +2660,22 @@ async def import_tx_csv(body: TxCsvIn, request: Request):
         ).fetchone()
         if acc is None:
             return JSONResponse({"detail": "Actif introuvable"}, status_code=404)
-        text = body.csv_text.lstrip("\ufeff")
-        first = text.splitlines()[0] if text else ""
-        delims = [d for d in (",", ";", "\t") if d in first]
-        delim = max(delims, key=first.count) if delims else ","
         try:
-            rows = list(csv.reader(io.StringIO(text), delimiter=delim))
-        except csv.Error as e:
-            return JSONResponse({"detail": f"CSV illisible : {e}"}, status_code=400)
-        if len(rows) < 2:
-            return JSONResponse({"detail": "Fichier vide (en-tête + au moins une ligne)"}, status_code=400)
-        hdr = [c.strip().lower() for c in rows[0]]
-
-        def find_col(*names):
-            for i, h in enumerate(hdr):
-                if h in names:
-                    return i
-            return None
-
-        i_date = find_col("date", "op_date", "value_date", "datetime", "date_operation")
-        i_note = find_col("note", "libelle", "label", "description", "memo", "libellé", "nom")
-        i_amt = find_col("montant", "amount", "total", "montant_euro", "valeur")
-        i_db = find_col("debit", "débit")
-        i_cr = find_col("credit", "crédit")
-        if i_date is None or (i_amt is None and i_db is None and i_cr is None):
-            return JSONResponse(
-                {"detail": "En-tête incompréhensible — colonnes attendues : date, libellé,"
-                 " montant (ou débit/crédit). Séparateur virgule, point-virgule ou tabulation."},
-                status_code=400,
-            )
-        existing = {
-            (d, round(a, 2), (n or "").strip().lower())
-            for d, a, n in conn.execute(
-                "SELECT op_date, amount, note FROM transactions WHERE account_id=?", (body.account_id,)
-            )
-        }
-        cur = conn.cursor()
-        inserted = skipped = invalid = 0
-        errors, seen = [], set()
-        for ln, r in enumerate(rows[1:], start=2):
-            if not r or not any(c.strip() for c in r):
-                continue
-            d = _csv_date(r[i_date]) if i_date < len(r) else None
-            amt = _csv_num(r[i_amt]) if i_amt is not None and i_amt < len(r) else None
-            if amt is None and (i_db is not None or i_cr is not None):
-                dbv = _csv_num(r[i_db]) if i_db is not None and i_db < len(r) else None
-                crv = _csv_num(r[i_cr]) if i_cr is not None and i_cr < len(r) else None
-                amt = (crv or 0) - (dbv or 0) if (dbv or crv) else None
-            note = (r[i_note] or "").strip()[:200] if i_note is not None and i_note < len(r) else ""
-            if d is None or amt is None:
-                invalid += 1
-                if len(errors) < 5:
-                    errors.append(f"ligne {ln} : date ou montant invalide")
-                continue
-            kind = body.default_kind if amt >= 0 else _TX_SIGN_FLIP[body.default_kind]
-            a = round(abs(amt), 2)  # montants stockés positifs (le type porte le sens, cf. add_transaction)
-            if a == 0:
-                invalid += 1
-                if len(errors) < 5:
-                    errors.append(f"ligne {ln} : montant nul")
-                continue
-            key = (d, a, note.lower())
-            if key in seen or key in existing:
-                skipped += 1
-                continue
-            cur.execute(
-                "INSERT INTO transactions (account_id, op_date, kind, amount, note) VALUES (?,?,?,?,?)",
-                (body.account_id, d, kind, a, note),
-            )
-            inserted += 1
-            seen.add(key)
-        if inserted:
-            conn.commit()
+            res = transfer.import_tx_csv(conn, body.account_id, body.default_kind, body.csv_text)
+        except transfer.TransferError as e:
+            return JSONResponse({"detail": str(e)}, status_code=e.status)
     finally:
         conn.close()
-    if invalid and inserted == 0 and skipped == 0:
-        return JSONResponse({"detail": "Aucune ligne importée — " + "; ".join(errors)}, status_code=400)
-    _audit(u["username"], "Import CSV d'opérations", f"#{body.account_id} +{inserted} "
-            f"({skipped} doublons, {invalid} invalides)")
-    return {"inserted": inserted, "skipped": skipped, "invalid": invalid, "errors": errors[:5]}
-
-
-# ---------------------------------------------------------------- exports CSV
-CSV_KINDS = {
-    "accounts": ("actifs", "SELECT * FROM accounts WHERE owner=?"),
-    "transactions": (
-        "operations",
-        "SELECT t.id, a.name AS compte, t.op_date AS date, t.kind AS type, t.amount AS montant,"
-        " t.note AS note FROM transactions t JOIN accounts a ON a.id=t.account_id WHERE a.owner=?",
-    ),
-    "valuations": (
-        "valorisations",
-        "SELECT v.id, a.name AS compte, v.val_date AS date, v.value AS valeur, v.source AS source"
-        " FROM valuations v JOIN accounts a ON a.id=v.account_id WHERE a.owner=?",
-    ),
-    "rules": (
-        "regles-revenus",
-        "SELECT r.id, a.name AS compte, r.label AS libelle, r.amount AS montant, r.freq AS frequence,"
-        " r.next_date AS prochaine_date, r.active AS active FROM income_rules r"
-        " JOIN accounts a ON a.id=r.account_id WHERE a.owner=?",
-    ),
-}
-
-
+    _audit(u["username"], "Import CSV d'opérations", f"#{body.account_id} +{res['inserted']} "
+            f"({res['skipped']} doublons, {res['invalid']} invalides)")
+    return {"inserted": res["inserted"], "skipped": res["skipped"],
+            "invalid": res["invalid"], "errors": res["errors"]}
 @app.get("/api/export/csv/{kind}")
 async def export_csv(kind: str, request: Request):
-    """Export CSV UTF-8 (BOM pour Excel) de ses propres données, par type."""
+    """Export CSV UTF-8 (BOM pour Excel) de ses propres données, par type.
+    Le contenu localisé est produit par src/transfer.py."""
     u = _need(request)
-    spec = CSV_KINDS.get(kind)
+    spec = transfer.CSV_KINDS.get(kind)
     if spec is None:
         return JSONResponse({"detail": "Type inconnu (accounts|transactions|valuations|rules)"}, status_code=404)
     fname, sql = spec
@@ -2948,32 +2684,15 @@ async def export_csv(kind: str, request: Request):
         rows = conn.execute(sql, (u["username"],)).fetchall()
     finally:
         conn.close()
-    buf = io.StringIO()
-    buf.write("\ufeff")
-    if rows:
-        cols = list(rows[0].keys())
-        lang = _csv_lang(request)
-        cls_map = _l10n_map("cls", lang)
-        kind_map = _l10n_map("kind", lang)
-        w = csv.writer(buf, lineterminator="\r\n")
-        w.writerow([l10n.csv_header(col, request.headers.get("accept-language", "")) for col in cols])
-        for r in rows:
-            row = dict(r)
-            if "asset_class" in row:
-                row["asset_class"] = cls_map.get(row["asset_class"], row["asset_class"])
-            if "type" in row:
-                row["type"] = kind_map.get(row["type"], row["type"])
-            w.writerow([row[k] for k in cols])
+    body = transfer.csv_content(rows, request.headers.get("accept-language", ""))
     _audit(u["username"], f"Export CSV ({fname})", f"{len(rows)} lignes")
     return Response(
-        buf.getvalue(),
+        body,
         media_type="text/csv; charset=utf-8",
         headers={
             "Content-Disposition": f"attachment; filename=patrimony-{kind}-{date.today().isoformat()}.csv"
         },
     )
-
-
 @app.get("/api/audit")
 async def audit_list(request: Request, limit: int = 200):
     """Journal d'audit — admin uniquement. Méta-données : jamais de montants."""

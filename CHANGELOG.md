@@ -2,6 +2,22 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.037] — 2026-09-07
+
+### Changed
+
+- **Data transfers extracted from the monolith** (v036 follow-up): the JSON
+  export payload + transactional restore (`export_data`/`do_import`), the
+  bank-CSV transaction importer (separator sniffing, FR amount/date
+  formats, dedup, per-row errors) and the localized CSV exporters (headers
+  via `src/l10n`, class/kind values via internal tables, canonical
+  identifiers kept re-importable) now live in `src/transfer.py` — a pure
+  domain module; connections are always passed in (main DB or an open
+  vault's in-memory DB, routed by the caller). `src/app.py` keeps only the
+  HTTP wrappers (guards, audit, status codes): 3,726 → 3,445 lines. Zero
+  behavior change — every message, status code and audit event preserved;
+  140 tests pass (encrypted round-trip, CSV import/export, security).
+
 ## [2026.09.036] — 2026-09-07
 
 ### Changed
