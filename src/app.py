@@ -41,6 +41,7 @@ from src.tax import TaxInput
 from src import fire
 from src import fx
 from src import l10n
+from src import mc
 from src import transfer
 from src import vault
 from src.schema import schema_data
@@ -1406,6 +1407,106 @@ async def fire_simulate(request: Request,
                                                    r_pct, i_pct, s_pct, max_years=max_years)],
     }
     return res
+
+
+@app.get("/api/fire/montecarlo")
+async def fire_montecarlo(request: Request,
+                          principal: float = -1, savings_month: float = -1,
+                          expenses_month: float = -1, pension_month: float = 0,
+                          return_pct: float = -1, inflation_pct: float = -1,
+                          swr_pct: float = -1, max_years: int = 70,
+                          n_sims: int = 2000, seed: int = -1,
+                          index: str = "iwda"):
+    """Monte-Carlo FIRE par bootstrap (v2026.09.042, design Fred 2026-09-07) :
+    même contrat que /api/fire/simulate (montants mensuels, plages, défauts
+    fire_*) mais le rendement constant est remplacé par des rendements
+    annuels réels tirés d'une série mensuelle longue (défaut : ETF monde
+    IWDA.L, profondeur maximale Yahoo, cache index_levels sous la clé
+    réservée 'mc:<key>' — invisible du comparateur de benchmarks). Sortie :
+    taux de réussite par horizon (capital jamais <= 0), capital médian à
+    l'horizon final, année médiane d'épuisement."""
+    u = _need(request)
+    conn = db()
+    try:
+        st = _get_settings(conn, u["username"])
+        r_pct = return_pct if return_pct >= 0 else st["fire_return"]
+        i_pct = inflation_pct if inflation_pct >= 0 else st["fire_inflation"]
+        s_pct = swr_pct if swr_pct >= 0 else st["fire_swr"]
+        bench_row = conn.execute(
+            "SELECT key, name, symbol FROM benchmarks WHERE key=?", (index,)
+        ).fetchone()
+    finally:
+        conn.close()
+    if principal < 0 or savings_month < 0 or expenses_month < 0 or pension_month < 0:
+        return JSONResponse({"detail": "Montants invalides (>= 0 attendus)"}, status_code=400)
+    if not (-5 <= r_pct <= 25 and 0 <= i_pct <= 15 and 0 < s_pct <= 25):
+        return JSONResponse({"detail": "Paramètres hors plage (rendement -5..25, inflation 0..15, retrait 0..25)"}, status_code=400)
+    if not (0 < max_years <= 100):
+        return JSONResponse({"detail": "Horizon invalide (1-100 ans)"}, status_code=400)
+    if not (100 <= n_sims <= 5000):
+        return JSONResponse({"detail": "n_sims invalide (100-5000)"}, status_code=400)
+    if bench_row is None or not (bench_row["symbol"] or ""):
+        return JSONResponse({"detail": "Indice inconnu (sp500|nasdaq|iwda|stoxx|cac)"}, status_code=400)
+    mkey = "mc:" + bench_row["key"]
+    yahoo = bench_row["symbol"]
+    today = date.today()
+    # 1) série longue en cache (clé réservée mc:<key>)
+    conn = db()
+    try:
+        rows = conn.execute(
+            "SELECT ym, level FROM index_levels WHERE key=? ORDER BY ym", (mkey,)
+        ).fetchall()
+    finally:
+        conn.close()
+    levels = {r["ym"]: r["level"] for r in rows}
+    # dernier point dans les 3 derniers mois ? premier point >= 15 ans en arrière ?
+    ym_now = today.year * 12 + today.month
+    recent = any((int(ym[:4]) * 12 + int(ym[5:7])) >= ym_now - 3 for ym in levels)
+    first_ok = any(ym <= f"{today.year - 15:04d}-12" for ym in levels)
+    if not levels or not recent or not first_ok:
+        # fetch profond (range max = profondeur réelle de l'ETF) dans le threadpool
+        chart = await run_in_threadpool(_yahoo_chart, yahoo, "max", "1mo")
+        if chart and chart.get("points"):
+            conn = db()
+            try:
+                for dstr, close in chart["points"]:
+                    if len(dstr) >= 7 and close is not None:
+                        conn.execute(
+                            "INSERT OR REPLACE INTO index_levels (key, ym, level) VALUES (?,?,?)",
+                            (mkey, dstr[:7], close),
+                        )
+                conn.commit()
+            finally:
+                conn.close()
+            levels = {dstr[:7]: close for dstr, close in chart["points"] if close is not None}
+    blocks = mc.make_blocks(levels)
+    if len(blocks) < 5:
+        return JSONResponse(
+            {"detail": "Série de rendements indisponible (réseau ou profondeur) — réessayez plus tard"},
+            status_code=502,
+        )
+    shallow = len(blocks) < 60  # < ~6 ans de fenêtres : résultats indicatifs
+    seed_used = seed if seed >= 0 else None
+    res = await run_in_threadpool(
+        mc.simulate, principal, savings_month * 12, expenses_month * 12,
+        pension_month * 12, r_pct, i_pct, s_pct, max_years, blocks,
+        n_sims, seed_used,
+    )
+    _audit(u["username"], "Monte-Carlo FIRE", f"{n_sims} sims x {max_years} ans "
+           f"({bench_row['key']}, {len(blocks)} blocs)")
+    year0 = datetime.now().year
+    return {
+        "year0": year0,
+        "index": bench_row["key"], "index_name": bench_row["name"],
+        "shallow": shallow,
+        "series": {"months": len(levels), "blocks": len(blocks)},
+        "n_sims": res["n_sims"], "seed_used": res["seed_used"],
+        "horizons": [{"year": year0 + h["t"], "t": h["t"], "success_pct": h["success_pct"]}
+                     for h in res["horizons"]],
+        "p50_capital_end": res["p50_capital_end"],
+        "median_exhaustion_t": res["median_exhaustion_t"],
+        "exhausted_pct": res["exhausted_pct"],
+    }
 
 
 @app.get("/api/tax-estimate")

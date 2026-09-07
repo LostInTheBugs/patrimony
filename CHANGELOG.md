@@ -2,6 +2,32 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.042] — 2026-09-07
+
+### Added
+
+- **Monte-Carlo FIRE by bootstrap** (Fred's design, 2026-09-07):
+  - `src/mc.py` (pure): 12-month rolling-block bootstrap — each simulated
+    year draws its nominal return from the real monthly series (moving
+    windows of 12 calendar months, drawn with replacement), preserving
+    annual autocorrelation without freezing cycles; every trajectory runs
+    through `fire.simulate(returns=path)` (new optional param, `None` =
+    constant rate, behavior unchanged, 147 tests).
+  - Series source: the ETF world benchmark IWDA.L fetched at Yahoo's max
+    depth via the existing infra, cached in `index_levels` under the
+    reserved `mc:<key>` key (invisible to the benchmarks comparator);
+    guardrails: < 5 blocks → 502, < 60 blocks → "indicative" flag.
+  - `GET /api/fire/montecarlo`: same contract as `/fire/simulate`
+    (monthly amounts, same ranges, fire_* member defaults) + `index`
+    (default iwda), `n_sims` (100-5000, default 2000), `seed`
+    (reproducibility). Output: success rate by horizon (capital never
+    ≤ 0, at 10y steps up to max_years), median capital at the final
+    horizon, median depletion year among failures.
+  - FIRE page: 🎲 Monte-Carlo block under the deterministic result —
+    horizons success rates, P50, median depletion, "short series" warning
+    (FR/DE/LU/EN). Visual recipe with the real IWDA series across the four
+    languages.
+
 ## [2026.09.041] — 2026-09-07
 
 ### Changed

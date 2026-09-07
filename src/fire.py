@@ -33,8 +33,14 @@ def _indexed(v0: float, i: float, t: int) -> float:
 
 
 def simulate(principal, savings_year, expenses_year, pension_year,
-             return_pct, inflation_pct, swr_pct, max_years=70):
+             return_pct, inflation_pct, swr_pct, max_years=70, returns=None):
     """Projection déterministe année par année.
+
+    returns : liste optionnelle de rendements NOMINAUX annuels (len >=
+    max_years) — la trajectoire utilise returns[t-1] pour l'année t ; None →
+    rendement constant return_pct (comportement historique INCHANGÉ). C'est
+    le point d'entrée du Monte-Carlo (src/mc.py) : chaque trajectoire passe
+    par simulate(returns=chemin) — une seule boucle à maintenir.
 
     Retour : dict {
       real_return_pct,            # rendement réel annuel (info)
@@ -60,16 +66,17 @@ def simulate(principal, savings_year, expenses_year, pension_year,
         retired = True  # déjà indépendant : la projection montre la retraite
 
     for t in range(1, max_years + 1):
+        r_t = returns[t - 1] if returns is not None else r
         idx_prev = (1.0 + i) ** (t - 1)  # indexation de l'année qui s'achève
         if not retired:
-            cap = cap * (1.0 + r) + savings_year * idx_prev
+            cap = cap * (1.0 + r_t) + savings_year * idx_prev
             target = net_exp * idx_prev / swr if swr > 0 else None
             if fire is None and target is not None and cap >= target:
                 retired = True
                 fire = {"t": t, "capital": round(cap, 2)}
         else:
             target = None
-            cap = cap * (1.0 + r) - net_exp * idx_prev
+            cap = cap * (1.0 + r_t) - net_exp * idx_prev
             if cap < 0:
                 exhausted = True
                 rows.append({"t": t, "capital": 0.0,

@@ -414,6 +414,10 @@
           <div class="muted" id="fireVerdictSub" style="font-size:13px;margin-top:4px"></div>
           <div id="fireStats" style="font-size:12px;margin-top:10px;line-height:1.8;color:#8b949e"></div>
           <div id="fireSens" style="margin-top:10px"></div>
+          <div id="mcBox" style="margin-top:12px" class="hidden">
+            <div style="font-size:13px;font-weight:600">🎲 Monte-Carlo</div>
+            <div id="mcBody" style="font-size:12px;line-height:1.8;color:#8b949e;margin-top:2px"></div>
+          </div>
         </div>
       </div>
       <div class="panel" style="margin-top:14px">
@@ -581,7 +585,7 @@ fr: {
   fireNever:'Pas d\'indépendance d\'ici {n} ans', fireNeverSub:'Essayez d\'augmenter l\'épargne, le rendement attendu, ou de réduire les dépenses — ou allongez l\'horizon.',
   fireSensT:'Sensibilité : année d\'indépendance selon le rendement', fireSensY:'Rendement {r} % → {y}', fireSensN:'Rendement {r} % → jamais',
   fireSaved:'Hypothèses enregistrées — réappliquées à la prochaine visite.', fireSaveErr:'Enregistrement impossible — vérifiez les valeurs.',
-  fireNoteT:'ⓘ Estimation déterministe : rendement net de frais supposé constant, épargne et dépenses indexées sur l\'inflation, rentes reçues jusqu\'au bout, retrait annuel net au taux choisi. Hors fiscalité des retraits — aucune garantie de performance.',
+  fireNoteT:'ⓘ Estimation déterministe : rendement net de frais supposé constant, épargne et dépenses indexées sur l\'inflation, rentes reçues jusqu\'au bout, retrait annuel net au taux choisi. Hors fiscalité des retraits — aucune garantie de performance.', mcHow:'{n} scénarios : chaque année tire son rendement de la série réelle {i} (blocs de 12 mois glissants), pas le rendement constant. Aucune valeur prédictive.', mcY:'{t} ans : {p} % de réussite', mcP50:'Capital médian restant en {y} : {c}', mcExh:'Épuisement médian : {y} ({p} % des scénarios)', mcShallow:'Série courte — résultats indicatifs.', mcUnavail:'Monte-Carlo indisponible pour le moment (série de rendements).',
   txwNeg:'Perte : aucun impôt — imputation/report non simulés (estimation mono-actif).', txwPeaHist:'PS estimés à 18,6 % (taux en vigueur au retrait) — stratification historique des gains non implémentée (⚠️ plan ouvert avant 2018).',
   txwAv2017:'Contrat ouvert avant le 27/09/2017 : ancien régime non modélisé — ordre de grandeur seulement.', txwLuImmo:'Coefficients de réévaluation monétaire LU non appliqués — impôt surestimé pour les détentions longues.',
   txwLuAv:'Rachat très précoce (< 6 mois) : imposition au barème possible selon doctrine — non confirmé officiellement.', txwMissDate:'Date d\'acquisition manquante — renseignez-la pour estimer.',
@@ -725,7 +729,7 @@ en: {
   fireNever:'No independence within {n} years', fireNeverSub:'Try raising savings or the expected return, or cutting expenses — or lengthen the horizon.',
   fireSensT:'Sensitivity: independence year by return', fireSensY:'{r} % return → {y}', fireSensN:'{r} % return → never',
   fireSaved:'Assumptions saved — reapplied on your next visit.', fireSaveErr:'Could not save — check the values.',
-  fireNoteT:'ⓘ Deterministic estimate: constant net-of-fees return, savings and expenses indexed on inflation, annuities received throughout, net annual withdrawal at the chosen rate. Excludes withdrawal taxes — no performance guarantee.',
+  fireNoteT:'ⓘ Deterministic estimate: constant net-of-fees return, savings and expenses indexed on inflation, annuities received throughout, net annual withdrawal at the chosen rate. Excludes withdrawal taxes — no performance guarantee.', mcHow:'{n} scenarios: each year draws its return from the real {i} series (12-month rolling blocks), not the constant rate. No predictive value.', mcY:'{t}y: {p}% success', mcP50:'Median capital left in {y}: {c}', mcExh:'Median depletion: {y} ({p}% of scenarios)', mcShallow:'Short series — indicative results.', mcUnavail:'Monte-Carlo unavailable right now (returns series).',
   txwNeg:'Loss: no tax — offset/carryover not simulated (single-asset estimate).', txwPeaHist:'Social contributions estimated at 18.6% (rate at withdrawal) — historical layering not implemented (⚠️ plan opened before 2018).',
   txwAv2017:'Contract opened before 27/09/2017: former regime not modelled — order of magnitude only.', txwLuImmo:'LU monetary revaluation coefficients not applied — tax overestimated for long holdings.',
   txwLuAv:'Very early redemption (< 6 months): progressive taxation possible per doctrine — not officially confirmed.', txwMissDate:'Missing acquisition date — set it to estimate.',
@@ -869,7 +873,7 @@ de: {
   fireNever:'Keine Unabhängigkeit innerhalb von {n} Jahren', fireNeverSub:'Sparrate oder Renditeerwartung erhöhen oder Ausgaben senken — oder den Horizont verlängern.',
   fireSensT:'Sensitivität: Jahr der Unabhängigkeit nach Rendite', fireSensY:'Rendite {r} % → {y}', fireSensN:'Rendite {r} % → nie',
   fireSaved:'Annahmen gespeichert — bei Ihrem nächsten Besuch wieder angewendet.', fireSaveErr:'Speichern fehlgeschlagen — Werte prüfen.',
-  fireNoteT:'ⓘ Deterministische Schätzung: konstante Netto-Rendite, Sparen und Ausgaben inflationsindexiert, Renten laufen weiter, jährliche Nettoentnahme zum gewählten Satz. Ohne Besteuerung der Entnahmen — keine Gewähr auf Performance.',
+  fireNoteT:'ⓘ Deterministische Schätzung: konstante Netto-Rendite, Sparen und Ausgaben inflationsindexiert, Renten laufen weiter, jährliche Nettoentnahme zum gewählten Satz. Ohne Besteuerung der Entnahmen — keine Gewähr auf Performance.', mcHow:'{n} Szenarien: jedes Jahr zieht seine Rendite aus der realen Serie {i} (gleitende 12-Monats-Fenster), nicht den konstanten Zinssatz. Kein Prognosewert.', mcY:'{t} Jahre: {p} % Erfolg', mcP50:'Median-Kapital in {y}: {c}', mcExh:'Median-Erschöpfung: {y} ({p} % der Szenarien)', mcShallow:'Kurze Serie — nur Hinweis.', mcUnavail:'Monte-Carlo derzeit nicht verfügbar (Renditeserie).',
   txwNeg:'Verlust: keine Steuer — Verrechnung/Vortrag nicht simuliert (Einzelvermögen-Schätzung).', txwPeaHist:'Sozialabgaben mit 18,6 % geschätzt (Satz bei Abhebung) — historische Schichtung nicht implementiert (⚠️ Plan vor 2018 eröffnet).',
   txwAv2017:'Vertrag vor dem 27.09.2017 eröffnet: altes Regime nicht modelliert — nur Größenordnung.', txwLuImmo:'LU-Geldentwertungsfaktoren nicht angewendet — Steuer bei langen Haltedauern überschätzt.',
   txwLuAv:'Sehr früher Rückkauf (< 6 Monate): Besteuerung nach Tarif möglich (Lehre) — nicht offiziell bestätigt.', txwMissDate:'Erwerbsdatum fehlt — bitte angeben.',
@@ -1012,7 +1016,7 @@ lu: {
   fireNever:'Keng Onofhängegkeet bannent {n} Joer', fireNeverSub:'Erhéicht d\'Spueren oder d\'Renditerwaardung, oder reduzéiert d\'Ausgaben — oder verlängert den Horizont.',
   fireSensT:'Sensibilitéit: Joer vun der Onofhängegkeet no Rendit', fireSensY:'Rendit {r} % → {y}', fireSensN:'Rendit {r} % → ni',
   fireSaved:'Unnerstellungen gespäichert — bei Ärem nächste Besuch erëm ugewannt.', fireSaveErr:'Späicheren net méiglech — Wäerter préifen.',
-  fireNoteT:'ⓘ Deterministesch Schätzung: konstant Netto-Rendit, Spueren an Ausgaben inflatiounsindexéiert, Renten lafe weider, jährlech Nettoentnam zum gewielten Taux. Ouni Steiere vun den Entnamen — keng Garantie op Performance.',
+  fireNoteT:'ⓘ Deterministesch Schätzung: konstant Netto-Rendit, Spueren an Ausgaben inflatiounsindexéiert, Renten lafe weider, jährlech Nettoentnam zum gewielten Taux. Ouni Steiere vun den Entnamen — keng Garantie op Performance.', mcHow:'{n} Szenarien: all Joer zitt seng Rendite aus der realer Serie {i} (glidderend 12-Mount-Fënsteren), net de konstante Zënssaz. Kee Prévisiounswäert.', mcY:'{t} Joer: {p} % Erfolleg', mcP50:'Mediankapital am Joer {y}: {c}', mcExh:'Median-Erschöpfung: {y} ({p} % vun de Szenarien)', mcShallow:'Kuerz Serie — just eng Indikatioun.', mcUnavail:'Monte-Carlo momentan net disponibel (Renditeserie).',
   txwNeg:'Verloscht: keng Steier — Verrechnung/Virdro net simuléiert (Schätzung eenzel Actif).', txwPeaHist:'Sozialbäiträg mat 18,6 % geschat (Saz bei Retrait) — historesch Schichtung net implementéiert (⚠️ Plan virun 2018 opgemaach).',
   txwAv2017:'Kontrakt virum 27.09.2017 opgemaach: aalt Regime net modelliséiert — nëmme Gréisstenuerdnung.', txwLuImmo:'LU-Geldentwäertungsfaktoren net applizéiert — Steier bei laange Besëtzdauer iwwerschat.',
   txwLuAv:'Ganz fréie Réckkaf (< 6 Méint): Besteierung nom Tarif méiglech (Doctrine) — net offiziell confirméiert.', txwMissDate:'Acquisitiounsdatum feelt — gitt et un fir ze schätzen.',
@@ -2575,6 +2579,29 @@ async function fireSim() {
     });
   }
   ns.textContent = t('fireNoteT');
+  // Monte-Carlo par bootstrap (v2026.09.042) : mêmes entrées que /simulate —
+  // le rendement constant est remplacé par des tirages de la série réelle.
+  const mc = $('mcBox'), mcb = $('mcBody');
+  if (mc && mcb) {
+    mc.classList.remove('hidden');
+    mcb.innerHTML = '<span class="muted">'+esc(t('loading'))+'…</span>';
+    try {
+      const m = await api('/api/fire/montecarlo?' + q);
+      const hs = m.horizons.map(h =>
+        esc(tF('mcY', {t: h.t, p: String(h.success_pct).replace('.', ',')}))).join(' · ');
+      const lastY = m.horizons[m.horizons.length - 1].year;
+      mcb.innerHTML =
+        '<div class="muted">'+esc(tF('mcHow', {n: m.n_sims, i: m.index_name || m.index}))+'</div>'+
+        '<div style="font-size:14px;margin:2px 0">'+hs+'</div>'+
+        '<div>'+esc(tF('mcP50', {y: lastY, c: mon(m.p50_capital_end)}))+'</div>'+
+        (m.median_exhaustion_t != null
+          ? '<div>'+esc(tF('mcExh', {y: m.year0 + Math.round(m.median_exhaustion_t),
+              p: String(m.exhausted_pct).replace('.', ',')}))+'</div>' : '')+
+        (m.shallow ? '<div style="color:#e6a23c">'+esc(t('mcShallow'))+'</div>' : '');
+    } catch(e) {
+      mcb.innerHTML = '<span class="muted">'+esc(t('mcUnavail'))+'</span>';
+    }
+  }
 }
 
 async function fireSaveH() {
