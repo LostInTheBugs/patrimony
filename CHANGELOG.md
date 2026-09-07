@@ -2,6 +2,22 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.038] — 2026-09-07
+
+### Changed
+
+- **FX & benchmarks extracted from the monolith** (v037 follow-up): ECB
+  rates (`src/fx.py` — EUR-currency lookups with manual override priority,
+  freshness warning, daily/historical XML parsers, blocking fetches, stores)
+  and index benchmarks (`src/bench.py` — cashflows, level fetching split
+  needs→charts→store so network runs in the threadpool while SQLite writes
+  stay on the handler thread, synthetic Livret A curve, per-index
+  annualized + same-deposits simulation, user line) are now pure domain
+  modules. `src/app.py` keeps the HTTP wrappers: 3,445 → 3,178 lines. Zero
+  behavior change — every message, status code and audit event preserved;
+  140 tests pass (FX conversions, ECB parsers, history backfill, benchmarks
+  simulation).
+
 ## [2026.09.037] — 2026-09-07
 
 ### Changed

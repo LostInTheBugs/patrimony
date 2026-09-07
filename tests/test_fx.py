@@ -19,6 +19,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import src.app as app
+from src import fx
 
 PWD = "member-pass-2026"
 
@@ -140,15 +141,15 @@ def test_fx_benchmarks_and_ecb_parser_and_refresh(admin_c, monkeypatch):
    <Cube currency="USD" rate="1.0842"/><Cube currency="GBP" rate="0.8456"/>
    <Cube currency="JPY" rate="161.23"/><Cube currency="XXX" rate="12.0"/>
  </Cube></Cube></gesmes:Envelope>"""
-    parsed = app._parse_ecb_xml(xml)
+    parsed = fx.parse_daily(xml)
     assert ("USD", "2026-09-04", 1.0842) in parsed and ("JPY", "2026-09-04", 161.23) in parsed
     assert len(parsed) == 4  # XXX n'est pas filtré par le parser (filtrage à l'insertion)
 
     # refresh mocké : insert des taux BCE du jour (fonction SYNCHRONE : le
-    # routeur l'exécute dans le threadpool)
-    def fake_fetch():
+    # routeur l'exécute dans le threadpool — signature fetch(ua))
+    def fake_fetch(ua=None):
         return parsed
-    monkeypatch.setattr(app, "_ecb_fetch_http", fake_fetch)
+    monkeypatch.setattr(fx, "fetch_daily", fake_fetch)
     r = admin_c.post("/api/fx/refresh")
     assert r.status_code == 200, r.text
     j = r.json()
@@ -170,23 +171,21 @@ def test_fx_history_backfill_month_ends_and_deep_conversion(admin_c, monkeypatch
     """Backfill /api/fx/history : une seule fin de mois par devise/mois, et
     une valorisation ancienne convertie avec le taux de fin de mois <= sa date
     (plus de repli 'taux le plus ancien' pour les historiques profonds)."""
-    from src.app import _parse_ecb_hist
-
     sample = """<?xml version="1.0" encoding="UTF-8"?>
 <gesmes:Envelope xmlns:gesmes="http://www.gesmes.org/xml/2002-08-01" xmlns="http://www.ecb.int/vocabulary/2002-08-01/eurofxref">
 <Cube><Cube time="2020-01-15"><Cube currency="USD" rate="1.1100"/><Cube currency="GBP" rate="0.8500"/></Cube>
 <Cube time="2020-01-31"><Cube currency="USD" rate="1.1000"/><Cube currency="GBP" rate="0.8600"/></Cube>
 <Cube time="2020-02-15"><Cube currency="USD" rate="1.0800"/><Cube currency="GBP" rate="0.8400"/></Cube></Cube></gesmes:Envelope>"""
-    rows = _parse_ecb_hist(sample)
+    rows = fx.parse_hist(sample)
     by = {(c, d) for c, d, _ in rows}
     assert ("USD", "2020-01-31") in by  # le MAX du mois gagne, pas le 15
     assert ("USD", "2020-01-15") not in by
     assert ("USD", "2020-02-15") in by  # jour unique du mois → retenu
     assert len(rows) == 4
 
-    monkeypatch.setattr(app, "_ecb_fetch_hist_http",
-                         lambda: [("USD", "2020-01-31", 1.10), ("GBP", "2020-01-31", 0.86),
-                                  ("USD", "2020-02-15", 1.08)])
+    monkeypatch.setattr(fx, "fetch_hist",
+                        lambda ua=None: [("USD", "2020-01-31", 1.10), ("GBP", "2020-01-31", 0.86),
+                                         ("USD", "2020-02-15", 1.08)])
     c = _member(admin_c, "fx-hist2")
     r = c.post("/api/fx/history")
     assert r.status_code == 200, r.text

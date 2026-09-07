@@ -39,10 +39,14 @@ from src.backup_crypto import decrypt_bytes, encrypt_bytes
 from src.tax import compute as tax_compute
 from src.tax import TaxInput
 from src import fire
+from src import fx
 from src import l10n
 from src import transfer
 from src import vault
 from src.schema import schema_data
+from src import bench
+
+FX_SUPPORTED = fx.SUPPORTED  # liste canonique des devises (module src/fx.py)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 PUBLIC_DIR = BASE_DIR / "public"
@@ -1305,16 +1309,16 @@ def _account_payload(row: sqlite3.Row, latest: dict | None, txn: dict | None = N
     p["fx_override"] = row["fx_override"]
     p["fx"] = None
     if latest and ccy != "EUR":
-        fx = _fx_lookup(conn, ccy, latest["date"], row["fx_override"]) if conn else None
-        if fx is None:
+        fxr = fx.lookup(conn, ccy, latest["date"], row["fx_override"]) if conn else None
+        if fxr is None:
             p["fx"] = {"rate": None, "value_eur": None, "error": "rate_missing"}
         else:
             p["fx"] = {
-                "rate": fx["rate"],
-                "date": fx["date"],
-                "source": fx["source"],
-                "value_eur": round(latest["value"] / fx["rate"], 2),
-                "stale": _fx_warn(fx, latest["date"]),
+                "rate": fxr["rate"],
+                "date": fxr["date"],
+                "source": fxr["source"],
+                "value_eur": round(latest["value"] / fxr["rate"], 2),
+                "stale": fx.warn(fxr, latest["date"]),
             }
     return p
 
@@ -1800,10 +1804,10 @@ def _pos_quote_eur(conn: sqlite3.Connection, symbol: str, d: str | None = None) 
     if ccy in ("", "EUR"):
         out["price_eur"] = px["price"]
     else:
-        fx = _fx_lookup(conn, ccy, d or date.today().isoformat(), None)
-        if fx is None:
+        fxr = fx.lookup(conn, ccy, d or date.today().isoformat(), None)
+        if fxr is None:
             return None
-        out["price_eur"] = px["price"] / fx["rate"]
+        out["price_eur"] = px["price"] / fxr["rate"]
     return out
 
 
@@ -2103,7 +2107,6 @@ async def add_valuation(aid: int, body: ValIn, request: Request):
 
 # ---------------------------------------------------------------- multi-devises
 # Devises manuelles supportées (taux BCE « 1 EUR = X devises »). EUR = référence.
-FX_SUPPORTED = ["EUR", "USD", "CHF", "GBP", "JPY", "CAD", "AUD"]
 FX_META = {
     "EUR": {"symbol": "€", "label": "Euro"},
     "USD": {"symbol": "$", "label": "US Dollar"},
@@ -2113,139 +2116,26 @@ FX_META = {
     "CAD": {"symbol": "C$", "label": "Dollar canadien"},
     "AUD": {"symbol": "A$", "label": "Dollar australien"},
 }
-FX_ECB_URL = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml"
-# Historique complet BCE (depuis 1999) : backfill des fins de mois pour les
-# conversions des historiques anciens (le fichier fait ~8 Mo, une seule passe)
-FX_ECB_HIST_URL = "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist.xml"
-
-
-def _fx_lookup(conn: sqlite3.Connection, ccy: str, d: str | None, override: float | None = None) -> dict | None:
-    """Taux EUR pour `ccy` le jour `d` (ou taux le plus proche dispo) :
-    rate = unités de `ccy` pour 1 EUR → EUR = valeur / rate.
-    Priorité : override manuel de l'actif > taux BCE <= d > taux BCE le plus
-    ancien. Retourne {rate, date, source} ou None (ccy EUR ⇒ rate 1)."""
-    if ccy in (None, "", "EUR"):
-        return {"rate": 1.0, "date": None, "source": "fixed"}
-    if override:
-        return {"rate": float(override), "date": None, "source": "manual"}
-    row = None
-    if d:
-        row = conn.execute(
-            "SELECT rate, rate_date, source FROM fx_rates WHERE ccy=? AND rate_date<=?"
-            " ORDER BY rate_date DESC LIMIT 1", (ccy, d)
-        ).fetchone()
-    if row is None:
-        row = conn.execute(
-            "SELECT rate, rate_date, source FROM fx_rates WHERE ccy=?"
-            " ORDER BY rate_date ASC LIMIT 1", (ccy,)
-        ).fetchone()
-    if row is None:
-        return None
-    return {"rate": row["rate"], "date": row["rate_date"], "source": row["source"]}
-
-
-def _fx_warn(rate: dict | None, d: str | None) -> bool:
-    """⚠️ taux BCE âgé de plus de 7 jours (saisie manuelle honnête)."""
-    if not rate or rate["source"] == "manual" or rate["date"] is None:
-        return False
-    try:
-        return (date.fromisoformat(d or rate["date"]) - date.fromisoformat(rate["date"])).days > 7
-    except ValueError:
-        return False
-
-
-def _parse_ecb_xml(xml_text: str) -> list[tuple[str, str, float]]:
-    """(ccy, YYYY-MM-DD, rate) depuis le XML BCE (eurofxref-daily)."""
-    import xml.etree.ElementTree as ET
-
-    out = []
-    root = ET.fromstring(xml_text)
-    ns = "{http://www.ecb.int/vocabulary/2002-08-01/eurofxref}"
-    day = None
-    for cube in root.iter(ns + "Cube"):
-        if "time" in cube.attrib:
-            day = cube.attrib["time"]
-        elif "currency" in cube.attrib and day:
-            try:
-                out.append((cube.attrib["currency"], day, float(cube.attrib["rate"])))
-            except (ValueError, KeyError):
-                continue
-    return out
-
-
-def _ecb_fetch_http() -> list[tuple[str, str, float]]:
-    """Rates du jour BCE — BLOQUANT, exécuté dans le threadpool."""
-    req = urllib.request.Request(FX_ECB_URL, headers={**YAHOO_UA, "Accept": "application/xml"})
-    with urllib.request.urlopen(req, timeout=12) as r:
-        return _parse_ecb_xml(r.read().decode("utf-8"))
-
-
-async def _fx_refresh(conn: sqlite3.Connection) -> tuple[int, str | None]:
-    """Rate du jour BCE → fx_rates. Retourne (nb ccy, date) ; None si échec."""
-    try:
-        rates = await run_in_threadpool(_ecb_fetch_http)
-    except Exception:
-        return 0, None
-    if not rates:
-        return 0, None
-    today = date.today().isoformat()
-    for ccy, day, rate in rates:
-        if ccy in FX_SUPPORTED and day <= today:
-            conn.execute(
-                "INSERT OR REPLACE INTO fx_rates (ccy, rate_date, rate, source) VALUES (?,?,?, 'ecb')",
-                (ccy, day, rate),
-            )
-    conn.commit()
-    return len([r for r in rates if r[0] in FX_SUPPORTED]), today
-
-
 @app.post("/api/fx/refresh")
 async def fx_refresh(request: Request):
-    """Met à jour les taux de change (BCE). Appel réseau dans le threadpool."""
+    """Met à jour les taux de change (BCE). Appel réseau dans le threadpool
+    (fetch sans connexion — les écritures restent dans le handler)."""
     u = _need(request)
+    try:
+        rates = await run_in_threadpool(fx.fetch_daily, YAHOO_UA)
+    except Exception:
+        rates = []
+    if not rates:
+        return JSONResponse({"detail": "BCE injoignable — réessayez plus tard"}, status_code=502)
     conn = db()
     try:
-        n, day = await _fx_refresh(conn)
+        n, day = fx.store_daily(conn, rates)
     finally:
         conn.close()
     if n == 0:
         return JSONResponse({"detail": "BCE injoignable — réessayez plus tard"}, status_code=502)
     _audit(u["username"], "Mise à jour des taux", f"{n} devises")
     return {"updated": n, "asof": day}
-
-
-def _parse_ecb_hist(xml_text: str) -> list[tuple[str, str, float]]:
-    """Fins de mois (dernier jour BCE dispo du mois) sur l'historique complet :
-    (ccy, YYYY-MM-DD, rate) — un seul taux par devise et par mois."""
-    import xml.etree.ElementTree as ET
-
-    root = ET.fromstring(xml_text)
-    ns = "{http://www.ecb.int/vocabulary/2002-08-01/eurofxref}"
-    last: dict[tuple[str, str], tuple[str, float]] = {}  # (ccy, ym) -> (day, rate)
-    day = None
-    for cube in root.iter(ns + "Cube"):
-        if "time" in cube.attrib:
-            day = cube.attrib["time"]
-        elif "currency" in cube.attrib and day:
-            ccy = cube.attrib["currency"]
-            try:
-                rate = float(cube.attrib["rate"])
-            except (ValueError, KeyError):
-                continue
-            ym = day[:7]
-            prev = last.get((ccy, ym))
-            if prev is None or day > prev[0]:
-                last[(ccy, ym)] = (day, rate)
-    return [(ccy, d, r) for (ccy, _ym), (d, r) in last.items()]
-
-
-def _ecb_fetch_hist_http() -> list[tuple[str, str, float]]:
-    """Fins de mois BCE (historique depuis 1999) — BLOQUANT, threadpool."""
-    req = urllib.request.Request(FX_ECB_HIST_URL, headers={**YAHOO_UA, "Accept": "application/xml"})
-    with urllib.request.urlopen(req, timeout=45) as r:
-        return _parse_ecb_hist(r.read().decode("utf-8"))
-
-
 @app.post("/api/fx/history")
 async def fx_history_backfill(request: Request):
     """Backfill idempotent des fins de mois BCE (conversions historiques
@@ -2253,21 +2143,14 @@ async def fx_history_backfill(request: Request):
     fois ; INSERT OR REPLACE, aucune donnée existante touchée."""
     u = _need(request)
     try:
-        rates = await run_in_threadpool(_ecb_fetch_hist_http)
+        rates = await run_in_threadpool(fx.fetch_hist, YAHOO_UA)
     except Exception:
-        return JSONResponse({"detail": "BCE injoignable — réessayez plus tard"}, status_code=502)
+        rates = []
     if not rates:
         return JSONResponse({"detail": "BCE injoignable — réessayez plus tard"}, status_code=502)
     conn = db()
     try:
-        for ccy, day, rate in rates:
-            if ccy in FX_SUPPORTED:
-                conn.execute(
-                    "INSERT OR REPLACE INTO fx_rates (ccy, rate_date, rate, source) VALUES (?,?,?, 'ecb')",
-                    (ccy, day, rate),
-                )
-        conn.commit()
-        months = len({day[:7] for ccy, day, _ in rates if ccy in FX_SUPPORTED})
+        months = fx.store_hist(conn, rates)
     finally:
         conn.close()
     _audit(u["username"], "Taux historiques", f"backfill {months} mois")
@@ -2299,13 +2182,13 @@ async def summary(request: Request, family: int = 0):
         cost = t["cost"] if t else (r["cost_basis"] or 0.0)
         ccy = r["currency"] or "EUR"
         # conversion EUR : valeur et coût au taux du jour de la valorisation
-        fx = _fx_lookup(conn, ccy, lv["date"], r["fx_override"])
-        if fx is None:
+        fxr = fx.lookup(conn, ccy, lv["date"], r["fx_override"])
+        if fxr is None:
             fx_missing.append(r["name"])  # actif non convertible → exclu des totaux EUR
             continue
         fx_applied = True
-        value_eur = lv["value"] / fx["rate"] if ccy != "EUR" else lv["value"]
-        cost_eur = cost / fx["rate"] if (cost and ccy != "EUR") else cost
+        value_eur = lv["value"] / fxr["rate"] if ccy != "EUR" else lv["value"]
+        cost_eur = cost / fxr["rate"] if (cost and ccy != "EUR") else cost
         c = by_class[r["asset_class"]]
         c["value"] += value_eur
         c["count"] += 1
@@ -2315,10 +2198,10 @@ async def summary(request: Request, family: int = 0):
         total_cost += cost_eur
         # crédit lié (v2026.09.033) : passif converti au même taux que la valo
         if r["asset_class"] == "immobilier" and r["loan_principal"]:
-            debt_eur = r["loan_principal"] / fx["rate"] if ccy != "EUR" else r["loan_principal"]
+            debt_eur = r["loan_principal"] / fxr["rate"] if ccy != "EUR" else r["loan_principal"]
             total_debt += debt_eur
-        if fx.get("date"):
-            fx_dates.add(fx["date"])
+        if fxr.get("date"):
+            fx_dates.add(fxr["date"])
         if asof is None or lv["date"] > asof:
             asof = lv["date"]
     conn.close()
@@ -2394,7 +2277,7 @@ async def history(request: Request, months: int = 60, family: int = 0):
                 continue
             val = 0.0
             ccy = r["currency"] or "EUR"
-            fx = None
+            fxr = None
             for vd, vv in by_acc.get(r["id"], []):
                 if vd <= end_str:
                     val = vv
@@ -2402,11 +2285,11 @@ async def history(request: Request, months: int = 60, family: int = 0):
                     break
             if val and ccy != "EUR":
                 # taux BCE au plus proche ≤ fin de mois (sinon override manuel)
-                fx = _fx_lookup(conn, ccy, end_str, r["fx_override"])
-                if fx is None:
+                fxr = fx.lookup(conn, ccy, end_str, r["fx_override"])
+                if fxr is None:
                     val = 0.0  # actif non convertible : exclu de ce mois (approximation assumée)
                 else:
-                    val = val / fx["rate"]
+                    val = val / fxr["rate"]
             series[r["asset_class"]].append(round(val, 2))
             msum += val
         for k in CLASS_KEYS:
@@ -2434,8 +2317,8 @@ def _snap_value(conn, r, by_acc, d_iso):
         else:
             break
     if val and (r["currency"] or "EUR") != "EUR":
-        fx = _fx_lookup(conn, r["currency"], d_iso, r["fx_override"])
-        val = 0.0 if fx is None else val / fx["rate"]
+        fxr = fx.lookup(conn, r["currency"], d_iso, r["fx_override"])
+        val = 0.0 if fxr is None else val / fxr["rate"]
     return val
 
 
@@ -3046,10 +2929,10 @@ async def refresh_prices(request: Request):
         ccy_q = q.get("currency") or "EUR"
         if ccy_q in ("", "EUR"):
             return q["price"], None
-        fx = _fx_lookup(conn, ccy_q, today, None)
-        if fx is None:
+        fxr = fx.lookup(conn, ccy_q, today, None)
+        if fxr is None:
             try:  # taux manquant : un seul appel BCE, puis échec propre
-                rates = await run_in_threadpool(_ecb_fetch_http)
+                rates = await run_in_threadpool(fx.fetch_daily, YAHOO_UA)
                 for cc2, day, rate in rates:
                     if cc2 in FX_SUPPORTED and day <= today:
                         conn.execute(
@@ -3057,12 +2940,12 @@ async def refresh_prices(request: Request):
                             " VALUES (?,?,?, 'ecb')", (cc2, day, rate),
                         )
                 conn.commit()
-                fx = _fx_lookup(conn, ccy_q, today, None)
+                fxr = fx.lookup(conn, ccy_q, today, None)
             except Exception:
-                fx = None
-        if fx is None:
+                fxr = None
+        if fxr is None:
             return None, "taux de change indisponible (BCE)"
-        return q["price"] / fx["rate"], None
+        return q["price"] / fxr["rate"], None
 
     def chart_factor(symbol: str) -> float:
         """close (devise de cotation) → EUR : même conversion que le cours du
@@ -3189,187 +3072,37 @@ async def refresh_prices(request: Request):
 
 
 # ---------------------------------------------------------------- benchmarks
-def _account_cashflows(conn: sqlite3.Connection, owners: list[str]) -> tuple[list[tuple[str, float]], float]:
-    """Flux nets par actif des propriétaires donnés : opérations si présentes,
-    sinon coût manuel à l'ouverture. Retourne (flows triés, total déposé)."""
-    wc, args = _owner_clause(owners)
-    rows = conn.execute(
-        f"SELECT id, open_date, created_at, cost_basis FROM accounts WHERE active=1 AND {wc}", args
-    ).fetchall()
-    txn_rows = conn.execute(
-        "SELECT t.account_id, t.op_date, t.kind, t.amount FROM transactions t"
-        f" JOIN accounts a ON a.id=t.account_id WHERE t.kind IN ('deposit','withdrawal') AND {wc}", args
-    ).fetchall()
-    by_acc: dict[int, list[tuple[str, float]]] = {}
-    for t in txn_rows:
-        amt = t["amount"] if t["kind"] == "deposit" else -t["amount"]
-        by_acc.setdefault(t["account_id"], []).append((t["op_date"][:10], round(amt, 2)))
-    flows: list[tuple[str, float]] = []
-    for r in rows:
-        if r["id"] in by_acc:
-            flows.extend(by_acc[r["id"]])
-        elif r["cost_basis"]:
-            d = (r["open_date"] or r["created_at"] or "")[:10]
-            flows.append((d, round(r["cost_basis"], 2)))
-    flows.sort(key=lambda x: x[0])
-    deposited = round(sum(a for _, a in flows if a > 0), 2)
-    return flows, deposited
-
-
-def _bench_fetch_http(bench_needs: list[tuple[str, str, int]]) -> list[tuple[str, dict | None]]:
-    """Fetch Yahoo des niveaux manquants — BLOQUANT, exécuté dans le threadpool.
-    bench_needs: (key, symbol, années) -> [(key, chart|None), ...]"""
-    out = []
-    for key, symbol, years in bench_needs:
-        try:
-            out.append((key, _yahoo_chart(symbol, f"{years}y", "1mo")))
-        except Exception:
-            out.append((key, None))
-    return out
-
-
-async def _fetch_bench_levels(conn: sqlite3.Connection, start_ym: str, force: bool = False) -> None:
-    """Complète index_levels. Les appels réseau partent dans le threadpool :
-    l'event loop reste libre (le GET /api/benchmarks déclenche ce remplissage)."""
-    benches = conn.execute("SELECT key, name, symbol FROM benchmarks WHERE symbol<>''").fetchall()
-    today = date.today()
-    need: list[tuple[str, str, int]] = []
-    for b in benches:
-        y, m = int(start_ym[:4]), int(start_ym[5:7])
-        missing = conn.execute(
-            "SELECT COUNT(*) c FROM index_levels WHERE key=? AND ym>=?", (b["key"], start_ym)
-        ).fetchone()["c"]
-        span_months = (today.year - y) * 12 + (today.month - m) + 1
-        if not force and missing >= min(span_months, 2):
-            continue
-        years = max(1, min(10, today.year - y + 1))
-        need.append((b["key"], b["symbol"], years))
-    if need:
-        for key, chart in await run_in_threadpool(_bench_fetch_http, need):
-            if not chart:
-                continue
-            for dstr, close in chart["points"]:
-                if dstr[:7] < start_ym:
-                    continue
-                conn.execute(
-                    "INSERT OR REPLACE INTO index_levels (key, ym, level) VALUES (?,?,?)",
-                    (key, dstr[:7], close),
-                )
-    conn.commit()
-
-
 @app.get("/api/benchmarks")
 async def benchmarks(request: Request, family: int = 0):
     u = _need(request)
     conn = db()
-    owners = _visible_owners(conn, u, bool(family))
-    flows, deposited = _account_cashflows(conn, owners)
-    today = date.today()
-    if flows:
-        fy = date.fromisoformat(flows[0][0])
-    else:
-        fy = date(today.year - 4, today.month, 1)
-    start_ym = f"{fy.year:04d}-{fy.month:02d}"
-    await _fetch_bench_levels(conn, start_ym)
-    lvl_rows = conn.execute("SELECT key, ym, level FROM index_levels").fetchall()
-    levels: dict[str, dict[str, float]] = {}
-    for r in lvl_rows:
-        levels.setdefault(r["key"], {})[r["ym"]] = r["level"]
-    rate = 2.2
-    bench_row = conn.execute("SELECT annual_pct FROM benchmarks WHERE key='livret'").fetchone()
-    if bench_row and bench_row["annual_pct"]:
-        rate = bench_row["annual_pct"]
-    lv = levels.setdefault("livret", {})
-    y0, m0 = int(start_ym[:4]), int(start_ym[5:7])
-    n = 0
-    d = date(y0, m0, 1)
-    while d <= today:
-        lv[d.strftime("%Y-%m")] = (1 + rate / 100 / 12) ** n
-        n += 1
-        d = date(d.year + d.month // 12, d.month % 12 + 1, 1)
-    latest = _latest_valuations(conn)
-    wc, args = _owner_clause(owners)
-    tot_value = 0.0
-    for r in conn.execute(
-        f"SELECT id, currency, fx_override FROM accounts WHERE active=1 AND {wc}", args
-    ).fetchall():
-        l = latest.get(r["id"])
-        if l:
-            ccy = r["currency"] or "EUR"
-            if ccy != "EUR":
-                fx = _fx_lookup(conn, ccy, l["date"], r["fx_override"])
-                if fx is None:
-                    continue  # actif non convertible : exclu du benchmark utilisateur
-                tot_value += l["value"] / fx["rate"]
-            else:
-                tot_value += l["value"]
-    benches = [dict(r) for r in conn.execute("SELECT * FROM benchmarks").fetchall()]
-    conn.close()
-
-    rows_out = []
-    end_ym = None
-    for b in benches:
-        lk = levels.get(b["key"], {})
-        yms = sorted(lk.keys())
-        if not yms:
-            continue
-        first, last = yms[0], yms[-1]
-        end_ym = last if end_ym is None else max(end_ym, last)
-        l_first, l_last = lk[first], lk[last]
-        span_m = (int(last[:4]) - int(first[:4])) * 12 + (int(last[5:7]) - int(first[5:7]))
-        annualized = None
-        if span_m >= 3 and l_first > 0:
-            annualized = round(((l_last / l_first) ** (12 / span_m) - 1) * 100, 2)
-        sim_value = sim_gain = None
-        if flows and l_last > 0:
-            sv = 0.0
-            for fdate, famt in flows:
-                fym = fdate[:7]
-                if fym < first:
-                    fym = first
-                elif fym > last:
-                    fym = last
-                lf = lk.get(fym)
-                if lf:
-                    sv += famt * (l_last / lf)
-            sim_value = round(sv, 2)
-            sim_gain = round(sv - deposited, 2)
-        rows_out.append({
-            "key": b["key"], "name": b["name"], "symbol": b["symbol"],
-            "note": b["note"], "annualized": annualized, "sim_value": sim_value,
-            "sim_gain": sim_gain, "first_ym": first, "last_ym": last,
-        })
-    rows_out.sort(key=lambda x: (x["annualized"] is None, -(x["annualized"] or 0)))
-    user_ann = None
-    user_net = round(sum(a for _, a in flows), 2) if flows else 0.0
-    if flows and user_net > 0 and tot_value:
-        d0 = date.fromisoformat(flows[0][0])
-        days = max(1, (today - d0).days)
-        ratio = tot_value / user_net - 1
-        if ratio > -1:
-            user_ann = round(((1 + ratio) ** (365 / days) - 1) * 100, 2)
-    user = {
-        "deposited": deposited, "net": user_net, "value": round(tot_value, 2),
-        "gain": round(tot_value - user_net, 2) if user_net else None,
-        "annualized": user_ann, "first_ym": start_ym, "last_ym": today.strftime("%Y-%m"),
-    }
-    return {"user": user, "benchmarks": rows_out, "end_ym": end_ym}
-
-
+    try:
+        owners = _visible_owners(conn, u, bool(family))
+        latest = _latest_valuations(conn)
+        today = date.today()
+        start = bench.start_ym(conn, owners, today)
+        need = bench.needs(conn, start, False, today)
+        if need:
+            charts = await run_in_threadpool(bench.fetch_charts, need, _yahoo_chart)
+            bench.store_levels(conn, start, charts)
+        return bench.build(conn, owners, latest, start, today)
+    finally:
+        conn.close()
 @app.post("/api/refresh-benchmarks")
 async def refresh_benchmarks(request: Request, family: int = 0):
     u = _need(request)
     conn = db()
-    owners = _visible_owners(conn, u, bool(family))
-    flows, _ = _account_cashflows(conn, owners)
-    today = date.today()
-    fy = date.fromisoformat(flows[0][0]) if flows else date(today.year - 4, today.month, 1)
-    await _fetch_bench_levels(conn, f"{fy.year:04d}-{fy.month:02d}", force=True)
-    conn.close()
+    try:
+        owners = _visible_owners(conn, u, bool(family))
+        today = date.today()
+        start = bench.start_ym(conn, owners, today)
+        need = bench.needs(conn, start, True, today)
+        if need:
+            charts = await run_in_threadpool(bench.fetch_charts, need, _yahoo_chart)
+            bench.store_levels(conn, start, charts)
+    finally:
+        conn.close()
     return await benchmarks(request, family=family)
-
-
-# ---------------------------------------------------------------- statique
 @app.get("/manifest.webmanifest")
 async def manifest_pwa():
     return JSONResponse(
