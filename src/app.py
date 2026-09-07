@@ -43,6 +43,7 @@ from src.backup_crypto import decrypt_bytes, encrypt_bytes
 from src.tax import compute as tax_compute
 from src.tax import TaxInput
 from src import fire
+from src import l10n
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 PUBLIC_DIR = BASE_DIR / "public"
@@ -902,6 +903,41 @@ def _guard_owned_account(conn: sqlite3.Connection, aid: int, owner: str) -> bool
 
 app = FastAPI(title="Patrimony", docs_url=None, redoc_url=None)
 app.middleware("http")(_vault_ctx_mw)
+
+
+@app.middleware("http")
+async def _l10n_middleware(request: Request, call_next):
+    """Localisation serveur (v2026.09.035) : le code émet toujours le FR
+    (source lisible, repli par défaut) ; cette couche traduit les réponses
+    JSON selon Accept-Language — messages d'erreur (detail) et disclaimer.
+    Exports exclus (content-disposition) ; toute erreur de traduction
+    renvoie la réponse originale intacte."""
+    response = await call_next(request)
+    ct = response.headers.get("content-type", "")
+    if not ct.startswith("application/json") or response.headers.get("content-disposition"):
+        return response
+    al = request.headers.get("accept-language", "")
+    chunks = []
+    try:
+        async for chunk in response.body_iterator:
+            chunks.append(chunk)
+        body = b"".join(chunks)
+        if b'"detail"' in body or b'"disclaimer"' in body:
+            data = json.loads(body.decode("utf-8"))
+            if isinstance(data, dict):
+                if isinstance(data.get("detail"), str):
+                    data["detail"] = l10n.translate_detail(data["detail"], al)
+                if isinstance(data.get("disclaimer"), str):
+                    data["disclaimer"] = l10n.translate_disclaimer(data["disclaimer"], al)
+            body = json.dumps(data, ensure_ascii=False).encode("utf-8")
+        hdrs = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
+        return Response(content=body, status_code=response.status_code,
+                        headers=hdrs, media_type=ct)
+    except Exception:
+        hdrs = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
+        body = b"".join(chunks)
+        return Response(content=body, status_code=response.status_code,
+                        headers=hdrs, media_type=ct)
 
 
 @app.exception_handler(PermissionError)
@@ -3385,7 +3421,7 @@ async def export_csv(kind: str, request: Request):
         cls_map = _l10n_map("cls", lang)
         kind_map = _l10n_map("kind", lang)
         w = csv.writer(buf, lineterminator="\r\n")
-        w.writerow(cols)
+        w.writerow([l10n.csv_header(col, request.headers.get("accept-language", "")) for col in cols])
         for r in rows:
             row = dict(r)
             if "asset_class" in row:

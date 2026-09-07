@@ -1171,7 +1171,7 @@ function applyI18n() {
 
 /* ---------------- formats & api ---------------- */
 async function api(path, opts={}) {
-  const r = await fetch(path, Object.assign({headers:{'Content-Type':'application/json'}}, opts));
+  const r = await fetch(path, Object.assign({headers:{'Content-Type':'application/json','Accept-Language':LANG}}, opts));
   let d = {};
   try { d = await r.json(); } catch(e) {}
   if (r.status === 401 && !path.includes('/auth/login')) { showLogin(); throw new Error('auth'); }
@@ -2830,7 +2830,7 @@ async function exportData() {
 }
 async function dlCsv(kind) {
   try {
-    const r = await fetch('/api/export/csv/'+kind, {credentials:'same-origin'});
+    const r = await fetch('/api/export/csv/'+kind, {credentials:'same-origin', headers:{'Accept-Language':LANG}});
     if (!r.ok) throw new Error((await r.json().catch(()=>({}))).detail || ('HTTP '+r.status));
     const a = document.createElement('a');
     a.href = URL.createObjectURL(await r.blob());
