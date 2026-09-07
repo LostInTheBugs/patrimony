@@ -64,7 +64,7 @@
   #sideFoot button{width:100%;text-align:left;display:flex;gap:10px;align-items:center;background:none;border:none;color:var(--muted);padding:9px 12px;border-radius:9px;font-size:13px;font-weight:600}
   #sideFoot button:hover{background:#1a2230;color:var(--text)}
   #sideFoot button.on{background:#2c2a18;color:var(--gold2)}
-  #main{margin-left:210px;flex:1;padding:22px 26px;max-width:1180px}
+  #main{margin-left:210px;flex:1;padding:22px 26px;max-width:1180px;min-width:0} /* min-width:0 : flex item — sinon le contenu (tables…) étire la page en mobile */
   .page-title{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap}
   .page-title h1{font-size:19px;font-weight:800;letter-spacing:.3px}
   .page-title h1 .gold{color:var(--gold2)}
@@ -182,10 +182,10 @@
   @media (max-width:900px){
     #sidebar{width:auto;right:0;flex-direction:row;align-items:center;top:auto;bottom:0;border-top:1px solid var(--border);border-right:none;padding:4px 6px env(safe-area-inset-bottom);z-index:30}
     .side-brand{display:none}
-    nav{flex-direction:row;padding:0;justify-content:space-around}
-    nav a{flex-direction:column;gap:2px;font-size:9.5px;padding:6px 10px}
+    nav{flex:1 1 auto;flex-direction:row;overflow-x:auto;overflow-y:hidden;justify-content:flex-start;padding:0 2px;scrollbar-width:thin;min-width:0}
+    nav a{flex:0 0 auto;flex-direction:column;gap:2px;font-size:9.5px;padding:6px 10px}
     nav a span.e{font-size:15px}
-    #sideFoot{display:flex;border-top:none;padding:0}
+    #sideFoot{display:flex;border-top:none;padding:0;flex:0 0 auto}
     #sideFoot button{flex-direction:column;gap:2px;justify-content:center;padding:6px 8px;font-size:9px;width:auto}
     #main{margin-left:0;padding:14px 12px 84px}
     .chart-row{grid-template-columns:1fr}
@@ -194,6 +194,24 @@
   }
   @media (max-width:640px){
     .chartbox{height:260px}
+    /* anti-zoom iOS : un champ < 16 px déclenche le zoom au focus */
+    input,select,textarea{font-size:16px}
+    .toolbar input[type=search]{width:100%}
+    .grid2{grid-template-columns:1fr}
+    .formrow{flex-wrap:wrap}
+    .formrow label{flex:1 0 100%}
+    .hero{padding:16px}
+    .hero .big{font-size:24px}
+    .page-title h1{font-size:17px}
+    .params{grid-template-columns:1fr}
+    .cards{grid-template-columns:repeat(2,1fr);min-width:0}
+    .card{min-width:0}
+    .card .v{font-size:17px}
+    .modal-card{max-width:96vw}
+    .modal-card.wide{overflow-x:auto}
+    .modal-card.wide table{min-width:520px}
+    /* nav swipeable : dernier onglet accessible même barre pleine */
+    #sideFoot button{padding:6px 6px}
   }
 </style>
 </head>

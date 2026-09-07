@@ -2,6 +2,32 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.044] — 2026-09-07
+
+### Fixed
+
+- **Mobile pass (Fred's design 2026-09-07, no redesign — CSS only)** —
+  audited and fixed every surface at a 390 px viewport (iPhone, DPR 3):
+  - Root cause of page-wide horizontal overflow: `#main` is a flex item
+    without `min-width:0`, so it followed the max-content of its children
+    (tables) — fixed globally; `document.scrollWidth` is now 390 on every
+    page.
+  - Bottom bar: nav was left without `flex-direction:row` after the
+    v2026.09.043 patch (7 links stacked vertically over half the screen) —
+    restored; nav is now a swipeable row (`overflow-x:auto`, `flex:1`,
+    `flex:0 0 auto` links) with the Discreet/Log out actions pinned on the
+    right; bar height 52 px, safe-area padding kept.
+  - ≤ 640 px: inputs/selects/textareas at 16 px (iOS auto-zoom below 16),
+    `.grid2` and `.formrow` single-column, stat cards 2×2 (`min-width:0`),
+    params grid single column, search full width, hero/page-title tuned,
+    modals ≤ 96vw with `.wide` tables scrolling internally
+    (`min-width:520px`).
+  - Visual verification at 390 px (CDP device emulation, fresh browser
+    session): zero document overflow on login/dash/evolution/assets/
+    transactions/income/fire/settings; member view banner wraps cleanly;
+    screenshots reviewed by eye for dashboard, assets, FIRE, settings and
+    the account + positions modals.
+
 ## [2026.09.043] — 2026-09-07
 
 ### Added
