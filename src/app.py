@@ -15,10 +15,8 @@ Multi-user "family mode" (v2026.09.005+):
   rules at application level.
 """
 import calendar
-import base64
 import csv
 import hashlib
-import hmac
 import io
 import json
 import os
@@ -44,6 +42,8 @@ from src.tax import compute as tax_compute
 from src.tax import TaxInput
 from src import fire
 from src import l10n
+from src import vault
+from src.schema import schema_data
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 PUBLIC_DIR = BASE_DIR / "public"
@@ -55,8 +55,6 @@ SEED_DEMO = os.environ.get("SEED_DEMO", "0") == "1"
 VERSION = (BASE_DIR / "VERSION").read_text().strip() if (BASE_DIR / "VERSION").exists() else "0.0.0"
 COOKIE = "pat_session"
 TTL_DAYS = 30
-# Verrouillage automatique du coffre après inactivité (minutes, 0 = désactivé)
-VAULT_IDLE_MIN = int(os.environ.get("VAULT_IDLE_MIN", "30"))
 # Anti-force-brute du login : MAX échecs par (IP, compte) et par compte, fenêtre glissante
 LOGIN_MAX_FAILS = int(os.environ.get("LOGIN_MAX_FAILS", "5"))
 LOGIN_WINDOW_SEC = int(os.environ.get("LOGIN_WINDOW_SEC", "900"))
@@ -154,39 +152,15 @@ def fetch_quote(symbol: str, asset_class: str) -> dict | None:
 
 # ---------------------------------------------------------------- db
 _CTX: ContextVar = ContextVar("pat_vault_ctx", default=None)
-# username -> coffre ouvert {conn, dek, sessions:{token: dernier usage (monotonic)}}
-# État MONO-PROCESS : ne pas lancer uvicorn avec --workers > 1 ni multi-réplicas
-# (les coffres ouverts vivent dans la mémoire du process).
-_VAULTS: dict[str, dict] = {}
-_VAULT_GUARD = threading.Lock()
+# État des coffres ouverts (mono-process) : vit dans src/vault.py —
+# alias ci-dessous pour les routes et les tests white-box (même objet).
+_VAULTS = vault.VAULTS
+_VAULT_GUARD = vault.GUARD
 _LOGIN_GUARD = threading.Lock()
 _LOGIN_FAILS: dict[str, list[float]] = {}  # "ip|user" ou "u|user" -> échecs (monotonic)
 
-try:
-    from cryptography.hazmat.primitives.ciphers.aead import AESGCM as _AESGCM
-except Exception:  # pragma: no cover - dépendance requise (requirements.txt)
-    _AESGCM = None
 
 
-class _VConn(sqlite3.Connection):
-    """Connexion SQLite du coffre : partagée et persistante entre les requêtes.
-    close() est neutralisé (les handlers ferment systématiquement leur
-    connexion en fin de route — ils ne doivent pas tuer la base du coffre) ;
-    la fermeture réelle passe par _hard_close() (garbage-collection du coffre)."""
-
-    def __init__(self, *a, **kw):
-        super().__init__(*a, **kw)
-        self._vault_dirty = False
-
-    def commit(self):
-        super().commit()
-        self._vault_dirty = True
-
-    def close(self):
-        pass
-
-    def _hard_close(self):
-        super().close()
 
 
 def db() -> sqlite3.Connection:
@@ -215,154 +189,6 @@ def _admin_username() -> str:
     return os.environ.get("ADMIN_USER", "admin").strip() or "admin"
 
 
-def _schema_data(conn: sqlite3.Connection) -> None:
-    """Schéma des tables de DONNÉES (utilisé par la base principale ET par la
-    base mémoire d'un coffre protégé) + migrations idempotentes + seed
-    benchmarks. users/sessions ne sont PAS dans ce schéma (auth = principal)."""
-    conn.executescript(
-        """
-        CREATE TABLE IF NOT EXISTS accounts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            owner TEXT NOT NULL DEFAULT '',
-            name TEXT NOT NULL,
-            asset_class TEXT NOT NULL,
-            institution TEXT DEFAULT '',
-            currency TEXT DEFAULT 'EUR',
-            valuation_mode TEXT DEFAULT 'manual',
-            cost_basis REAL DEFAULT 0,
-            fx_override REAL,
-            open_date TEXT,
-            close_date TEXT,
-            notes TEXT DEFAULT '',
-            active INTEGER DEFAULT 1,
-            fees_pct REAL,
-            wrapper TEXT,
-            tax_country TEXT DEFAULT '',
-            created_at TEXT DEFAULT (datetime('now')),
-            updated_at TEXT
-        );
-        CREATE TABLE IF NOT EXISTS valuations (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-            val_date TEXT NOT NULL,
-            value REAL NOT NULL,
-            source TEXT DEFAULT 'manual',
-            note TEXT DEFAULT ''
-        );
-        CREATE INDEX IF NOT EXISTS idx_vals_acc_date ON valuations(account_id, val_date);
-        CREATE TABLE IF NOT EXISTS transactions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-            op_date TEXT NOT NULL,
-            kind TEXT NOT NULL,
-            amount REAL NOT NULL,
-            note TEXT DEFAULT '',
-            source_id TEXT,
-            created_at TEXT DEFAULT (datetime('now'))
-        );
-        CREATE INDEX IF NOT EXISTS idx_tx_acc_date ON transactions(account_id, op_date);
-        CREATE TABLE IF NOT EXISTS income_rules (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-            label TEXT NOT NULL,
-            amount REAL NOT NULL,
-            freq TEXT NOT NULL DEFAULT 'monthly',
-            months_int INTEGER DEFAULT 1,
-            next_date TEXT NOT NULL,
-            active INTEGER DEFAULT 1,
-            kind TEXT NOT NULL DEFAULT 'income'
-        );
-        CREATE TABLE IF NOT EXISTS prices (
-            symbol TEXT PRIMARY KEY,
-            price REAL,
-            currency TEXT DEFAULT '',
-            ts TEXT
-        );
-        CREATE TABLE IF NOT EXISTS benchmarks (
-            key TEXT PRIMARY KEY,
-            name TEXT NOT NULL,
-            symbol TEXT DEFAULT '',
-            annual_pct REAL DEFAULT 0,
-            note TEXT DEFAULT ''
-        );
-        CREATE TABLE IF NOT EXISTS index_levels (
-            key TEXT NOT NULL,
-            ym TEXT NOT NULL,
-            level REAL NOT NULL,
-            PRIMARY KEY (key, ym)
-        );
-        CREATE TABLE IF NOT EXISTS fx_rates (
-            ccy TEXT NOT NULL,
-            rate_date TEXT NOT NULL,
-            rate REAL NOT NULL,
-            source TEXT NOT NULL DEFAULT 'ecb',
-            PRIMARY KEY (ccy, rate_date)
-        );
-        CREATE TABLE IF NOT EXISTS positions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-            symbol TEXT NOT NULL,
-            label TEXT DEFAULT '',
-            quantity REAL NOT NULL DEFAULT 0,
-            pru REAL,
-            active INTEGER DEFAULT 1,
-            created_at TEXT DEFAULT (datetime('now')),
-            updated_at TEXT
-        );
-        CREATE INDEX IF NOT EXISTS idx_positions_account ON positions(account_id);
-        CREATE TABLE IF NOT EXISTS dividend_events (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            position_id INTEGER NOT NULL REFERENCES positions(id) ON DELETE CASCADE,
-            ex_date TEXT NOT NULL,
-            per_share REAL NOT NULL,
-            note TEXT DEFAULT '',
-            created_at TEXT DEFAULT (datetime('now')),
-            UNIQUE (position_id, ex_date)
-        );
-        CREATE TABLE IF NOT EXISTS settings (
-            member TEXT NOT NULL,
-            key TEXT NOT NULL,
-            value REAL NOT NULL,
-            PRIMARY KEY (member, key)
-        );
-        """
-    )
-    for col, ddl in (
-        ("symbol", "ALTER TABLE accounts ADD COLUMN symbol TEXT DEFAULT ''"),
-        ("quantity", "ALTER TABLE accounts ADD COLUMN quantity REAL DEFAULT 0"),
-        ("owner", "ALTER TABLE accounts ADD COLUMN owner TEXT DEFAULT ''"),
-        ("fx_override", "ALTER TABLE accounts ADD COLUMN fx_override REAL"),
-        ("fees_pct", "ALTER TABLE accounts ADD COLUMN fees_pct REAL"),
-        ("wrapper", "ALTER TABLE accounts ADD COLUMN wrapper TEXT"),
-        ("tax_country", "ALTER TABLE accounts ADD COLUMN tax_country TEXT DEFAULT ''"),
-        ("loan_principal", "ALTER TABLE accounts ADD COLUMN loan_principal REAL NOT NULL DEFAULT 0"),
-        ("loan_rate", "ALTER TABLE accounts ADD COLUMN loan_rate REAL NOT NULL DEFAULT 0"),
-        ("loan_monthly", "ALTER TABLE accounts ADD COLUMN loan_monthly REAL NOT NULL DEFAULT 0"),
-    ):
-        try:
-            conn.execute(ddl)
-        except sqlite3.OperationalError:
-            pass  # colonne déjà présente
-    try:
-        conn.execute("ALTER TABLE income_rules ADD COLUMN kind TEXT NOT NULL DEFAULT 'income'")
-    except sqlite3.OperationalError:
-        pass  # colonne déjà présente
-    try:
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_acc_owner ON accounts(owner, asset_class)")
-    except sqlite3.OperationalError:
-        pass
-    # seed indices
-    conn.executemany(
-        "INSERT OR IGNORE INTO benchmarks (key, name, symbol, annual_pct, note) VALUES (?,?,?,?,?)",
-        [
-            ("sp500", "S&P 500", "^GSPC", 0, ""),
-            ("nasdaq", "Nasdaq Composite", "^IXIC", 0, ""),
-            ("iwda", "MSCI World (IWDA)", "IWDA.L", 0, "ETF capitalisant en EUR"),
-            ("stoxx", "STOXX Europe 600", "^STOXX", 0, ""),
-            ("cac", "CAC 40", "^FCHI", 0, ""),
-            ("livret", "Livret A", "", 2.2, "taux réglementé, saisi manuellement"),
-        ],
-    )
 
 
 def init_db() -> None:
@@ -416,7 +242,7 @@ def init_db() -> None:
         );
         """
     )
-    _schema_data(conn)
+    schema_data(conn)
     # migrations idempotentes (bases antérieures à v2026.09.010)
     for col, ddl in (
         ("display_name", "ALTER TABLE users ADD COLUMN display_name TEXT DEFAULT ''"),
@@ -587,157 +413,9 @@ def _add_months(_y: int, m: int) -> date:
 
 
 # ---------------------------------------------------------------- coffres (comptes protégés)
-def _b64e(b: bytes) -> str:
-    return base64.b64encode(b).decode()
-
-
-def _b64d(s: str) -> bytes:
-    return base64.b64decode(s)
-
-
-_CANARY_PT = b"patrimony-vault-key-canary-v1"
-
-
-def _vault_canary(dek: bytes) -> str:
-    """Valeur témoin chiffrée par la DEK : permet de vérifier une clé fournie
-    SANS déchiffrer tout le blob (open à chaud)."""
-    nonce = secrets.token_bytes(12)
-    ct = _AESGCM(dek).encrypt(nonce, _CANARY_PT, None)
-    return _b64e(nonce + ct)
-
-
-def _vault_check_canary(dek: bytes, canary_b64: str) -> bool:
-    if not canary_b64:
-        return True  # coffre hérité (pré-v011) : la preuve est le déchiffrement du blob à froid
-    try:
-        raw = _b64d(canary_b64)
-        _AESGCM(dek).decrypt(raw[:12], raw[12:], None)
-        return True
-    except Exception:
-        return False
-
-
-def _vault_store_canary(username: str, canary_b64: str) -> None:
-    m = db_main()
-    try:
-        m.execute("UPDATE vaults SET canary=? WHERE username=?", (canary_b64, username))
-        m.commit()
-    finally:
-        m.close()
-
-
-def _vault_mem_new(dek: bytes) -> sqlite3.Connection:
-    """Base mémoire vide d'un coffre (schéma de données complet)."""
-    if _AESGCM is None:
-        raise RuntimeError("cryptography manquante (pip install cryptography)")
-    # check_same_thread=False : la connexion vit au-delà du handler qui l'a
-    # créée et sert les requêtes suivantes (worker du pool différent sous
-    # TestClient/anyio) — SQLite est compilé en mode serialized et les
-    # accès concurrents sont déjà gardés par _VAULT_GUARD.
-    conn = sqlite3.connect(":memory:", factory=_VConn, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    _schema_data(conn)
-    # clôt la transaction éventuelle du seed sans marquer dirty (le backup vers
-    # une destination en transaction échoue : « destination database is in use »)
-    sqlite3.Connection.commit(conn)
-    return conn
-
-
-def _vault_mem_from_blob(dek: bytes, blob_b64: str) -> sqlite3.Connection:
-    """Base mémoire d'un coffre déchiffrée depuis vaults.blob.
-    Jamais de clair sur le disque : deserialize() reste en mémoire ; repli
-    fichier temporaire uniquement si le SQLite du runtime ne le supporte pas
-    (nettoyé en finally)."""
-    conn = _vault_mem_new(dek)
-    if not blob_b64:
-        return conn
-    nonce_ct = _b64d(blob_b64)
-    raw = _AESGCM(dek).decrypt(nonce_ct[:12], nonce_ct[12:], None)
-    try:
-        conn.deserialize(raw)
-    except sqlite3.Error:
-        tmp = DATA_DIR / f".vault_{os.getpid()}.tmp"
-        tmp.write_bytes(raw)
-        try:
-            src = sqlite3.connect(f"file:{tmp}?mode=ro", uri=True)
-            try:
-                src.backup(conn)
-            finally:
-                src.close()
-        finally:
-            tmp.unlink(missing_ok=True)
-    # coffres antérieurs à v2026.09.025 : schéma sans positions/dividend_events
-    # ni fees_pct — CREATE/ALTER idempotents après la restauration
-    _schema_data(conn)
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
-
-
-def _vault_flush(username: str, v: dict) -> None:
-    """Re-chiffre la base mémoire du coffre et met à jour vaults.blob."""
-    conn = v["conn"]
-    if conn is None or not conn._vault_dirty:
-        return
-    # annule d'éventuels résidus non commités (le backup échouerait sinon)
-    sqlite3.Connection.rollback(conn)
-    try:
-        # serialize() reste en mémoire : AUCUN clair sur le disque. Repli
-        # fichier temporaire si le SQLite du runtime ne le supporte pas —
-        # supprimé en finally (un crash entre backup et unlink ne laisse
-        # plus de .vault_tmp_* en clair derrière lui).
-        raw = conn.serialize()
-    except sqlite3.Error:
-        tmp = DATA_DIR / f".vault_tmp_{username}.db"
-        dst = sqlite3.connect(tmp)
-        try:
-            conn.backup(dst)
-            raw = tmp.read_bytes()
-        finally:
-            dst.close()
-            tmp.unlink(missing_ok=True)
-    nonce = secrets.token_bytes(12)
-    blob = nonce + _AESGCM(v["dek"]).encrypt(nonce, raw, None)
-    m = db_main()
-    try:
-        m.execute(
-            "UPDATE vaults SET blob=?, updated_at=datetime('now') WHERE username=?",
-            (_b64e(blob), username),
-        )
-        m.commit()
-    finally:
-        m.close()
-    conn._vault_dirty = False
-
-
-def _vault_gc(username: str, v: dict) -> None:
-    """Purge les sessions expirées OU inactives (auto-lock) ; ferme le coffre
-    si plus aucune session."""
-    if not v["sessions"]:
-        if v["conn"] is not None:
-            _vault_flush(username, v)
-            try:
-                v["conn"]._hard_close()
-            except sqlite3.ProgrammingError:
-                pass
-            v["conn"] = None
-        _VAULTS.pop(username, None)
-        return
-    m = db_main()
-    try:
-        now = datetime.now(timezone.utc).isoformat()
-        idle_cut = time.monotonic() - VAULT_IDLE_MIN * 60 if VAULT_IDLE_MIN > 0 else 0
-        for tok, last in list(v["sessions"].items()):
-            if idle_cut and last < idle_cut:
-                v["sessions"].pop(tok, None)  # inactivité → verrouillage
-            elif not m.execute(
-                "SELECT 1 FROM sessions WHERE token=? AND expires_at>?", (tok, now)
-            ).fetchone():
-                v["sessions"].pop(tok, None)  # session expirée (TTL 30 j)
-    finally:
-        m.close()
-    if not v["sessions"]:
-        _vault_gc(username, v)
+# Le domaine coffre (état, chiffrement, canary, flush, auto-lock, clé de
+# récupération) vit dans src/vault.py — ce fichier ne garde que la couche
+# HTTP : gardes d'authentification, audit et ce middleware de persistance.
 
 
 async def _vault_ctx_mw(request: Request, call_next):
@@ -752,25 +430,25 @@ async def _vault_ctx_mw(request: Request, call_next):
     resp = await call_next(request)
     token = request.cookies.get(COOKIE)
     if token:
+        conn = db_main()
         try:
-            conn = db_main()
             try:
                 row = conn.execute(
                     "SELECT u.username FROM sessions s JOIN users u ON u.username=s.username"
                     " WHERE s.token=? AND s.expires_at>?",
                     (token, datetime.now(timezone.utc).isoformat()),
                 ).fetchone()
-            finally:
-                conn.close()
-        except Exception:
-            row = None
-        if row:
-            with _VAULT_GUARD:
-                v = _VAULTS.get(row["username"])
-                if v is not None and token in v["sessions"]:
-                    v["conn"].rollback()  # annule d'éventuels résidus non commités
-                    _vault_flush(row["username"], v)
-                    _vault_gc(row["username"], v)
+            except Exception:
+                row = None
+            if row:
+                with _VAULT_GUARD:
+                    v = _VAULTS.get(row["username"])
+                    if v is not None and token in v["sessions"]:
+                        v["conn"].rollback()  # annule d'éventuels résidus non commités
+                        vault.flush(row["username"], v, conn)
+                        vault.gc(row["username"], v, conn)
+        finally:
+            conn.close()
     return resp
 
 
@@ -782,17 +460,6 @@ class TokenScopeDenied(Exception):
     """Jeton API à portée 'capture' utilisé hors de ses deux appels autorisés."""
 
 
-def _copy_rows(src: sqlite3.Connection, dst: sqlite3.Connection, table: str, where: str, args: tuple) -> None:
-    """Copie les lignes d'une table (base principale → base du coffre)."""
-    cols = [r["name"] for r in src.execute(f"PRAGMA table_info({table})").fetchall()]
-    rows = src.execute(f"SELECT * FROM {table} WHERE {where}", args).fetchall()
-    if not rows:
-        return
-    ph = ",".join("?" * len(cols))
-    dst.executemany(
-        f"INSERT INTO {table} ({','.join(cols)}) VALUES ({ph})",
-        [tuple(r[c] for c in cols) for r in rows],
-    )
 
 
 # ---------------------------------------------------------------- auth
@@ -1086,11 +753,7 @@ async def login(body: LoginIn, request: Request, response: Response):
     _login_clear(user_key)
     _login_clear(per_key)
     token = _mk_session(conn, uname)
-    vault = None
-    if row["mode"] == "protected":
-        vault = conn.execute(
-            "SELECT salt, wrapped, r_auth FROM vaults WHERE username=?", (row["username"],)
-        ).fetchone()
+    materials = vault.public_materials(conn, row["username"]) if row["mode"] == "protected" else None
     conn.close()
     response.set_cookie(
         COOKIE, token, max_age=TTL_DAYS * 86400, httponly=True, samesite="lax", secure=COOKIE_SECURE
@@ -1100,10 +763,10 @@ async def login(body: LoginIn, request: Request, response: Response):
         "ok": True,
         "mode": row["mode"],
         "must_change": bool(row["must_change"]),
-        "vault_init": vault is not None,
-        "salt": vault["salt"] if vault else "",
-        "wrapped": vault["wrapped"] if vault else "",
-        "recovery_armed": bool(vault and vault["r_auth"]),
+        "vault_init": materials is not None,
+        "salt": (materials or {}).get("salt", ""),
+        "wrapped": (materials or {}).get("wrapped", ""),
+        "recovery_armed": bool(materials and materials["recovery_armed"]),
     }
 
 
@@ -1122,7 +785,7 @@ async def logout(request: Request, response: Response):
                 if v is not None:
                     v["sessions"].pop(token, None)
                     if not v["sessions"]:
-                        _vault_gc(uname["username"], v)
+                        vault.gc(uname["username"], v, conn)
         conn.close()
     response.delete_cookie(COOKIE)
     if token and uname:
@@ -1140,14 +803,12 @@ async def me(request: Request):
            "must_change": bool(row["must_change"])}
     if row["mode"] == "protected":
         conn = db_main()
-        vault = conn.execute(
-            "SELECT salt, wrapped, r_auth FROM vaults WHERE username=?", (row["username"],)
-        ).fetchone()
+        materials = vault.public_materials(conn, row["username"])
         conn.close()
-        out["vault_init"] = vault is not None
-        out["salt"] = vault["salt"] if vault else ""
-        out["wrapped"] = vault["wrapped"] if vault else ""
-        out["recovery_armed"] = bool(vault and vault["r_auth"])
+        out["vault_init"] = materials is not None
+        out["salt"] = (materials or {}).get("salt", "")
+        out["wrapped"] = (materials or {}).get("wrapped", "")
+        out["recovery_armed"] = bool(materials and materials["recovery_armed"])
     return out
 
 
@@ -1241,19 +902,14 @@ async def change_password(body: PwdIn, request: Request):
             {"detail": f"Mot de passe trop court (min. {MIN_PASSWORD_LEN} caractères)"}, status_code=400
         )
     if row["mode"] == "protected":
-        vault = conn.execute(
-            "SELECT salt FROM vaults WHERE username=?", (u["username"],)
-        ).fetchone()
-        if vault is not None and (not body.wrapped or not body.salt):
+        has = vault.has_vault(conn, u["username"])
+        if has and (not body.wrapped or not body.salt):
             conn.close()
             return JSONResponse(
                 {"detail": "Re-chiffrement du coffre requis (wrapped + salt)"}, status_code=400
             )
-        if vault is not None:
-            conn.execute(
-                "UPDATE vaults SET salt=?, wrapped=?, updated_at=datetime('now') WHERE username=?",
-                (body.salt, body.wrapped, u["username"]),
-            )
+        if has:
+            vault.rewrap(conn, u["username"], body.salt, body.wrapped)
     conn.execute(
         "UPDATE users SET password=?, must_change=0 WHERE username=?",
         (_hash(body.new), u["username"]),
@@ -1277,59 +933,26 @@ async def vault_init(body: VaultInitIn, request: Request):
     if u["mode"] != "protected":
         return JSONResponse({"detail": "Compte non protégé"}, status_code=400)
     token = request.cookies.get(COOKIE)
-    dek = _b64d(body.dek)
+    assert token is not None  # route authentifiée par cookie (session obligatoire)
+    try:
+        dek = vault.b64d(body.dek)
+    except Exception:
+        return JSONResponse({"detail": "Clé de coffre invalide"}, status_code=400)
     if len(dek) != 32:
         return JSONResponse({"detail": "Clé de coffre invalide"}, status_code=400)
     conn = db_main()
-    if conn.execute("SELECT 1 FROM vaults WHERE username=?", (u["username"],)).fetchone():
-        conn.close()
-        return JSONResponse({"detail": "Coffre déjà initialisé"}, status_code=400)
-    # 1) base mémoire du coffre + transfert des éventuelles données en clair
-    mem = _vault_mem_new(dek)
-    src = db_main()
     try:
-        _copy_rows(src, mem, "accounts", "owner=?", (u["username"],))
-        _copy_rows(src, mem, "valuations",
-                   "account_id IN (SELECT id FROM accounts WHERE owner=?)", (u["username"],))
-        _copy_rows(src, mem, "transactions",
-                   "account_id IN (SELECT id FROM accounts WHERE owner=?)", (u["username"],))
-        _copy_rows(src, mem, "income_rules",
-                   "account_id IN (SELECT id FROM accounts WHERE owner=?)", (u["username"],))
-        _copy_rows(src, mem, "positions",
-                   "account_id IN (SELECT id FROM accounts WHERE owner=?)", (u["username"],))
-        _copy_rows(src, mem, "dividend_events",
-                   "position_id IN (SELECT p.id FROM positions p"
-                   " JOIN accounts a ON a.id=p.account_id WHERE a.owner=?)", (u["username"],))
-        _copy_rows(src, mem, "settings", "member=?", (u["username"],))
-    finally:
-        src.close()
-    # 2) le coffre est ouvert pour cette session
-    v = {"conn": mem, "dek": dek, "sessions": {token: time.monotonic()}, "username": u["username"]}
-    with _VAULT_GUARD:
-        old = _VAULTS.get(u["username"])
-        if old is not None and old["conn"] is not None:
-            try:
-                old["conn"]._hard_close()
-            except sqlite3.ProgrammingError:
-                pass
-        _VAULTS[u["username"]] = v
-    # 3) stockage : la ligne vaults doit exister avant le flush du blob
-    try:
-        conn.execute(
-            "INSERT INTO vaults (username, salt, wrapped, canary, blob) VALUES (?,?,?,?,'')",
-            (u["username"], body.salt, body.wrapped, _vault_canary(dek)),
-        )
+        try:
+            # base mémoire + transfert des données claires + ligne vaults +
+            # ouverture pour la session (le domaine vit dans src/vault.py)
+            vault.init_vault(conn, u["username"], body.salt, body.wrapped, dek, token)
+        except vault.VaultError as e:
+            return JSONResponse({"detail": str(e)}, status_code=400)
+        # effacement des données claires (après chiffrement — reliquat purgé au boot)
+        conn.execute("DELETE FROM accounts WHERE owner=?", (u["username"],))
         conn.commit()
     finally:
         conn.close()
-    mem.commit()  # marque le coffre sale → le flush du middleware l'écrit chiffré
-    # 4) effacement des données claires (après chiffrement — reliquat purgé au boot)
-    m = db_main()
-    try:
-        m.execute("DELETE FROM accounts WHERE owner=?", (u["username"],))
-        m.commit()
-    finally:
-        m.close()
     _audit(u["username"], "Initialisation du coffre")
     return {"ok": True}
 
@@ -1344,45 +967,21 @@ async def vault_open(body: VaultOpenIn, request: Request):
     if u["mode"] != "protected":
         return JSONResponse({"detail": "Compte non protégé"}, status_code=400)
     token = request.cookies.get(COOKIE)
-    dek = _b64d(body.dek)
+    assert token is not None  # route authentifiée par cookie (session obligatoire)
+    try:
+        dek = vault.b64d(body.dek)
+    except Exception:
+        return JSONResponse({"detail": "Clé de coffre invalide"}, status_code=400)
     if len(dek) != 32:
         return JSONResponse({"detail": "Clé de coffre invalide"}, status_code=400)
     conn = db_main()
     try:
-        vault = conn.execute(
-            "SELECT salt, wrapped, blob, canary FROM vaults WHERE username=?", (u["username"],)
-        ).fetchone()
+        try:
+            vault.open_vault(conn, u["username"], dek, token)
+        except vault.VaultError as e:
+            return JSONResponse({"detail": str(e)}, status_code=400)
     finally:
         conn.close()
-    if vault is None:
-        return JSONResponse({"detail": "Coffre non initialisé"}, status_code=400)
-    with _VAULT_GUARD:
-        v = _VAULTS.get(u["username"])
-        if v is None:
-            # open à froid : la clé est prouvée par le déchiffrement réel du blob
-            # (et par le canary s'il est déjà armé)
-            if not _vault_check_canary(dek, vault["canary"] or ""):
-                return JSONResponse({"detail": "Clé de coffre invalide"}, status_code=400)
-            try:
-                mem = _vault_mem_from_blob(dek, vault["blob"])
-            except Exception:
-                return JSONResponse({"detail": "Clé de coffre invalide"}, status_code=400)
-            v = {"conn": mem, "dek": dek, "sessions": {token: time.monotonic()},
-                 "username": u["username"]}
-            _VAULTS[u["username"]] = v
-            if not vault["canary"]:
-                # rétro-armement : la DEK vient d'être prouvée par le blob — les
-                # prochains opens (même à chaud) la vérifieront via le canary
-                try:
-                    _vault_store_canary(u["username"], _vault_canary(dek))
-                except Exception:
-                    pass
-        else:
-            # open à chaud : vérifier la DEK fournie même si le coffre est déjà
-            # en cache (sinon n'importe quelle clé ouvrirait une session)
-            if not _vault_check_canary(dek, vault["canary"] or ""):
-                return JSONResponse({"detail": "Clé de coffre invalide"}, status_code=400)
-            v["sessions"][token] = time.monotonic()
     _audit(u["username"], "Ouverture du coffre")
     return {"ok": True}
 
@@ -1404,25 +1003,14 @@ async def vault_recovery_arm(body: RecoveryArmIn, request: Request):
     if u["mode"] != "protected":
         return JSONResponse({"detail": "Compte non protégé"}, status_code=400)
     token = request.cookies.get(COOKIE)
-    with _VAULT_GUARD:
-        v = _VAULTS.get(u["username"])
-        if v is None or v["conn"] is None or token not in v["sessions"]:
-            return JSONResponse({"detail": "Déverrouillez d'abord le coffre"}, status_code=400)
-    for label, raw, lo in (("r_salt", body.r_salt, 8), ("r_auth_salt", body.r_auth_salt, 8),
-                           ("r_wrapped", body.r_wrapped, 16), ("r_auth", body.r_auth, 16)):
-        try:
-            if len(_b64d(raw)) < lo:
-                raise ValueError
-        except Exception:
-            return JSONResponse({"detail": f"Champ {label} invalide"}, status_code=400)
+    assert token is not None  # route authentifiée par cookie (session obligatoire)
     conn = db_main()
     try:
-        conn.execute(
-            "UPDATE vaults SET r_salt=?, r_auth_salt=?, r_wrapped=?, r_auth=?,"
-            " updated_at=datetime('now') WHERE username=?",
-            (body.r_salt, body.r_auth_salt, body.r_wrapped, body.r_auth, u["username"]),
-        )
-        conn.commit()
+        try:
+            vault.arm_recovery(conn, u["username"], token,
+                               body.r_salt, body.r_auth_salt, body.r_wrapped, body.r_auth)
+        except vault.VaultError as e:
+            return JSONResponse({"detail": str(e)}, status_code=400)
     finally:
         conn.close()
     _audit(u["username"], "Armement de la clé de récupération")
@@ -1442,18 +1030,13 @@ async def vault_recover_start(body: RecoveryStartIn, request: Request):
     uname = body.username.strip()
     conn = db_main()
     try:
-        row = conn.execute("SELECT mode FROM users WHERE username=?", (uname,)).fetchone()
-        vault = None
-        if row is not None and row["mode"] == "protected":
-            vault = conn.execute(
-                "SELECT r_salt, r_auth_salt, r_wrapped FROM vaults WHERE username=?", (uname,)
-            ).fetchone()
+        m = vault.recovery_materials(conn, uname)
     finally:
         conn.close()
-    if vault is None or not vault["r_auth_salt"]:
+    if m is None:
         return JSONResponse({"detail": "Récupération impossible"}, status_code=400)
-    return {"ok": True, "r_salt": vault["r_salt"], "r_auth_salt": vault["r_auth_salt"],
-            "r_wrapped": vault["r_wrapped"]}
+    return {"ok": True, "r_salt": m["r_salt"], "r_auth_salt": m["r_auth_salt"],
+            "r_wrapped": m["r_wrapped"]}
 
 
 class RecoveryIn(BaseModel):
@@ -1474,70 +1057,28 @@ async def vault_recover(body: RecoveryIn, request: Request, response: Response):
     uname = body.username.strip()
     conn = db_main()
     try:
-        row = conn.execute("SELECT mode FROM users WHERE username=?", (uname,)).fetchone()
-        vault = None
-        if row is not None and row["mode"] == "protected":
-            vault = conn.execute(
-                "SELECT r_auth, canary, blob FROM vaults WHERE username=?", (uname,)
-            ).fetchone()
-        if vault is None or not vault["r_auth"]:
-            conn.close()
-            return JSONResponse({"detail": "Récupération impossible"}, status_code=400)
         try:
-            proof, expected = _b64d(body.proof), _b64d(vault["r_auth"])
-        except Exception:
-            conn.close()
-            return JSONResponse({"detail": "Clé de récupération invalide"}, status_code=400)
-        if len(proof) != len(expected) or not hmac.compare_digest(proof, expected):
-            conn.close()
-            _audit(uname, "Échec de récupération")
-            return JSONResponse({"detail": "Clé de récupération invalide"}, status_code=400)
-        if len(body.new_password) < MIN_PASSWORD_LEN:
-            conn.close()
-            return JSONResponse(
-                {"detail": f"Mot de passe trop court (min. {MIN_PASSWORD_LEN} caractères)"},
-                status_code=400)
-        if not body.wrapped or not body.salt:
-            conn.close()
-            return JSONResponse(
-                {"detail": "Re-chiffrement du coffre requis (wrapped + salt)"}, status_code=400)
-        try:
-            dek = _b64d(body.dek)
-        except Exception:
-            conn.close()
-            return JSONResponse({"detail": "Clé de coffre invalide"}, status_code=400)
-        if len(dek) != 32:
-            conn.close()
-            return JSONResponse({"detail": "Clé de coffre invalide"}, status_code=400)
-        # la DEK est prouvée par le déchiffrement réel (canary + blob)
-        if not _vault_check_canary(dek, vault["canary"] or ""):
-            conn.close()
-            _audit(uname, "Échec de récupération")
-            return JSONResponse({"detail": "Clé de récupération invalide"}, status_code=400)
-        try:
-            mem = _vault_mem_from_blob(dek, vault["blob"])
-        except Exception:
-            conn.close()
-            _audit(uname, "Échec de récupération")
-            return JSONResponse({"detail": "Clé de récupération invalide"}, status_code=400)
+            # preuve par la clé de récupération + DEK déchiffrée côté client :
+            # toute la logique de vérification vit dans src/vault.py (VaultError
+            # audit=1 → « Échec de récupération » à journaliser)
+            state = vault.prepare_recover(
+                conn, uname, body.proof, body.dek, body.new_password,
+                body.wrapped, body.salt, MIN_PASSWORD_LEN)
+        except vault.VaultError as e:
+            if e.audit:
+                _audit(uname, "Échec de récupération")
+            return JSONResponse({"detail": str(e)}, status_code=400)
         token = _mk_session(conn, uname)
         conn.execute(
-            "UPDATE users SET password=?, must_change=0 WHERE username=?", (_hash(body.new_password), uname))
+            "UPDATE users SET password=?, must_change=0 WHERE username=?",
+            (_hash(body.new_password), uname))
         conn.execute(
             "UPDATE vaults SET salt=?, wrapped=?, updated_at=datetime('now') WHERE username=?",
             (body.salt, body.wrapped, uname))
         conn.commit()
     finally:
         conn.close()
-    with _VAULT_GUARD:
-        old = _VAULTS.get(uname)
-        if old is not None and old["conn"] is not None:
-            try:
-                old["conn"]._hard_close()
-            except sqlite3.ProgrammingError:
-                pass
-        _VAULTS[uname] = {"conn": mem, "dek": dek, "sessions": {token: time.monotonic()},
-                          "username": uname}
+    vault.register(uname, state["conn"], state["dek"], token)
     response.set_cookie(COOKIE, token, max_age=TTL_DAYS * 86400, httponly=True,
                         samesite="lax", secure=COOKIE_SECURE)
     _audit(uname, "Récupération par clé de secours")
@@ -1673,13 +1214,7 @@ async def family_delete(username: str, request: Request):
         conn.close()
         return JSONResponse({"detail": "Membre introuvable"}, status_code=404)
     # ferme un éventuel coffre ouvert (suppression = destruction des données chiffrées)
-    with _VAULT_GUARD:
-        v = _VAULTS.pop(uname, None)
-        if v is not None and v["conn"] is not None:
-            try:
-                v["conn"]._hard_close()
-            except sqlite3.ProgrammingError:
-                pass
+    vault.unregister(uname)
     conn.execute("DELETE FROM sessions WHERE username=?", (uname,))
     conn.execute("DELETE FROM users WHERE username=?", (uname,))  # cascade : vaults
     conn.execute("DELETE FROM accounts WHERE owner=?", (uname,))  # cascade : valuations/transactions/règles

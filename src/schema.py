@@ -1,0 +1,157 @@
+"""Schéma des tables de DONNÉES (extrait de src/app.py, v2026.09.036).
+
+Partagé entre la base principale (init_db de src/app.py) et la base mémoire
+des coffres protégés : toute nouvelle table/colonne de données s'ajoute ICI
+une seule fois. users/sessions/api_tokens/audit_log/vaults = schéma d'auth,
+exclus (ils vivent dans init_db de src/app.py).
+"""
+
+import sqlite3
+def schema_data(conn: sqlite3.Connection) -> None:
+    """Schéma des tables de DONNÉES (utilisé par la base principale ET par la
+    base mémoire d'un coffre protégé) + migrations idempotentes + seed
+    benchmarks. users/sessions ne sont PAS dans ce schéma (auth = principal)."""
+    conn.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS accounts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            owner TEXT NOT NULL DEFAULT '',
+            name TEXT NOT NULL,
+            asset_class TEXT NOT NULL,
+            institution TEXT DEFAULT '',
+            currency TEXT DEFAULT 'EUR',
+            valuation_mode TEXT DEFAULT 'manual',
+            cost_basis REAL DEFAULT 0,
+            fx_override REAL,
+            open_date TEXT,
+            close_date TEXT,
+            notes TEXT DEFAULT '',
+            active INTEGER DEFAULT 1,
+            fees_pct REAL,
+            wrapper TEXT,
+            tax_country TEXT DEFAULT '',
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT
+        );
+        CREATE TABLE IF NOT EXISTS valuations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+            val_date TEXT NOT NULL,
+            value REAL NOT NULL,
+            source TEXT DEFAULT 'manual',
+            note TEXT DEFAULT ''
+        );
+        CREATE INDEX IF NOT EXISTS idx_vals_acc_date ON valuations(account_id, val_date);
+        CREATE TABLE IF NOT EXISTS transactions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+            op_date TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            amount REAL NOT NULL,
+            note TEXT DEFAULT '',
+            source_id TEXT,
+            created_at TEXT DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_tx_acc_date ON transactions(account_id, op_date);
+        CREATE TABLE IF NOT EXISTS income_rules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+            label TEXT NOT NULL,
+            amount REAL NOT NULL,
+            freq TEXT NOT NULL DEFAULT 'monthly',
+            months_int INTEGER DEFAULT 1,
+            next_date TEXT NOT NULL,
+            active INTEGER DEFAULT 1,
+            kind TEXT NOT NULL DEFAULT 'income'
+        );
+        CREATE TABLE IF NOT EXISTS prices (
+            symbol TEXT PRIMARY KEY,
+            price REAL,
+            currency TEXT DEFAULT '',
+            ts TEXT
+        );
+        CREATE TABLE IF NOT EXISTS benchmarks (
+            key TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            symbol TEXT DEFAULT '',
+            annual_pct REAL DEFAULT 0,
+            note TEXT DEFAULT ''
+        );
+        CREATE TABLE IF NOT EXISTS index_levels (
+            key TEXT NOT NULL,
+            ym TEXT NOT NULL,
+            level REAL NOT NULL,
+            PRIMARY KEY (key, ym)
+        );
+        CREATE TABLE IF NOT EXISTS fx_rates (
+            ccy TEXT NOT NULL,
+            rate_date TEXT NOT NULL,
+            rate REAL NOT NULL,
+            source TEXT NOT NULL DEFAULT 'ecb',
+            PRIMARY KEY (ccy, rate_date)
+        );
+        CREATE TABLE IF NOT EXISTS positions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+            symbol TEXT NOT NULL,
+            label TEXT DEFAULT '',
+            quantity REAL NOT NULL DEFAULT 0,
+            pru REAL,
+            active INTEGER DEFAULT 1,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_positions_account ON positions(account_id);
+        CREATE TABLE IF NOT EXISTS dividend_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            position_id INTEGER NOT NULL REFERENCES positions(id) ON DELETE CASCADE,
+            ex_date TEXT NOT NULL,
+            per_share REAL NOT NULL,
+            note TEXT DEFAULT '',
+            created_at TEXT DEFAULT (datetime('now')),
+            UNIQUE (position_id, ex_date)
+        );
+        CREATE TABLE IF NOT EXISTS settings (
+            member TEXT NOT NULL,
+            key TEXT NOT NULL,
+            value REAL NOT NULL,
+            PRIMARY KEY (member, key)
+        );
+        """
+    )
+    for col, ddl in (
+        ("symbol", "ALTER TABLE accounts ADD COLUMN symbol TEXT DEFAULT ''"),
+        ("quantity", "ALTER TABLE accounts ADD COLUMN quantity REAL DEFAULT 0"),
+        ("owner", "ALTER TABLE accounts ADD COLUMN owner TEXT DEFAULT ''"),
+        ("fx_override", "ALTER TABLE accounts ADD COLUMN fx_override REAL"),
+        ("fees_pct", "ALTER TABLE accounts ADD COLUMN fees_pct REAL"),
+        ("wrapper", "ALTER TABLE accounts ADD COLUMN wrapper TEXT"),
+        ("tax_country", "ALTER TABLE accounts ADD COLUMN tax_country TEXT DEFAULT ''"),
+        ("loan_principal", "ALTER TABLE accounts ADD COLUMN loan_principal REAL NOT NULL DEFAULT 0"),
+        ("loan_rate", "ALTER TABLE accounts ADD COLUMN loan_rate REAL NOT NULL DEFAULT 0"),
+        ("loan_monthly", "ALTER TABLE accounts ADD COLUMN loan_monthly REAL NOT NULL DEFAULT 0"),
+    ):
+        try:
+            conn.execute(ddl)
+        except sqlite3.OperationalError:
+            pass  # colonne déjà présente
+    try:
+        conn.execute("ALTER TABLE income_rules ADD COLUMN kind TEXT NOT NULL DEFAULT 'income'")
+    except sqlite3.OperationalError:
+        pass  # colonne déjà présente
+    try:
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_acc_owner ON accounts(owner, asset_class)")
+    except sqlite3.OperationalError:
+        pass
+    # seed indices
+    conn.executemany(
+        "INSERT OR IGNORE INTO benchmarks (key, name, symbol, annual_pct, note) VALUES (?,?,?,?,?)",
+        [
+            ("sp500", "S&P 500", "^GSPC", 0, ""),
+            ("nasdaq", "Nasdaq Composite", "^IXIC", 0, ""),
+            ("iwda", "MSCI World (IWDA)", "IWDA.L", 0, "ETF capitalisant en EUR"),
+            ("stoxx", "STOXX Europe 600", "^STOXX", 0, ""),
+            ("cac", "CAC 40", "^FCHI", 0, ""),
+            ("livret", "Livret A", "", 2.2, "taux réglementé, saisi manuellement"),
+        ],
+    )

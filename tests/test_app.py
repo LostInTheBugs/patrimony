@@ -22,6 +22,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import src.app as app
+from src import vault
 from src.app import _hash, _verify
 
 DEK = base64.b64encode(b"\x11" * 32).decode()
@@ -268,17 +269,21 @@ def test_vault_auto_lock_after_idle():
     assert c.post("/api/vault/init", json={"salt": "c2FsdA==", "wrapped": "d3JhcHBlZA==", "dek": DEK}).status_code == 200
 
     # white-box : toutes les sessions inactives > VAULT_IDLE_MIN → coffre fermé
-    app.VAULT_IDLE_MIN = 30
+    vault.VAULT_IDLE_MIN = 30
     try:
-        v = app._VAULTS["vault-p2"]
+        v = vault.VAULTS["vault-p2"]
         tok = next(iter(v["sessions"]))
         v["sessions"][tok] = time.monotonic() - 3600
-        app._vault_gc("vault-p2", v)
-        assert "vault-p2" not in app._VAULTS
+        m = app.db_main()
+        try:
+            vault.gc("vault-p2", v, m)
+        finally:
+            m.close()
+        assert "vault-p2" not in vault.VAULTS
         assert c.get("/api/accounts").status_code == 403  # front → demande de déverrouillage
         # un nouvel open fonctionne après le verrouillage
         assert c.post("/api/vault/open", json={"dek": DEK}).status_code == 200
         assert c.get("/api/accounts").status_code == 200
     finally:
-        app.VAULT_IDLE_MIN = 0
+        vault.VAULT_IDLE_MIN = 0
         _logout(c)

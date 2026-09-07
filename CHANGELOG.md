@@ -2,6 +2,22 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.036] — 2026-09-07
+
+### Changed
+
+- **Vault domain extracted from the monolith** (external review follow-up):
+  the encrypted-vault block (in-memory state, AES-256-GCM blob handling,
+  DEK canary, `serialize()`-only persistence, auto-lock GC, recovery-key
+  arming and proof checks) now lives in `src/vault.py` — a pure domain
+  module with no FastAPI/HTTP import; the shared data schema moved to
+  `src/schema.py` (main database AND vault memory use the same source).
+  `src/app.py` keeps only the HTTP layer: guards, audit events and the
+  end-of-request persistence middleware. Zero behavior change — every error
+  message, audit event and state transition is preserved; the full suite
+  (vault cycle, auto-lock, recovery, security, migrations, loans/settings in
+  vaults) passes, with one white-box test updated to the new module API.
+
 ## [2026.09.035-c1] — 2026-09-07
 
 ### Added
