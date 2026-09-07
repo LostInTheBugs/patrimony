@@ -2,6 +2,16 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.035-c1] — 2026-09-07
+
+### Added
+
+- **Explicit "not tax advice" note on every tax estimate** (external review
+  recommendation): the 🧮 estimate modal now ends each breakdown with the
+  line "⚠️ Personal estimate — not tax advice." (FR/DE/LU/EN), below the
+  data, next to the existing "if I liquidate today" framing. The operator
+  demo disclaimer is untouched (it covers fictional data, not advice).
+
 ## [2026.09.035] — 2026-09-06
 
 ### Added
