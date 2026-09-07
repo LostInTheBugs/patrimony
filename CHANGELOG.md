@@ -2,6 +2,31 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.045] — 2026-09-07
+
+### Added
+
+- **Tax estimates consent gate (Fred 2026-09-07)** — the tax part
+  (⚖️ Household tax assumptions in Settings + per-asset tax estimates)
+  is now **disabled by default** until the member explicitly acknowledges
+  the disclaimer:
+  - Full 5-point notice (educational demo, no official/legal value, not tax
+    advice, simplified rules, acknowledgment) shown inside a red dashed
+    frame on both surfaces (settings panel + estimate modal).
+  - Real validation: the user must **type the exact phrase** of the active
+    UI language (`je confirme` / `I confirm` / `ich bestätige` / `ech
+    bestätegen`) — the enable button stays disabled until the input matches
+    (normalized: case, spaces, diacritics, so `ich bestatige` is accepted).
+  - Consent stored per member in `localStorage` (`pat_tax_consent_v1_<user>`,
+    ISO date), versioned (v1 — bump to re-ask if the notice text changes),
+    revocable via a discreet « accepted on {date} — Revoke » line under the
+    settings panel; estimates asked before consent show the gate first and
+    run immediately after confirmation.
+  - 12 new i18n keys ×4 languages; `#taxBody` is hidden by default in the
+    markup itself (disabled even before the first JS render).
+  - New global `.btn:disabled` style (opacity .45, grayscale, not-allowed) —
+    disabled buttons were previously rendered identical to active ones.
+
 ## [2026.09.044] — 2026-09-07
 
 ### Fixed
