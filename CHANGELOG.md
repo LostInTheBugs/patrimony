@@ -2,6 +2,18 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.041] — 2026-09-07
+
+### Changed
+
+- **SQLite in WAL mode** (Fred's roadmap): the main database is initialized
+  with `PRAGMA journal_mode=WAL` (persistent) + `busy_timeout=5000` —
+  crash-robust writes (no truncated `.db`) and reads never blocked by a
+  writer (foundation for background refreshes to come, e.g. Open Banking).
+  Vault in-memory databases are unaffected. The sqlite `backup()` ritual
+  (pre-version snapshots) reads the full state of a WAL database — proven
+  by a dedicated test; 141 tests.
+
 ## [2026.09.040] — 2026-09-07
 
 ### Changed

@@ -197,6 +197,11 @@ def _admin_username() -> str:
 def init_db() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     conn = db_main()
+    # v2026.09.041 — WAL (write-ahead logging), persistant dans le fichier :
+    # robustesse crash (pas de .db tronqué) + lectures non bloquées pendant
+    # une écriture ; busy_timeout : contention = attente au lieu d'erreur.
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=5000")
     conn.executescript(
         """
         CREATE TABLE IF NOT EXISTS users (

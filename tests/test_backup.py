@@ -31,6 +31,32 @@ from src.backup_crypto import decrypt_bytes, encrypt_bytes
 PWD = "member-pass-2026"
 BPWD = "phrase-de-sauvegarde-tres-longue"
 
+
+def test_wal_journal_mode_and_backup_roundtrip():
+    """v2026.09.041 — base principale en mode WAL (write-ahead logging) :
+    robustesse crash + lectures pendant écriture. Le backup sqlite3 (rituel
+    pre-version) doit lire l'état complet (data + wal) d'une base WAL."""
+    import sqlite3
+
+    conn = sqlite3.connect(str(app.DB_PATH))
+    try:
+        mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
+        timeout = conn.execute("PRAGMA busy_timeout").fetchone()[0]
+    finally:
+        conn.close()
+    assert mode == "wal", mode
+    assert timeout == 5000, timeout
+    # round-trip de sauvegarde sur base WAL : rien ne se perd
+    dst = sqlite3.connect(":memory:")
+    src = sqlite3.connect(str(app.DB_PATH))
+    try:
+        src.backup(dst)
+        n_users = dst.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        assert n_users >= 1  # au moins l'admin créé par init_db
+    finally:
+        src.close()
+        dst.close()
+
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
