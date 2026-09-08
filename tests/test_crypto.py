@@ -387,6 +387,10 @@ def test_refresh_wallet_full_mocked(monkeypatch):
                                                    "degraded": [], "calls_ok": 0,
                                                    "calls_failed": 0,
                                                    "enriched": 0})
+    monkeypatch.setattr(crypto, "fetch_native_movements",
+                        lambda conn, owner, w, chains: {"inserted": 0,
+                                                        "per_chain": {},
+                                                        "errors": []})
     rep = crypto.refresh_wallet(c, "alice", wid)
     assert rep["ok"] is True
     assert rep["scan"]["total_usd"] == 3100.0
@@ -402,6 +406,110 @@ def test_refresh_wallet_full_mocked(monkeypatch):
     wd = _wallet(c2, owner="demo", demo=1)
     rep2 = crypto.refresh_wallet(c2, "demo", wd)
     assert rep2["demo"] is True
+
+
+def test_fetch_native_movements_legs_and_dedup(monkeypatch):
+    """v052 : jambes natives (value, fee, internal) — directions, montants,
+    séquences sentinelles, idempotence (2e appel = 0 insertion)."""
+    c = _conn()
+    wid = _wallet(c)
+    addr = "0x" + "ab" * 20
+    row = c.execute("SELECT * FROM cw_wallets WHERE id=?", (wid,)).fetchone()
+
+    def fake(url, **k):
+        if "internal-transactions" in url:
+            if "filter=to" in url:
+                return {"items": [
+                    {"transaction_hash": "0x" + "c1" * 32, "index": 3,
+                     "timestamp": "2024-06-03T09:00:00.000000Z",
+                     "from": {"hash": "0x" + "cc" * 20},
+                     "to": {"hash": addr}, "value": "700000000000000000"}],
+                    "next_page_params": None}
+            return {"items": [], "next_page_params": None}
+        if "transactions" in url:
+            return {"items": [
+                # envoi externe 1.2 ETH + gaz 0.004
+                {"hash": "0x" + "a1" * 32, "timestamp": "2024-06-01T10:00:00Z",
+                 "from": {"hash": addr}, "to": {"hash": "0x" + "ee" * 20},
+                 "value": "1200000000000000000",
+                 "fee": {"value": "4000000000000000"}},
+                # réception externe 0.5 ETH
+                {"hash": "0x" + "a2" * 32, "timestamp": "2024-06-02T10:00:00Z",
+                 "from": {"hash": "0x" + "aa" * 20}, "to": {"hash": addr},
+                 "value": "500000000000000000",
+                 "fee": {"value": "3000000000000000"}},
+                # tx ERC-20 (value 0) → seul le gaz brûle
+                {"hash": "0x" + "a3" * 32, "timestamp": "2024-06-04T10:00:00Z",
+                 "from": {"hash": addr}, "to": {"hash": "0x" + "bb" * 20},
+                 "value": "0", "fee": {"value": "1000000000000000"}},
+                # auto-envoi : la valeur se compense, seul le gaz brûle
+                {"hash": "0x" + "a4" * 32, "timestamp": "2024-06-05T10:00:00Z",
+                 "from": {"hash": addr}, "to": {"hash": addr},
+                 "value": "2000000000000000000",
+                 "fee": {"value": "200000000000000"}},
+            ], "next_page_params": None}
+        return None
+
+    monkeypatch.setattr(crypto, "_http_json", fake)
+    r1 = crypto.fetch_native_movements(c, "alice", row, ["ethereum"])
+    assert r1["inserted"] == 6, r1
+    rows = c.execute("SELECT * FROM cw_transfers WHERE wallet_id=?", (wid,)) \
+             .fetchall()
+    assert len(rows) == 6
+    by_seq = {r["log_index"]: r for r in rows}
+    assert set(by_seq) == {1000000000, 1000000001, 1000000002,  # in/out/fee
+                           2000000003}  # in internal (base 2e9 + index 3)
+    s = by_seq[1000000000]
+    assert s["direction"] == "in" and s["amount"] == 0.5
+    assert by_seq[1000000001]["direction"] == "out"
+    assert by_seq[1000000001]["amount"] == 1.2
+    # ligne de frais de l'envoi t1 (0.004)
+    by_tx = {r["tx_hash"]: r for r in rows}
+    assert by_tx["0x" + "a1" * 32]["direction"] == "out"
+    assert by_tx["0x" + "a1" * 32]["amount"] == 0.004
+    assert by_tx["0x" + "a1" * 32]["log_index"] == 1000000002
+    assert by_seq[2000000003]["direction"] == "in"
+    assert by_seq[2000000003]["amount"] == 0.7
+    for r in rows:
+        assert r["token_symbol"] == "eth" and r["token_addr"] == ""
+        assert r["chain"] == "ethereum"
+    # 3 txs paient du gaz depuis le wallet (t1, a3, a4) → 3 lignes out
+    fees = [r for r in rows if r["log_index"] == 1000000002]
+    assert {r["amount"] for r in fees} == {0.004, 0.001, 0.0002}
+    # idempotence
+    r2 = crypto.fetch_native_movements(c, "alice", row, ["ethereum"])
+    assert r2["inserted"] == 0
+    assert c.execute("SELECT COUNT(*) n FROM cw_transfers WHERE wallet_id=?",
+                     (wid,)).fetchone()["n"] == 6
+
+
+def test_refresh_wallet_native_wiring(monkeypatch):
+    """v052 : refresh complet appelle la capture native avec les chaînes du
+    scan (jeton natif) et expose report['native']."""
+    c = _conn()
+    _fx(c)
+    wid = _wallet(c)
+    _tx(c, wid, "alice", "2024-03-01", "eth", 1.0, "in", 3000.0)
+    seen = {}
+
+    def fake_native(conn, owner, w, chains):
+        seen["chains"] = sorted(chains)
+        return {"inserted": 3, "per_chain": {"ethereum": 3}, "errors": []}
+
+    monkeypatch.setattr(crypto, "scan_portfolio", _fake_scan_portfolio)
+    monkeypatch.setattr(crypto, "fetch_transfers",
+                        lambda conn, owner, w: {"inserted": 0, "per_chain": {},
+                                                "truncated": []})
+    monkeypatch.setattr(crypto, "fetch_native_movements", fake_native)
+    monkeypatch.setattr(crypto, "fetch_prices_and_enrich",
+                        lambda conn, owner, wid2: {"mapped": [], "unmapped": [],
+                                                   "degraded": [], "calls_ok": 0,
+                                                   "calls_failed": 0,
+                                                   "enriched": 0})
+    rep = crypto.refresh_wallet(c, "alice", wid)
+    assert rep["ok"] is True
+    assert rep["native"]["inserted"] == 3
+    assert seen["chains"] == ["ethereum"]  # seul jeton natif du scan fake
 
 
 def test_claim_guard_owner():

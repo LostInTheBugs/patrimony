@@ -2,6 +2,34 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.052] — 2026-09-08
+
+### Added — Native movements capture (history fix)
+
+- New `fetch_native_movements`: per wallet chain (present at last scan) it
+  captures the native-coin ledger the ERC-20-only engine was blind to:
+  external transactions (`value` received/sent), gas fees paid, and
+  internal transactions (`/internal-transactions`, to/from filters, stable
+  per-tx `index`). Legs are stored in `cw_transfers` with sentinel
+  `log_index` (≥ 1e9, per-kind ranges) that can never collide with real
+  ERC-20 log indexes; dedup is idempotent.
+- Legacy native rows imported from the CWT database (partial capture,
+  real log_index 0) are purged per chain on first native pass, so the
+  rebuilt history has a single, complete representation of native flows.
+- Wired into `refresh_wallet` between transfers and price enrichment
+  (report key `native`); demo wallets never hit the network.
+- On the real migrated Ledger wallet this removes the ~6 k$ phantom
+  (historical series end 18.9 k$ → 12.9 k$ on the migrated base with the
+  same token rows); residual series/scan gap is staking-share semantics
+  (stETH/eETH raw-share balances), pre-existing, out of scope here —
+  current value stays scan-authoritative.
+
+### Tests
+
+- 2 new deterministic tests (no network): native leg directions/amounts/
+  sentinel sequences + idempotence; refresh wiring with scan native
+  chains. 184 total.
+
 ## [2026.09.051] — 2026-09-08
 
 ### Added — Crypto wallets page (UI)

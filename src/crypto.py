@@ -593,6 +593,184 @@ def fetch_transfers(conn, owner: str, wallet: sqlite3.Row) -> dict:
 
 
 # ═══════════════════════════════════════════════════════════════════
+# Mouvements NATIFS (v2026.09.052) — correction du « fantôme ETH »
+# ═══════════════════════════════════════════════════════════════════
+# Le moteur CWT d'origine ne voyait que les transferts ERC-20 : les envois
+# de monnaie native (value), le gaz brûlé (fees) et les mouvements
+# internes (contrats) échappaient à l'historique → solde surestimé
+# (fantôme). On capture désormais, par chaîne :
+#   1) transactions externes : value reçue/envoyée + fee payée ;
+#   2) internal transactions (v2 /internal-transactions, filtre to/from).
+# Ces jambes sont insérées dans cw_transfers (symbol natif, token_addr '')
+# avec des log_index SENTINELLES (≥ 1e9) pour ne jamais entrer en collision
+# avec les log_index réels des transferts ERC-20 d'une même tx.
+
+_EXT_IN_SEQ = 1_000_000_000    # jambe « valeur reçue » (tx externe)
+_EXT_OUT_SEQ = 1_000_000_001   # jambe « valeur envoyée » (tx externe)
+_EXT_FEE_SEQ = 1_000_000_002   # gaz brûlé par une tx partant du wallet
+_INT_IN_BASE = 2_000_000_000   # + index (internal → wallet)
+_INT_OUT_BASE = 3_000_000_000  # + index (internal ← wallet)
+
+
+def _native_insert(conn, owner: str, wid: int, chain: str, tx_hash: str,
+                   seq: int, ts: str, sym: str, name: str,
+                   direction: str, amount: float) -> int:
+    """Insère une jambe native si absente (dédup tx_hash+seq). 1 = inséré."""
+    if conn.execute(
+            "SELECT 1 FROM cw_transfers WHERE wallet_id=? AND chain=?"
+            " AND tx_hash=? AND log_index=?",
+            (wid, chain, tx_hash, seq)).fetchone():
+        return 0
+    conn.execute(
+        "INSERT INTO cw_transfers (wallet_id, owner, tx_hash, log_index, chain,"
+        " block_time, token_symbol, token_name, token_addr, direction, amount)"
+        " VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+        (wid, owner, tx_hash, seq, chain, ts, sym, name, "", direction,
+         round(amount, 12)))
+    return 1
+
+
+def _wei2amt(raw) -> float:
+    try:
+        return int(str(raw or "0")) / 1e18
+    except Exception:
+        return 0.0
+
+
+def fetch_native_movements(conn, owner: str, wallet: sqlite3.Row,
+                           scan_chains: list[str] | None = None) -> dict:
+    """Capture des mouvements de monnaie native (externes + internes) par
+    chaîne présente au scan. Idempotent (sentinel log_index ≥ 1e9).
+    Retourne {inserted, per_chain, errors}."""
+    wid = wallet["id"]
+    addr = _norm_addr(wallet["address"])
+    if scan_chains is None:
+        # chaînes du dernier scan (toute ligne — le scan ne garde que les
+        # chaînes où le wallet a un solde > 0)
+        scan_chains = [r["chain"] for r in conn.execute(
+            "SELECT DISTINCT chain FROM cw_scans WHERE wallet_id=? AND"
+            " scanned_at=(SELECT MAX(scanned_at) FROM cw_scans WHERE wallet_id=?)",
+            (wid, wid)).fetchall()]
+    inserted = 0
+    per_chain: dict[str, int] = {}
+    errors: list[dict] = []
+    for chain in sorted(set(scan_chains or [])):
+        meta = NATIVE_COIN.get(chain)
+        host = CHAINS.get(chain)
+        if not meta or not host:
+            continue
+        sym = meta["symbol"].lower()
+        name = meta["name"]
+        # v2026.09.052 : purge des jambes natives HÉRITÉES du moteur CWT
+        # (log_index réel 0, capture partielle — seulement certains IN, ni
+        # value OUT, ni fees) pour une représentation unique : seules les
+        # jambes sentinelles ≥ 1e9 (externes + internal + gaz) subsistent.
+        # Les transferts ERC-20 ont toujours token_addr non vide → intacts.
+        conn.execute(
+            "DELETE FROM cw_transfers WHERE wallet_id=? AND chain=? AND"
+            " token_addr='' AND log_index<1000000000 AND LOWER(token_symbol)=?"
+            " AND direction<>''", (wid, chain, sym))
+        conn.commit()
+        chain_new = 0
+        try:
+            # 1) transactions externes (value + fee)
+            base = f"https://{host}/api/v2/addresses/{addr}/transactions"
+            params = {"items_count": "50"}
+            for _page in range(_MAX_TX_PAGES * 2):
+                sep = "&" if "?" in base else "?"
+                qs = "&".join(f"{k}={v}" for k, v in params.items())
+                data = _http_json(f"{base}{sep}{qs}", timeout=30)
+                if not data:
+                    break
+                items = data.get("items") or []
+                if not items:
+                    break
+                for item in items:
+                    tx_hash = item.get("hash") or ""
+                    ts = (item.get("timestamp") or "")[:19].replace("T", " ")
+                    fh = ((item.get("from") or {}).get("hash") or "").lower()
+                    th = ((item.get("to") or {}).get("hash") or "").lower()
+                    if not tx_hash or (fh != addr and th != addr):
+                        continue
+                    value = _wei2amt(item.get("value"))
+                    fee = _wei2amt((item.get("fee") or {}).get("value"))
+                    if fh == addr and th == addr:
+                        # auto-envoi : la valeur se compense, seul le gaz brûle
+                        if fee > 0:
+                            chain_new += _native_insert(
+                                conn, owner, wid, chain, tx_hash, _EXT_FEE_SEQ,
+                                ts, sym, name, "out", fee)
+                    else:
+                        if th == addr and value > 0:
+                            chain_new += _native_insert(
+                                conn, owner, wid, chain, tx_hash, _EXT_IN_SEQ,
+                                ts, sym, name, "in", value)
+                        if fh == addr and value > 0:
+                            chain_new += _native_insert(
+                                conn, owner, wid, chain, tx_hash, _EXT_OUT_SEQ,
+                                ts, sym, name, "out", value)
+                        if fh == addr and fee > 0:
+                            chain_new += _native_insert(
+                                conn, owner, wid, chain, tx_hash, _EXT_FEE_SEQ,
+                                ts, sym, name, "out", fee)
+                nxt = data.get("next_page_params")
+                if not nxt:
+                    break
+                params = {**params, **nxt}
+            # 2) internal transactions (2 filtres)
+            for filt, base_seq, dirn in (("to", _INT_IN_BASE, "in"),
+                                         ("from", _INT_OUT_BASE, "out")):
+                base = f"https://{host}/api/v2/addresses/{addr}" \
+                       "/internal-transactions"
+                params = {"filter": filt, "items_count": "50"}
+                for _page in range(_MAX_TX_PAGES * 2):
+                    sep = "&" if "?" in base else "?"
+                    qs = "&".join(f"{k}={v}" for k, v in params.items())
+                    data = _http_json(f"{base}{sep}{qs}", timeout=30)
+                    if not data:
+                        break
+                    items = data.get("items") or []
+                    if not items:
+                        break
+                    for item in items:
+                        tx_hash = (item.get("transaction_hash")
+                                   or item.get("tx_hash") or "")
+                        ts = (item.get("timestamp") or "")[:19].replace("T", " ")
+                        fh = ((item.get("from") or {}).get("hash") or "").lower()
+                        th = ((item.get("to") or {}).get("hash") or "").lower()
+                        idx = item.get("index")
+                        if idx is None or not tx_hash:
+                            continue  # pas d'index stable → on laisse l'externe
+                        try:
+                            idx = int(idx)
+                        except Exception:
+                            continue
+                        value = _wei2amt(item.get("value"))
+                        if value <= 0:
+                            continue
+                        if dirn == "in" and th == addr and fh != addr:
+                            chain_new += _native_insert(
+                                conn, owner, wid, chain, tx_hash,
+                                base_seq + idx, ts, sym, name, "in", value)
+                        elif dirn == "out" and fh == addr and th != addr:
+                            chain_new += _native_insert(
+                                conn, owner, wid, chain, tx_hash,
+                                base_seq + idx, ts, sym, name, "out", value)
+                    nxt = data.get("next_page_params")
+                    if not nxt:
+                        break
+                    params = {**params, **nxt}
+        except Exception as e:
+            errors.append({"chain": chain, "error": str(e)[:160]})
+            log.warning("native: chaîne %s ignorée (%s)", chain, e)
+        per_chain[chain] = chain_new
+        if chain_new:
+            inserted += chain_new
+            conn.commit()
+    return {"inserted": inserted, "per_chain": per_chain, "errors": errors}
+
+
+# ═══════════════════════════════════════════════════════════════════
 # Séries de prix historiques (DefiLlama) + cache + enrichissement
 # ═══════════════════════════════════════════════════════════════════
 
@@ -1240,6 +1418,13 @@ def refresh_wallet(conn, owner: str, wallet_id: int,
     _state_set(owner, step="transfers")
     rep_tx = fetch_transfers(conn, owner, w)
     report["transfers"] = rep_tx
+    # 2b) mouvements natifs (value + fees + internal) — correction fantôme
+    native_chains = sorted({t["chain"] for t in (scan["tokens"] or [])
+                            if (t.get("symbol") or "").lower()
+                            == NATIVE_COIN.get(t["chain"], {}).get("symbol",
+                                                                   "").lower()
+                            and t.get("symbol")})
+    report["native"] = fetch_native_movements(conn, owner, w, native_chains)
     # 3) prix manquants + enrichissement
     _state_set(owner, step="prices")
     rep_px = fetch_prices_and_enrich(conn, owner, wallet_id)
