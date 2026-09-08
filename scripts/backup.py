@@ -13,14 +13,14 @@ mauvais mot de passe → échec propre.
 
 Runbook de restauration (prod LAN) :
     # sauvegarde : dump SQLite à chaud + chiffrement
-    ssh cpt-claude@<hote> 'docker exec patrimony python -c "import sqlite3,sys;\
+    ssh user@<hote> 'docker exec patrimony python -c "import sqlite3,sys;\
         s=sqlite3.connect(\"data/app.db\"); d=sqlite3.connect(\"/tmp/app.db\");\
         s.backup(d)"' && ssh ... 'sudo docker cp patrimony:/tmp/app.db /opt/patrimony/backups/'
     PATRIMONY_BACKUP_PASS=... python scripts/backup.py encrypt app.db app-<date>.pat.b64
     # (copier app-<date>.pat.b64 HORS de la machine : autre disque/autre site)
     # restauration :
     PATRIMONY_BACKUP_PASS=... python scripts/backup.py decrypt app-<date>.pat.b64 app.db
-    ssh cpt-claude@<hote> 'sudo docker cp app.db patrimony:/tmp/ && \
+    ssh user@<hote> 'sudo docker cp app.db patrimony:/tmp/ && \
         sudo docker exec patrimony sh -c "mv data/app.db data/app.db.avant-restore && \
         mv /tmp/app.db data/app.db" && sudo docker restart patrimony'
 """

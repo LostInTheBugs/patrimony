@@ -11,10 +11,9 @@ Multilingual UI (FR / DE / LU / EN), feedback-driven.
 
 ## Live demo
 
-Try it online with **fictional data** (one asset per class, 2020–2026 history):
-
-- **https://patrimony.cloudfr.net**
-- Login: `demo` / `patrimony-demo-2026`
+A public instance with **fictional data** (one asset per class, 2020–2026
+history) is hosted for review — ask the author for the current URL and the
+public demo login.
 
 > The demo runs isolated public demo data only. For your real financial data,
 > self-host the app on your own private network (see Configuration below).
