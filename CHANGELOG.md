@@ -2,6 +2,31 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.054] — 2026-09-08
+
+### Added — Investissements backend (Actions PEA/CTO & Assurance vie pages)
+
+First step of the Actions/AV chantier (design:
+`claude/design-actions-av-2026.md`, never pushed): dedicated overview
+routes — no schema change, everything reads existing
+accounts/positions/dividend_events/prices/transactions/valuations.
+
+- `GET /api/actions/overview`: PEA & CTO sections, per account (value =
+  latest valuation — authoritative like the dashboard, cost from
+  transactions or cost_basis, gain/%, inflows/outflows, dividends total &
+  YTD) with full per-line positions payload (quantity, PRU, cached price,
+  EUR value, gain, dividends).
+- `GET /api/av/overview`: AV contracts (class épargne → funds €, bourse →
+  UC), same metrics + withdrawals YTD.
+- `POST /api/actions/refresh`: fresh Yahoo quotes for every active
+  position symbol of PEA/CTO (once per symbol) into the `prices` cache —
+  never writes valuations.
+- Demo seed: PEA/CTO/AV wrappers set, new CTO « Boursorama » with 2
+  positions + dividend events + cached prices, new AV « Linxea Avenir »
+  (funds €).
+- EUR conversion mirrors /api/summary (fx at valuation date, `fx_missing`
+  list); member views read-only; 5 deterministic tests (191 total).
+
 ## [2026.09.053] — 2026-09-08
 
 ### Fixed — Current prices from DefiLlama for all tokens (staking shares)

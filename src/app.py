@@ -405,6 +405,8 @@ def _seed_demo() -> None:
         ("Compte courant",          "comptes",      "Crédit Mutuel",  "2023-09", 8500,  1200, 4100, 0.02),
         ("Livret A",                "epargne",      "Crédit Mutuel",  "2023-01", 15000, 10000, 15800, 0.002),
         ("PEA (ETF MSCI World)",    "bourse",       "Boursorama",     "2022-06", 20000, 15000, 26500, 0.03),
+        ("CTO (Boursorama)",        "bourse",       "Boursorama",     "2021-01", 12000, 9000, 15800, 0.04),
+        ("AV (Linxea Avenir)",      "epargne",      "Linxea",         "2018-06", 25000, 18000, 30500, 0.002),
         ("Appartement locatif",     "immobilier",   "—",              "2021-03", 145000, 150000, 172000, 0.001),
         # (la classe crowdfunding est alimentée par le module → cf. seed_demo)
         ("Bitcoin + Ethereum",      "crypto",       "Binance",        "2021-01", 3000,  3000, 6400, 0.05),
@@ -441,6 +443,33 @@ def _seed_demo() -> None:
                 "INSERT INTO valuations (account_id, val_date, value, source) VALUES (?,?,?, 'demo')",
                 (aid, d.isoformat(), round(val, 2)),
             )
+    # v2026.09.054 : wrappers fiscaux (PEA/CTO/AV) + lignes titres démo
+    for nm, wr in (("PEA (ETF MSCI World)", "pea"), ("CTO (Boursorama)", "cto"),
+                   ("AV (Linxea Avenir)", "av")):
+        conn.execute("UPDATE accounts SET wrapper=? WHERE name=? AND owner=?",
+                     (wr, nm, owner))
+    cto = conn.execute(
+        "SELECT id FROM accounts WHERE name='CTO (Boursorama)' AND owner=?",
+        (owner,)).fetchone()
+    if cto:
+        ts = datetime.now(timezone.utc).isoformat()
+        pa = conn.execute(
+            "INSERT INTO positions (account_id, symbol, label, quantity, pru)"
+            " VALUES (?,?,?,?,?)",
+            (cto["id"], "AI.PA", "Air Liquide", 12, 141.5))
+        pb = conn.execute(
+            "INSERT INTO positions (account_id, symbol, label, quantity, pru)"
+            " VALUES (?,?,?,?,?)",
+            (cto["id"], "IWDA.AS", "iShares Core MSCI World UCITS ETF", 38, 118.4))
+        for pid, sym, ps, exd in ((pa.lastrowid, "AI.PA", 3.2, "2026-05-15"),
+                                  (pb.lastrowid, "IWDA.AS", 0.35, "2026-02-20")):
+            conn.execute(
+                "INSERT INTO dividend_events (position_id, ex_date, per_share)"
+                " VALUES (?,?,?)", (pid, exd, ps))
+        for sym, px in (("AI.PA", 168.4), ("IWDA.AS", 135.2)):
+            conn.execute(
+                "INSERT OR REPLACE INTO prices (symbol, price, currency, ts)"
+                " VALUES (?,?,?,?)", (sym, px, "", ts))
     # module Crowdfunding (démo) : plateformes + projets fictifs → comptes-auto
     crowdfund.seed_demo(conn, owner)
     # module Crypto (démo) : wallet fictif synthétique (hors-ligne) → compte-auto
@@ -2440,7 +2469,209 @@ async def summary(request: Request, family: int = 0, member: str = ""):
     }
 
 
-# ---------------------------------------------------------------- historique
+# ---------------------------------------------------------------- investissements (v2026.09.054)
+# Pages « 📈 Actions » (PEA/CTO) & « 🛡️ Assurance vie » — aucun changement de
+# schéma : tout est lu depuis accounts/positions/dividend_events/prices/
+# transactions/valuations. La VALEUR d'un compte reste sa dernière
+# valorisation (source de vérité, comme le dashboard) ; les lignes titres
+# sont une décomposition informative (cours = cache `prices`, jamais réseau
+# au rendu).
+
+def _inv_flows(conn: sqlite3.Connection, owners: list[str],
+               wrappers: tuple[str, ...]) -> dict[int, dict]:
+    """Flux par compte (deposits/income in, withdrawals out, retraits YTD)
+    + dividendes enregistrés (total & YTD) — scope owners + wrappers."""
+    wc, args = _owner_clause(owners)
+    wl = ",".join("?" * len(wrappers))
+    out: dict[int, dict] = {}
+    rows = conn.execute(
+        f"SELECT t.account_id AS aid,"
+        " COALESCE(SUM(CASE WHEN t.kind IN ('deposit','income')"
+        " THEN t.amount ELSE 0 END),0) AS inflow,"
+        " COALESCE(SUM(CASE WHEN t.kind='withdrawal' THEN t.amount ELSE 0 END),0)"
+        " AS outflow,"
+        " COALESCE(SUM(CASE WHEN t.kind='withdrawal' AND t.op_date>=?"
+        " THEN t.amount ELSE 0 END),0) AS withdrawn_ytd"
+        " FROM transactions t JOIN accounts a ON a.id=t.account_id"
+        f" WHERE a.active=1 AND a.wrapper IN ({wl}) AND {wc}"
+        " GROUP BY t.account_id",
+        [date.today().strftime("%Y-01-01"), *wrappers, *args],
+    ).fetchall()
+    for r in rows:
+        d = dict(r)
+        d["dividends_total"] = d["dividends_ytd"] = 0.0
+        out[r["aid"]] = d
+    dyear = date.today().strftime("%Y-01-01")
+    divs = conn.execute(
+        f"SELECT a.id AS aid, d.ex_date, COALESCE(p.quantity,0) AS qty, d.per_share"
+        " FROM dividend_events d JOIN positions p ON p.id=d.position_id"
+        " JOIN accounts a ON a.id=p.account_id"
+        f" WHERE a.active=1 AND a.wrapper IN ({wl}) AND {wc}",
+        [*wrappers, *args],
+    ).fetchall()
+    for r in divs:
+        amt = round((r["qty"] or 0) * (r["per_share"] or 0), 2)
+        d = out.setdefault(r["aid"], {
+            "inflow": 0.0, "outflow": 0.0, "withdrawn_ytd": 0.0,
+            "dividends_total": 0.0, "dividends_ytd": 0.0})
+        d["dividends_total"] = round(d["dividends_total"] + amt, 2)
+        if r["ex_date"] >= dyear:
+            d["dividends_ytd"] = round(d["dividends_ytd"] + amt, 2)
+    return out
+
+
+def _inv_row(conn: sqlite3.Connection, r: sqlite3.Row,
+             latest: dict, txns: dict, flows: dict, fx_missing: list,
+             with_positions: bool) -> dict | None:
+    """Compte converti en EUR (mêmes règles que /api/summary) + lignes."""
+    lv = latest.get(r["id"])
+    if lv is None:
+        return None
+    t = txns.get(r["id"])
+    cost = t["cost"] if t else (r["cost_basis"] or 0.0)
+    ccy = r["currency"] or "EUR"
+    fxr = fx.lookup(conn, ccy, lv["date"], r["fx_override"])
+    if fxr is None:
+        fx_missing.append(r["name"])
+        return None
+    value_eur = lv["value"] / fxr["rate"] if ccy != "EUR" else lv["value"]
+    cost_eur = cost / fxr["rate"] if (cost and ccy != "EUR") else cost
+    fl = flows.get(r["id"]) or {}
+    row = {
+        "id": r["id"], "name": r["name"], "institution": r["institution"] or "",
+        "currency": ccy, "open_date": r["open_date"],
+        "value": round(value_eur, 2),
+        "cost": round(cost_eur, 2) if cost_eur else None,
+        "gain": None, "gain_pct": None,
+        "last_val_date": lv["date"], "last_val_source": lv["source"],
+        "inflow": round(fl.get("inflow", 0.0) / fxr["rate"], 2) if ccy != "EUR"
+        else round(fl.get("inflow", 0.0), 2),
+        "outflow": round(fl.get("outflow", 0.0) / fxr["rate"], 2) if ccy != "EUR"
+        else round(fl.get("outflow", 0.0), 2),
+        "withdrawn_ytd": round(fl.get("withdrawn_ytd", 0.0) / fxr["rate"], 2)
+        if ccy != "EUR" else round(fl.get("withdrawn_ytd", 0.0), 2),
+        "dividends_total": round(fl.get("dividends_total", 0.0) / fxr["rate"], 2)
+        if ccy != "EUR" else round(fl.get("dividends_total", 0.0), 2),
+        "dividends_ytd": round(fl.get("dividends_ytd", 0.0) / fxr["rate"], 2)
+        if ccy != "EUR" else round(fl.get("dividends_ytd", 0.0), 2),
+    }
+    if row["cost"]:
+        row["gain"] = round(value_eur - row["cost"], 2)
+        row["gain_pct"] = round(row["gain"] / row["cost"] * 100, 2) \
+            if row["cost"] else None
+    if with_positions:
+        row["positions"] = _positions_payload(conn, r["id"])
+    return row
+
+
+def _inv_totals(accounts: list[dict]) -> dict:
+    value = round(sum(a["value"] for a in accounts), 2)
+    cost = round(sum(a["cost"] or 0 for a in accounts), 2)
+    gain = round(value - cost, 2) if cost else None
+    return {
+        "value": value, "cost": cost or None,
+        "gain": gain,
+        "gain_pct": round(gain / cost * 100, 2) if gain is not None and cost else None,
+        "dividends_total": round(sum(a["dividends_total"] for a in accounts), 2),
+        "dividends_ytd": round(sum(a["dividends_ytd"] for a in accounts), 2),
+        "withdrawn_ytd": round(sum(a["withdrawn_ytd"] for a in accounts), 2),
+        "count": len(accounts),
+    }
+
+
+@app.get("/api/actions/overview")
+async def actions_overview(request: Request, family: int = 0, member: str = ""):
+    u = _need(request)
+    conn = db()
+    owners = _visible_owners(conn, u, bool(family), member or None)
+    latest = _latest_valuations(conn)
+    txns = _txn_summary(conn)
+    flows = _inv_flows(conn, owners, ("pea", "cto"))
+    fx_missing: list[str] = []
+    wrappers_out = []
+    for key in ("pea", "cto"):
+        accs = []
+        rows = conn.execute(
+            "SELECT * FROM accounts WHERE active=1 AND wrapper=?"
+            " AND asset_class='bourse' AND owner IN (%s)" % ",".join("?" * len(owners)),
+            [key, *owners]).fetchall()
+        for r in rows:
+            row = _inv_row(conn, r, latest, txns, flows, fx_missing, True)
+            if row:
+                accs.append(row)
+        accs.sort(key=lambda a: a["value"], reverse=True)
+        wrappers_out.append({
+            "key": key, "label": "PEA" if key == "pea" else "CTO",
+            "accounts": accs, **{k: v for k, v in _inv_totals(accs).items()
+                                 if k != "count"},
+        })
+    all_accs = [a for w in wrappers_out for a in w["accounts"]]
+    net = _inv_totals(all_accs)
+    conn.close()
+    return {"net": net, "wrappers": wrappers_out, "fx_missing": fx_missing}
+
+
+@app.get("/api/av/overview")
+async def av_overview(request: Request, family: int = 0, member: str = ""):
+    u = _need(request)
+    conn = db()
+    owners = _visible_owners(conn, u, bool(family), member or None)
+    latest = _latest_valuations(conn)
+    txns = _txn_summary(conn)
+    flows = _inv_flows(conn, owners, ("av",))
+    fx_missing: list[str] = []
+    contracts = []
+    rows = conn.execute(
+        "SELECT * FROM accounts WHERE active=1 AND wrapper='av'"
+        " AND owner IN (%s)" % ",".join("?" * len(owners)),
+        [*owners]).fetchall()
+    for r in rows:
+        row = _inv_row(conn, r, latest, txns, flows, fx_missing, False)
+        if row:
+            row["kind_funds"] = "euro" if r["asset_class"] == "epargne" else "uc"
+            contracts.append(row)
+    contracts.sort(key=lambda a: a["value"], reverse=True)
+    net = _inv_totals(contracts)
+    conn.close()
+    return {"net": net, "contracts": contracts, "fx_missing": fx_missing}
+
+
+@app.post("/api/actions/refresh")
+async def actions_refresh(request: Request):
+    """Cours frais (Yahoo, une fois par symbole) pour les LIGNES TITRES des
+    PEA/CTO du scope → cache `prices` (jamais de valorisation auto ici :
+    la valeur du compte reste celle de sa dernière valuation)."""
+    u = _need(request)
+    conn = db()
+    owners = _visible_owners(conn, u, False, None)
+    syms = [r["symbol"] for r in conn.execute(
+        "SELECT DISTINCT p.symbol FROM positions p JOIN accounts a"
+        " ON a.id=p.account_id WHERE p.active=1 AND a.active=1"
+        " AND a.wrapper IN ('pea','cto') AND a.owner IN (%s)"
+        % ",".join("?" * len(owners)), [*owners]).fetchall()]
+    updated, failed = [], []
+
+    async def one(symbol: str) -> None:
+        q = await run_in_threadpool(fetch_quote, symbol, "bourse")
+        if not q or not q.get("price"):
+            failed.append({"symbol": symbol, "error": "cours introuvable"})
+            return
+        conn.execute(
+            "INSERT OR REPLACE INTO prices (symbol, price, currency, ts)"
+            " VALUES (?,?,?,?)",
+            (symbol, q["price"], q.get("currency", ""),
+             datetime.now(timezone.utc).isoformat()))
+        conn.commit()
+        updated.append({"symbol": symbol, "price": q["price"],
+                        "currency": q.get("currency", "")})
+
+    for s in sorted(syms):
+        await one(s)
+    conn.close()
+    return {"updated": updated, "failed": failed}
+
+
+
 @app.get("/api/history")
 async def history(request: Request, months: int = 60, family: int = 0, member: str = ""):
     u = _need(request)
