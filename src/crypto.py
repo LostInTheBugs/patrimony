@@ -1597,6 +1597,38 @@ def seed_demo(conn, owner: str) -> dict:
     conn.commit()
     rebuild_wallet_series(conn, owner, wid, None)
     refresh_integration(conn, owner, today)
+    # 5) scans « cosmétiques » à partir du dernier état de série (le wallet
+    #    démo ne fait jamais de réseau) + dernier état wallet
+    ts = now_iso()
+    agg_v = 0.0
+    for r in conn.execute(
+            "SELECT token_symbol, chain, value_usd, cost_usd FROM cw_history"
+            " WHERE wallet_id=? AND token_symbol IS NOT NULL AND date=(SELECT"
+            " MAX(date) FROM cw_history WHERE wallet_id=? AND token_symbol IS"
+            " NOT NULL)", (wid, wid)):
+        sym = r["token_symbol"]
+        price = conn.execute(
+            "SELECT price_usd FROM cw_price_cache WHERE token_symbol=?"
+            " ORDER BY date DESC LIMIT 1", (sym,)).fetchone()
+        px = price["price_usd"] if price else 0.0
+        if not px:
+            txp = conn.execute(
+                "SELECT usd_price FROM cw_transfers WHERE wallet_id=? AND"
+                " token_symbol=? AND usd_price>0 ORDER BY block_time DESC LIMIT 1",
+                (wid, sym)).fetchone()
+            px = txp["usd_price"] if txp else 0.0
+        val = r["value_usd"] or 0
+        agg_v += val
+        conn.execute(
+            "INSERT INTO cw_scans (wallet_id, owner, scanned_at, chain, symbol,"
+            " name, category, token_addr, balance, usd_price, usd_value)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+            (wid, owner, ts, r["chain"], sym,
+             "Ethereum" if sym == "eth" else sym, _token_category(sym), "",
+             round(val / px, 6) if px else 0, px, round(val, 2)))
+    conn.execute(
+        "UPDATE cw_wallets SET last_value_usd=?, last_refresh=?, status='ok'"
+        " WHERE id=?", (round(agg_v, 2), ts, wid))
     conn.commit()
     return {"seeded": True, "wallet_id": wid, "transfers": tx}
 

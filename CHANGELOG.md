@@ -2,6 +2,22 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.051] — 2026-09-08
+
+### Added — Crypto wallets page (UI)
+
+- New ₿ « Crypto » section (nav entry, after Actifs): header cards
+  (wallet value / total cost / gain / tracked wallets, USD), wallets table
+  (label, truncated address, value/cost/gain with reconciliation badge,
+  chain chips + token/chain counts, last sync), expandable per-wallet token
+  detail (chain, token, category, balance, price, value), add-wallet form
+  (public address), manual refresh button with live status, wallet removal.
+- Values in USD (narrow $ symbol, discrete mode respected); balances are
+  the on-chain scan result — the estimated-transfer history gap is exposed
+  as a badge with tooltip; i18n ×4; admin actions hidden in member view;
+  demo wallet seeded with synthetic scans.
+- Demo seed now materialises cosmetic scan rows + wallet last state.
+
 ## [2026.09.050] — 2026-09-08
 
 ### Added — Crypto wallets module (non-custodial, backend)
