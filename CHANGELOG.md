@@ -2,9 +2,40 @@
 
 All notable changes to Patrimony are documented in this file.
 
-## [2026.09.045] — 2026-09-07
+## [2026.09.046] — 2026-09-08
 
 ### Added
+- Crowdfunding module: per-project tracking of equity/loan crowdfunding
+  platforms (Bricks.co, La Première Brique) directly inside Patrimony —
+  replaces the standalone Crowdfunding Tracker app (single source of truth).
+  Backend: owner-scoped tables (`cf_projects`, `cf_operations`,
+  `cf_platforms`…), full REST API under `/api/cf/*` (projects CRUD,
+  operations history + xlsx platform-export import, platform metadata,
+  overview with annualised returns, JSON export/import), extension sync
+  endpoints (`POST /api/cf/sync/ingest`, `GET /api/cf/sync/report`) gated by
+  a dedicated `crowdfund` API token scope.
+- Derived "auto accounts" seam: each platform is materialised as a
+  read-only auto-valuation account of the crowdfunding asset class
+  (current value + month-end series + initial deposit) so dashboards,
+  history, evolution and index simulations include the module without any
+  duplicate manual entry. Manual crowdfunding accounts are rejected (400).
+- One-shot migration script `scripts/migrate_crowdfunding.py` with built-in
+  parity checks (counts, invested totals, platform values, LPB capital due).
+- Vault integration: crowdfunding tables of a protected member are sealed
+  in their encrypted vault (copy on init, clear-data purge).
+- Demo seed now includes fictional crowdfunding platforms + projects.
+- 12 new tests (164 total).
+
+### Changed
+- `/api/history`: per-class series are summed per month across all accounts
+  of the class (a class can now hold several accounts; previously each
+  account appended its own value, misaligning the series).
+- Crowdfunding module tables live in the shared data schema (main database
+  and vault memory databases).
+
+### Fixed
+- Manual-account, valuation and transaction routes refuse writes on module
+  managed (auto) crowdfunding accounts.
 
 - **Tax estimates consent gate (Fred 2026-09-07)** — the tax part
   (⚖️ Household tax assumptions in Settings + per-asset tax estimates)

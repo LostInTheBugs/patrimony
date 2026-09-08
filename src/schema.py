@@ -117,6 +117,84 @@ def schema_data(conn: sqlite3.Connection) -> None:
             value REAL NOT NULL,
             PRIMARY KEY (member, key)
         );
+        -- module Crowdfunding (v2026.09.046) : suivi projet-par-projet des
+        -- plateformes d'investissement participatif (Bricks.co, La Première
+        -- Brique). Tables scopées par owner comme accounts ; la valeur agrégée
+        -- est matérialisée dans des comptes-auto de classe crowdfunding
+        -- (cf_platforms.account_id) pour alimenter dashboard/évolution/historique.
+        CREATE TABLE IF NOT EXISTS cf_platforms (
+            owner TEXT NOT NULL,
+            platform TEXT NOT NULL,
+            account_id INTEGER,
+            balance REAL DEFAULT 0,
+            deposited REAL DEFAULT 0,
+            invested_value REAL DEFAULT 0,
+            updated_at TEXT DEFAULT '',
+            PRIMARY KEY (owner, platform)
+        );
+        CREATE TABLE IF NOT EXISTS cf_projects (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            owner TEXT NOT NULL DEFAULT '',
+            platform TEXT NOT NULL DEFAULT 'bricks',
+            name TEXT NOT NULL,
+            city TEXT DEFAULT '',
+            invested REAL NOT NULL DEFAULT 0,
+            rate REAL NOT NULL DEFAULT 0,
+            duration_months INTEGER NOT NULL DEFAULT 0,
+            start_date TEXT,
+            expected_end_date TEXT,
+            actual_end_date TEXT,
+            status TEXT NOT NULL DEFAULT 'en_cours',
+            repaid_capital REAL NOT NULL DEFAULT 0,
+            interest_received REAL NOT NULL DEFAULT 0,
+            interest_net REAL NOT NULL DEFAULT 0,
+            interest_remaining REAL NOT NULL DEFAULT 0,
+            interest_remaining_net REAL NOT NULL DEFAULT 0,
+            real_rate REAL NOT NULL DEFAULT 0,
+            valuation REAL NOT NULL DEFAULT 0,
+            contract_type TEXT DEFAULT '',
+            infine INTEGER NOT NULL DEFAULT 0,
+            rest_months INTEGER NOT NULL DEFAULT 0,
+            reinvested_from INTEGER,
+            auto_created INTEGER NOT NULL DEFAULT 0,
+            notes TEXT DEFAULT '',
+            legacy_id INTEGER,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_cfp_owner ON cf_projects(owner, platform);
+        CREATE TABLE IF NOT EXISTS cf_operations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            owner TEXT NOT NULL DEFAULT '',
+            platform TEXT NOT NULL,
+            source_id TEXT,
+            op_date TEXT NOT NULL,
+            type TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'Validée',
+            project_id INTEGER REFERENCES cf_projects(id) ON DELETE CASCADE,
+            amount REAL NOT NULL DEFAULT 0,
+            details TEXT DEFAULT '',
+            contract_type TEXT DEFAULT '',
+            extra TEXT DEFAULT '',
+            created_at TEXT NOT NULL,
+            UNIQUE (owner, platform, source_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_cfo_project ON cf_operations(owner, project_id);
+        CREATE INDEX IF NOT EXISTS idx_cfo_date ON cf_operations(op_date);
+        CREATE TABLE IF NOT EXISTS cf_captures (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            owner TEXT NOT NULL DEFAULT '',
+            ts TEXT NOT NULL,
+            platform TEXT DEFAULT '',
+            url TEXT DEFAULT '',
+            status_code INTEGER DEFAULT 0,
+            body TEXT DEFAULT ''
+        );
+        CREATE TABLE IF NOT EXISTS cf_reports (
+            owner TEXT PRIMARY KEY,
+            data TEXT DEFAULT '{}',
+            created_at TEXT NOT NULL
+        );
         """
     )
     for col, ddl in (

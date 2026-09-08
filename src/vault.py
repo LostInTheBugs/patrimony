@@ -326,6 +326,11 @@ def init_vault(main: sqlite3.Connection, username: str, salt: str, wrapped: str,
     copy_rows(main, mem, "dividend_events",
               "position_id IN (SELECT p.id FROM positions p"
               " JOIN accounts a ON a.id=p.account_id WHERE a.owner=?)", (username,))
+    # module Crowdfunding (v2026.09.046) : tables scopées par owner
+    copy_rows(main, mem, "cf_platforms", "owner=?", (username,))
+    copy_rows(main, mem, "cf_projects", "owner=?", (username,))
+    copy_rows(main, mem, "cf_operations", "owner=?", (username,))
+    copy_rows(main, mem, "cf_reports", "owner=?", (username,))
     copy_rows(main, mem, "settings", "member=?", (username,))
     register(username, mem, dek, token)
     # la ligne vaults doit exister avant le flush du blob

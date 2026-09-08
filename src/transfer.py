@@ -59,7 +59,15 @@ def export_data(conn, username: str, app_version: str) -> dict:
             " JOIN accounts a ON a.id=p.account_id WHERE a.owner=?", (username,)).fetchall()],
         "settings": [dict(r) for r in conn.execute(
             "SELECT key, value FROM settings WHERE member=?", (username,)).fetchall()],
+        "crowdfunding": _cf_payload(conn, username),
     }
+
+
+def _cf_payload(conn, username: str) -> dict:
+    """Données du module Crowdfunding (projets/opérations/plateformes) — import
+    différé pour éviter tout cycle d'import au chargement."""
+    from src import crowdfund
+    return crowdfund.export_payload(conn, username)
 
 
 def do_import(conn, username: str, body: dict) -> str | None:
@@ -118,6 +126,15 @@ def do_import(conn, username: str, body: dict) -> str | None:
                 "INSERT INTO settings (member, key, value) VALUES (?,?,?)",
                 (username, s["key"], s["value"]),
             )
+        # module Crowdfunding (v2026.09.046) : les sauvegardes récentes portent
+        # les données du module ; les anciennes n'en ont pas (rien à restaurer)
+        if "crowdfunding" in body and body["crowdfunding"]:
+            from src import crowdfund
+            err = crowdfund.do_cf_import(conn, username, body["crowdfunding"])
+            if err:
+                conn.rollback()
+                return err
+            crowdfund.refresh_integration(conn, username)
         conn.commit()
     except Exception as e:
         conn.rollback()

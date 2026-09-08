@@ -46,6 +46,7 @@ from src import transfer
 from src import vault
 from src.schema import schema_data
 from src import bench
+from src import crowdfund
 
 FX_SUPPORTED = fx.SUPPORTED  # liste canonique des devises (module src/fx.py)
 
@@ -318,6 +319,18 @@ def init_db() -> None:
     # purge des données claires orphelines (comptes protégés déjà dotés d'un
     # coffre — reliquat d'une migration interrompue entre la copie et l'effacement)
     conn.execute(
+        "DELETE FROM cf_operations WHERE owner IN"
+        " (SELECT v.username FROM vaults v JOIN users u ON u.username=v.username WHERE u.mode='protected')"
+    )
+    conn.execute(
+        "DELETE FROM cf_projects WHERE owner IN"
+        " (SELECT v.username FROM vaults v JOIN users u ON u.username=v.username WHERE u.mode='protected')"
+    )
+    conn.execute(
+        "DELETE FROM cf_platforms WHERE owner IN"
+        " (SELECT v.username FROM vaults v JOIN users u ON u.username=v.username WHERE u.mode='protected')"
+    )
+    conn.execute(
         "DELETE FROM accounts WHERE owner IN"
         " (SELECT v.username FROM vaults v JOIN users u ON u.username=v.username WHERE u.mode='protected')"
     )
@@ -375,7 +388,7 @@ def _seed_demo() -> None:
         ("Livret A",                "epargne",      "Crédit Mutuel",  "2023-01", 15000, 10000, 15800, 0.002),
         ("PEA (ETF MSCI World)",    "bourse",       "Boursorama",     "2022-06", 20000, 15000, 26500, 0.03),
         ("Appartement locatif",     "immobilier",   "—",              "2021-03", 145000, 150000, 172000, 0.001),
-        ("Bricks.co (crowdfunding)","crowdfunding", "Bricks.co",      "2022-10", 2400,  2400, 2600, 0.005),
+        # (la classe crowdfunding est alimentée par le module → cf. seed_demo)
         ("Bitcoin + Ethereum",      "crypto",       "Binance",        "2021-01", 3000,  3000, 6400, 0.05),
         ("Pièces d'or (Napoléon)",  "metaux",       "Comptoir",       "2020-05", 5000,  5000, 8200, 0.01),
         ("Montre & objets",         "divers",       "—",              "2023-06", 800,   800, 950, 0.004),
@@ -410,6 +423,8 @@ def _seed_demo() -> None:
                 "INSERT INTO valuations (account_id, val_date, value, source) VALUES (?,?,?, 'demo')",
                 (aid, d.isoformat(), round(val, 2)),
             )
+    # module Crowdfunding (démo) : plateformes + projets fictifs → comptes-auto
+    crowdfund.seed_demo(conn, owner)
     conn.commit()
     conn.close()
 
@@ -530,6 +545,17 @@ def _me(request: Request) -> sqlite3.Row | None:
                     and p.startswith("/api/accounts/")
                     and p.endswith("/valuation")
                     and p[len("/api/accounts/"):-len("/valuation")].isdigit()
+                )
+                if not allowed:
+                    raise TokenScopeDenied()
+            # Portée 'crowdfund' (extension de capture Bricks/LPB) : SEULEMENT
+            # l'ingestion des captures du module et la lecture du rapport.
+            if row is not None and row["token_scope"] == "crowdfund":
+                p = request.url.path
+                allowed = (
+                    request.method == "POST" and p == "/api/cf/sync/ingest"
+                ) or (
+                    request.method == "GET" and p == "/api/cf/sync/report"
                 )
                 if not allowed:
                     raise TokenScopeDenied()
@@ -882,8 +908,8 @@ async def tokens_create(body: TokenIn, request: Request):
     if u["mode"] == "protected":
         return JSONResponse({"detail": "Non disponible pour les comptes protégés"}, status_code=403)
     scope = body.scope
-    if scope not in ("full", "capture"):
-        return JSONResponse({"detail": "Portée invalide (full|capture)"}, status_code=400)
+    if scope not in ("full", "capture", "crowdfund"):
+        return JSONResponse({"detail": "Portée invalide (full|capture|crowdfund)"}, status_code=400)
     name = (body.name or "").strip()[:40] or "extension"
     if body.expires_days is not None and not (1 <= body.expires_days <= 3650):
         return JSONResponse({"detail": "Expiration invalide (1-3650 jours)"}, status_code=400)
@@ -991,6 +1017,9 @@ async def vault_init(body: VaultInitIn, request: Request):
         except vault.VaultError as e:
             return JSONResponse({"detail": str(e)}, status_code=400)
         # effacement des données claires (après chiffrement — reliquat purgé au boot)
+        conn.execute("DELETE FROM cf_operations WHERE owner=?", (u["username"],))
+        conn.execute("DELETE FROM cf_projects WHERE owner=?", (u["username"],))
+        conn.execute("DELETE FROM cf_platforms WHERE owner=?", (u["username"],))
         conn.execute("DELETE FROM accounts WHERE owner=?", (u["username"],))
         conn.commit()
     finally:
@@ -1259,6 +1288,9 @@ async def family_delete(username: str, request: Request):
     vault.unregister(uname)
     conn.execute("DELETE FROM sessions WHERE username=?", (uname,))
     conn.execute("DELETE FROM users WHERE username=?", (uname,))  # cascade : vaults
+    conn.execute("DELETE FROM cf_operations WHERE owner=?", (uname,))
+    conn.execute("DELETE FROM cf_projects WHERE owner=?", (uname,))
+    conn.execute("DELETE FROM cf_platforms WHERE owner=?", (uname,))
     conn.execute("DELETE FROM accounts WHERE owner=?", (uname,))  # cascade : valuations/transactions/règles
     conn.commit()
     conn.close()
@@ -1797,6 +1829,9 @@ async def create_account(body: AccountIn, request: Request):
         return JSONResponse({"detail": "Nom requis"}, status_code=400)
     if body.asset_class not in CLASS_KEYS:
         return JSONResponse({"detail": "Classe d'actif invalide"}, status_code=400)
+    if body.asset_class == "crowdfunding":
+        # classe 100 % alimentée par le module Crowdfunding (décision Fred 2026-09-08)
+        return JSONResponse({"detail": "La classe Crowdfunding est gérée par le module — suivez vos projets dans la section Crowdfunding"}, status_code=400)
     mode = body.valuation_mode if body.valuation_mode in ("manual", "auto") else "manual"
     # les actifs auto sont valorisés en EUR (cours converti au refresh)
     ccy = "EUR" if mode == "auto" else (body.currency or "EUR").upper()
@@ -1856,6 +1891,9 @@ async def update_account(aid: int, body: AccountIn, request: Request):
     if not _guard_owned_account(conn, aid, u["username"]):
         conn.close()
         return JSONResponse({"detail": "Actif introuvable"}, status_code=404)
+    if crowdfund.is_cf_account(conn, aid):
+        conn.close()
+        return JSONResponse({"detail": "Actif géré par le module Crowdfunding (valeur calculée)"}, status_code=400)
     mode = body.valuation_mode if body.valuation_mode in ("manual", "auto") else "manual"
     ccy = "EUR" if mode == "auto" else (body.currency or "EUR").upper()
     if ccy not in FX_SUPPORTED:
@@ -1912,6 +1950,9 @@ async def delete_account(aid: int, request: Request):
     row = conn.execute(
         "SELECT name FROM accounts WHERE id=? AND owner=?", (aid, u["username"])
     ).fetchone()
+    if crowdfund.is_cf_account(conn, aid):
+        conn.close()
+        return JSONResponse({"detail": "Actif géré par le module Crowdfunding — retirez la plateforme dans la section Crowdfunding"}, status_code=400)
     conn.execute("DELETE FROM accounts WHERE id=? AND owner=?", (aid, u["username"]))
     conn.commit()
     conn.close()
@@ -2234,6 +2275,9 @@ async def add_valuation(aid: int, body: ValIn, request: Request):
     if row is None:
         conn.close()
         return JSONResponse({"detail": "Actif introuvable"}, status_code=404)
+    if crowdfund.is_cf_account(conn, aid):
+        conn.close()
+        return JSONResponse({"detail": "Valorisation gérée par le module Crowdfunding"}, status_code=400)
     d = body.val_date or date.today().isoformat()
     conn.execute(
         "INSERT INTO valuations (account_id, val_date, value, source, note) VALUES (?,?,?,?,?)",
@@ -2408,6 +2452,7 @@ async def history(request: Request, months: int = 60, family: int = 0, member: s
         labels.append(d.strftime("%Y-%m"))
         end_str = f"{d.strftime('%Y-%m')}-{calendar.monthrange(d.year, d.month)[1]:02d}"
         msum = 0.0
+        monthly = {k: 0.0 for k in CLASS_KEYS}
         for r in rows:
             if not r["active"]:
                 continue
@@ -2430,11 +2475,12 @@ async def history(request: Request, months: int = 60, family: int = 0, member: s
                     val = 0.0  # actif non convertible : exclu de ce mois (approximation assumée)
                 else:
                     val = val / fxr["rate"]
-            series[r["asset_class"]].append(round(val, 2))
+            # une classe peut porter PLUSIEURS comptes (ex. crowdfunding auto) :
+            # la série est la SOMME par mois — jamais une valeur par compte
+            monthly[r["asset_class"]] += val
             msum += val
         for k in CLASS_KEYS:
-            if len(series[k]) < len(labels):
-                series[k].append(0.0)
+            series[k].append(round(monthly[k], 2))
         totals.append(round(msum, 2))
         d = date(d.year + d.month // 12, d.month % 12 + 1, 1)
     conn.close()
@@ -2796,6 +2842,9 @@ async def add_transaction(body: TxIn, request: Request):
     if row is None:
         conn.close()
         return JSONResponse({"detail": "Actif introuvable"}, status_code=404)
+    if crowdfund.is_cf_account(conn, body.account_id):
+        conn.close()
+        return JSONResponse({"detail": "Opérations gérées par le module Crowdfunding"}, status_code=400)
     cur = conn.execute(
         "INSERT INTO transactions (account_id, op_date, kind, amount, note) VALUES (?,?,?,?,?)",
         (body.account_id, body.op_date[:10], body.kind, round(body.amount, 2), body.note.strip()),
@@ -2820,6 +2869,9 @@ async def delete_transaction(tid: int, request: Request):
     if (row["source_id"] or "").startswith("div:"):
         conn.close()
         return JSONResponse({"detail": "Dividende géré depuis la ligne du portefeuille"}, status_code=400)
+    if (row["source_id"] or "").startswith("cf:"):
+        conn.close()
+        return JSONResponse({"detail": "Opération gérée par le module Crowdfunding"}, status_code=400)
     conn.execute("DELETE FROM transactions WHERE id=?", (tid,))
     conn.commit()
     conn.close()
@@ -3257,6 +3309,468 @@ async def refresh_benchmarks(request: Request, family: int = 0, member: str = ""
     finally:
         conn.close()
     return await benchmarks(request, family=family, member=member)
+# ================================================================ module Crowdfunding
+# Suivi projet-par-projet des plateformes (Bricks.co, La Première Brique) —
+# v2026.09.046. Métier dans src/crowdfund.py ; le patrimoine de chaque plateforme
+# est matérialisé dans des comptes-auto (classe crowdfunding) par
+# refresh_integration → dashboard/évolution/historique sans double saisie.
+
+class CfProjectIn(BaseModel):
+    platform: str = "bricks"
+    name: str = ""
+    city: str = ""
+    invested: float = 0
+    rate: float = 0
+    duration_months: int = 0
+    start_date: str | None = None
+    expected_end_date: str | None = None
+    actual_end_date: str | None = None
+    status: str = "en_cours"
+    repaid_capital: float = 0
+    interest_received: float = 0
+    interest_net: float = 0
+    interest_remaining: float = 0
+    interest_remaining_net: float = 0
+    real_rate: float = 0
+    contract_type: str = ""
+    valuation: float = 0
+    reinvested_from: int | None = None
+    notes: str = ""
+
+
+class CfPlatformIn(BaseModel):
+    platform: str
+    balance: float | None = None
+    deposited: float | None = None
+    invested_value: float | None = None
+
+
+class CfImportIn(BaseModel):
+    b64: str = ""
+
+
+class CfSyncBodyIn(BaseModel):
+    captures: list = []
+
+
+def _cf_check(body: CfProjectIn) -> str | None:
+    if not body.name.strip():
+        return "Nom requis"
+    if body.platform not in crowdfund.CF_PLATFORMS:
+        return "Plateforme inconnue"
+    if body.status not in crowdfund.CF_STATUS_KEYS:
+        return "Statut inconnu"
+    return None
+
+
+def _cf_row_to_project(conn, pid, owner: str) -> dict | None:
+    row = conn.execute(
+        "SELECT * FROM cf_projects WHERE id=? AND owner=?", (pid, owner)
+    ).fetchone()
+    if row is None:
+        return None
+    return crowdfund.project_computed(row)
+
+
+@app.get("/api/cf/summary")
+async def cf_summary(request: Request, family: int = 0, member: str = ""):
+    u = _need(request)
+    conn = db()
+    try:
+        owners = _visible_owners(conn, u, bool(family), member or None)
+        return crowdfund.summary_agg(conn, owners)
+    finally:
+        conn.close()
+
+
+@app.get("/api/cf/projects")
+async def cf_list_projects(request: Request, platform: str = "", status: str = "",
+                           family: int = 0, member: str = ""):
+    u = _need(request)
+    conn = db()
+    try:
+        owners = _visible_owners(conn, u, bool(family), member or None)
+        return {"projects": crowdfund.project_extras(
+            conn, owners, platform or None, status or None)}
+    finally:
+        conn.close()
+
+
+@app.post("/api/cf/projects")
+async def cf_create_project(body: CfProjectIn, request: Request):
+    u = _need(request)
+    err = _cf_check(body)
+    if err:
+        return JSONResponse({"detail": err}, status_code=400)
+    conn = db()
+    try:
+        cur = conn.execute(
+            """INSERT INTO cf_projects
+               (owner, platform, name, city, invested, rate, duration_months,
+                start_date, expected_end_date, actual_end_date, status, repaid_capital,
+                interest_received, interest_net, interest_remaining,
+                interest_remaining_net, real_rate, valuation, contract_type,
+                reinvested_from, notes, created_at, updated_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (u["username"], body.platform, body.name.strip(), body.city.strip(),
+             body.invested, body.rate, body.duration_months, body.start_date,
+             body.expected_end_date, body.actual_end_date, body.status,
+             body.repaid_capital, body.interest_received, body.interest_net,
+             body.interest_remaining, body.interest_remaining_net, body.real_rate,
+             body.valuation, body.contract_type, body.reinvested_from,
+             body.notes.strip(), crowdfund.now_iso(), crowdfund.now_iso()),
+        )
+        pid = cur.lastrowid
+        crowdfund.refresh_integration(conn, u["username"])
+        conn.commit()
+        out = _cf_row_to_project(conn, pid, u["username"])
+    finally:
+        conn.close()
+    _audit(u["username"], "Module crowdfunding : projet créé", f"#{pid} {body.name.strip()}")
+    return out or {"ok": True}
+
+
+@app.put("/api/cf/projects/{pid}")
+async def cf_update_project(pid: int, body: CfProjectIn, request: Request):
+    u = _need(request)
+    err = _cf_check(body)
+    if err:
+        return JSONResponse({"detail": err}, status_code=400)
+    conn = db()
+    try:
+        row = conn.execute(
+            "SELECT id FROM cf_projects WHERE id=? AND owner=?", (pid, u["username"])
+        ).fetchone()
+        if row is None:
+            return JSONResponse({"detail": "Projet introuvable"}, status_code=404)
+        conn.execute(
+            """UPDATE cf_projects SET platform=?, name=?, city=?, invested=?, rate=?,
+               duration_months=?, start_date=?, expected_end_date=?, actual_end_date=?,
+               status=?, repaid_capital=?, interest_received=?, interest_net=?,
+               interest_remaining=?, interest_remaining_net=?, real_rate=?,
+               contract_type=?, valuation=?, reinvested_from=?, notes=?, updated_at=?
+               WHERE id=?""",
+            (body.platform, body.name.strip(), body.city.strip(), body.invested,
+             body.rate, body.duration_months, body.start_date, body.expected_end_date,
+             body.actual_end_date, body.status, body.repaid_capital,
+             body.interest_received, body.interest_net, body.interest_remaining,
+             body.interest_remaining_net, body.real_rate, body.contract_type,
+             body.valuation, body.reinvested_from, body.notes.strip(),
+             crowdfund.now_iso(), pid),
+        )
+        crowdfund.refresh_integration(conn, u["username"])
+        conn.commit()
+        out = _cf_row_to_project(conn, pid, u["username"])
+    finally:
+        conn.close()
+    _audit(u["username"], "Module crowdfunding : projet modifié", f"#{pid}")
+    return out or {"ok": True}
+
+
+@app.delete("/api/cf/projects/{pid}")
+async def cf_delete_project(pid: int, request: Request):
+    u = _need(request)
+    conn = db()
+    try:
+        # neutraliser les liens de réinvestissement, puis cascade des opérations
+        conn.execute("UPDATE cf_projects SET reinvested_from=NULL WHERE reinvested_from=?", (pid,))
+        cur = conn.execute(
+            "DELETE FROM cf_projects WHERE id=? AND owner=?", (pid, u["username"])
+        )
+        if cur.rowcount == 0:
+            return JSONResponse({"detail": "Projet introuvable"}, status_code=404)
+        crowdfund.refresh_integration(conn, u["username"])
+        conn.commit()
+    finally:
+        conn.close()
+    _audit(u["username"], "Module crowdfunding : projet supprimé", f"#{pid}")
+    return {"ok": True}
+
+
+@app.get("/api/cf/operations")
+async def cf_list_operations(request: Request, platform: str = "",
+                             project_id: int = 0, q: str = "", type: str = "",
+                             limit: int = 200, offset: int = 0,
+                             family: int = 0, member: str = ""):
+    u = _need(request)
+    limit = max(1, min(limit, 1000))
+    conn = db()
+    try:
+        owners = _visible_owners(conn, u, bool(family), member or None)
+        wc, args = crowdfund._wc(owners)
+        conds, params = ["o." + wc], list(args)
+        if platform:
+            conds.append("o.platform=?")
+            params.append(platform)
+        if project_id:
+            conds.append("o.project_id=?")
+            params.append(project_id)
+        if type:
+            conds.append("o.type LIKE ?")
+            params.append(f"%{type}%")
+        if q:
+            conds.append("(o.type LIKE ? OR o.details LIKE ? OR COALESCE(p.name,'') LIKE ?)")
+            like = f"%{q}%"
+            params += [like, like, like]
+        where = " WHERE " + " AND ".join(conds)
+        total = conn.execute(
+            f"SELECT COUNT(*) c FROM cf_operations o LEFT JOIN cf_projects p ON p.id=o.project_id{where}",
+            params).fetchone()["c"]
+        rows = conn.execute(
+            f"""SELECT o.*, p.name AS project_name FROM cf_operations o
+                LEFT JOIN cf_projects p ON p.id=o.project_id{where}
+                ORDER BY o.op_date DESC, o.id DESC LIMIT ? OFFSET ?""",
+            params + [limit, offset]).fetchall()
+        items = []
+        for r in rows:
+            d = dict(r)
+            try:
+                d["extra"] = json.loads(d["extra"] or "{}")
+            except Exception:
+                d["extra"] = {}
+            items.append(d)
+    finally:
+        conn.close()
+    return {"total": total, "items": items, "limit": limit, "offset": offset}
+
+
+@app.get("/api/cf/operations/stats")
+async def cf_ops_stats(request: Request, family: int = 0, member: str = ""):
+    u = _need(request)
+    conn = db()
+    try:
+        owners = _visible_owners(conn, u, bool(family), member or None)
+        wc, args = crowdfund._wc(owners)
+        rows = conn.execute(
+            f"""SELECT o.platform, o.project_id, p.name AS project_name,
+                       SUM(CASE WHEN o.amount >= 0 THEN o.amount ELSE 0 END) AS inc,
+                       SUM(CASE WHEN o.amount < 0 THEN -o.amount ELSE 0 END) AS out,
+                       COUNT(*) AS n
+                FROM cf_operations o LEFT JOIN cf_projects p ON p.id=o.project_id
+                WHERE o.status IN ('Validée', 'Réussi') AND o.{wc}
+                GROUP BY o.platform, o.project_id""", args).fetchall()
+        by_platform: dict[str, dict] = {}
+        by_project = []
+        total_in = total_out = 0.0
+        for r in rows:
+            inc, out = r["inc"] or 0.0, r["out"] or 0.0
+            total_in += inc
+            total_out += out
+            bp = by_platform.setdefault(r["platform"], {
+                "label": crowdfund.CF_PLATFORMS.get(r["platform"], r["platform"]),
+                "in": 0.0, "out": 0.0, "n": 0})
+            bp["in"] += inc
+            bp["out"] += out
+            bp["n"] += r["n"]
+            if r["project_id"]:
+                by_project.append({"project_id": r["project_id"],
+                                   "project_name": r["project_name"],
+                                   "in": inc, "out": out, "n": r["n"]})
+        by_project.sort(key=lambda x: -(x["out"] + x["in"]))
+    finally:
+        conn.close()
+    return {"total_in": round(total_in, 2), "total_out": round(total_out, 2),
+            "net": round(total_in - total_out, 2),
+            "by_platform": list(by_platform.values()), "by_project": by_project}
+
+
+@app.post("/api/cf/import-xlsx")
+async def cf_import_xlsx(body: CfImportIn, request: Request):
+    """Importe un export xlsx (Bricks.co ou La Première Brique) — body base64."""
+    u = _need(request)
+    import base64 as _b64
+    try:
+        raw = _b64.b64decode(body.b64 or "")
+    except Exception:
+        return JSONResponse({"detail": "Fichier illisible (base64 invalide)"}, status_code=400)
+    if not raw:
+        return JSONResponse({"detail": "Fichier vide"}, status_code=400)
+    try:
+        platform, ops = crowdfund.parse_xlsx(raw)
+    except ValueError as e:
+        return JSONResponse({"detail": str(e)}, status_code=400)
+    conn = db()
+    try:
+        summary = crowdfund.import_operations(conn, u["username"], platform, ops)
+        crowdfund.sync_indicators_from_ops(conn, u["username"])
+        crowdfund.refresh_integration(conn, u["username"])
+        conn.commit()
+    finally:
+        conn.close()
+    _audit(u["username"], "Module crowdfunding : import xlsx", platform)
+    return {"ok": True, "platform": platform,
+            "platform_label": crowdfund.CF_PLATFORMS[platform], **summary}
+
+
+@app.get("/api/cf/platforms")
+async def cf_list_platforms(request: Request, family: int = 0, member: str = ""):
+    u = _need(request)
+    conn = db()
+    try:
+        owners = _visible_owners(conn, u, bool(family), member or None)
+        wc, args = crowdfund._wc(owners)
+        rows = conn.execute(f"SELECT * FROM cf_platforms WHERE {wc} ORDER BY platform", args).fetchall()
+    finally:
+        conn.close()
+    return {"platforms": [dict(r) for r in rows]}
+
+
+@app.put("/api/cf/platforms")
+async def cf_update_platform(body: CfPlatformIn, request: Request):
+    u = _need(request)
+    if body.platform not in crowdfund.CF_PLATFORMS:
+        return JSONResponse({"detail": "Plateforme inconnue"}, status_code=400)
+    conn = db()
+    try:
+        cur = conn.execute(
+            "SELECT * FROM cf_platforms WHERE owner=? AND platform=?",
+            (u["username"], body.platform)).fetchone()
+        vals = {
+            "balance": body.balance if body.balance is not None else (cur["balance"] if cur else 0),
+            "deposited": body.deposited if body.deposited is not None else (cur["deposited"] if cur else 0),
+            # LPB : valeur dans les projets toujours calculée (auto)
+            "invested_value": (body.invested_value if body.invested_value is not None
+                               else (cur["invested_value"] if cur else 0)) if body.platform == "bricks" else 0,
+        }
+        conn.execute(
+            """INSERT INTO cf_platforms (owner, platform, balance, deposited, invested_value, updated_at)
+               VALUES (?,?,?,?,?,?) ON CONFLICT(owner, platform) DO UPDATE SET
+               balance=?, deposited=?, invested_value=?, updated_at=?""",
+            (u["username"], body.platform, vals["balance"], vals["deposited"],
+             vals["invested_value"], crowdfund.now_iso(),
+             vals["balance"], vals["deposited"], vals["invested_value"], crowdfund.now_iso()))
+        crowdfund.refresh_integration(conn, u["username"])
+        conn.commit()
+    finally:
+        conn.close()
+    _audit(u["username"], "Module crowdfunding : plateforme modifiée", body.platform)
+    return {"ok": True}
+
+
+@app.delete("/api/cf/platforms/{platform}")
+async def cf_delete_platform(platform: str, request: Request):
+    u = _need(request)
+    if platform not in crowdfund.CF_PLATFORMS:
+        return JSONResponse({"detail": "Plateforme inconnue"}, status_code=400)
+    conn = db()
+    try:
+        crowdfund.remove_platform(conn, u["username"], platform)
+        conn.commit()
+    finally:
+        conn.close()
+    _audit(u["username"], "Module crowdfunding : plateforme supprimée", platform)
+    return {"ok": True}
+
+
+@app.get("/api/cf/overview")
+async def cf_overview(request: Request, family: int = 0, member: str = ""):
+    u = _need(request)
+    conn = db()
+    try:
+        owners = _visible_owners(conn, u, bool(family), member or None)
+        return crowdfund.overview_rows(conn, owners)
+    finally:
+        conn.close()
+
+
+@app.post("/api/cf/refresh")
+async def cf_refresh(request: Request):
+    """Recadre les comptes-auto du module (après un import xlsx ou une passe
+    de l'extension) : valeur actuelle + série fin-de-mois + dépôt initial."""
+    u = _need(request)
+    conn = db()
+    try:
+        crowdfund.refresh_integration(conn, u["username"])
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True}
+
+
+@app.get("/api/cf/export")
+async def cf_export(request: Request):
+    """Sauvegarde JSON du module (projets + opérations + plateformes)."""
+    u = _need(request)
+    conn = db()
+    try:
+        return crowdfund.export_payload(conn, u["username"])
+    finally:
+        conn.close()
+
+
+@app.post("/api/cf/import")
+async def cf_import(request: Request):
+    u = _need(request)
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"detail": "JSON invalide"}, status_code=400)
+    conn = db()
+    try:
+        err = crowdfund.do_cf_import(conn, u["username"], body)
+        if err:
+            return JSONResponse({"detail": err}, status_code=400)
+        crowdfund.refresh_integration(conn, u["username"])
+        conn.commit()
+    finally:
+        conn.close()
+    _audit(u["username"], "Module crowdfunding : restauration",
+           f"{len(body.get('projects') or [])} projets")
+    return {"ok": True}
+
+
+@app.get("/api/cf/sync/report")
+async def cf_sync_report(request: Request):
+    """Dernier rapport de synchronisation (extension navigateur)."""
+    u = _need_main(request)  # cookie OU jeton scope 'crowdfund' (filtre dans _me)
+    conn = db_main()
+    try:
+        row = conn.execute(
+            "SELECT data, created_at FROM cf_reports WHERE owner=?", (u["username"],)
+        ).fetchone()
+    finally:
+        conn.close()
+    if row is None:
+        return {"ok": True, "report": None}
+    try:
+        data = json.loads(row["data"])
+    except Exception:
+        data = {}
+    data["created_at"] = row["created_at"]
+    return {"ok": True, "report": data}
+
+
+@app.post("/api/cf/sync/ingest")
+async def cf_sync_ingest(request: Request):
+    """Reçoit les captures de l'extension (Bearer token scope 'crowdfund'),
+    enrichit les projets et produit le rapport de conformité site vs exports."""
+    u = _need_main(request)
+    # jeton API scope 'crowdfund' uniquement (l'ingestion ne passe jamais par un
+    # cookie de session — sqlite3.Row n'a pas de .get() → indexation par try)
+    try:
+        token_scope = u["token_scope"]
+    except Exception:
+        token_scope = None
+    if token_scope != "crowdfund":
+        return JSONResponse({"detail": "Jeton à portée 'crowdfund' requis"},
+                            status_code=403)
+    try:
+        data = await request.json()
+    except Exception:
+        return JSONResponse({"detail": "JSON invalide"}, status_code=400)
+    conn = db_main()
+    try:
+        try:
+            res = crowdfund.run_ingest(conn, u["username"], data.get("captures") or [])
+        except ValueError as e:
+            return JSONResponse({"detail": str(e)}, status_code=400)
+        crowdfund.refresh_integration(conn, u["username"])
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True, **res}
+
+
 @app.get("/manifest.webmanifest")
 async def manifest_pwa():
     return JSONResponse(
