@@ -214,6 +214,12 @@
     /* nav swipeable : dernier onglet accessible même barre pleine */
     #sideFoot button{padding:6px 6px}
   }
+  /* module Crowdfunding (v2026.09.047) */
+  .tablewrap{overflow-x:auto;border-radius:14px}
+  .crowd-empty{padding:22px;text-align:center;color:var(--muted);font-size:13px;border:1px dashed var(--border);border-radius:14px;margin:14px 0}
+  .cf-royal{color:#a371f7;font-weight:700;cursor:help}
+  .cf-rate{color:var(--gold2);font-weight:700}
+  .cf-est{color:var(--muted)}
 </style>
 </head>
 <body>
@@ -256,6 +262,7 @@
       <a href="#" id="navDash" onclick="switchPage('dash')"><span class="e">📊</span> <span data-i18n="navDash">Tableau de bord</span></a>
       <a href="#" id="navEv" onclick="switchPage('ev')"><span class="e">📈</span> <span data-i18n="navEv">Évolution</span></a>
       <a href="#" id="navActifs" onclick="switchPage('actifs')"><span class="e">💼</span> <span data-i18n="navActifs">Actifs</span></a>
+      <a href="#" id="navCrowd" onclick="switchPage('crowd')"><span class="e">🧱</span> <span data-i18n="navCrowd">Crowdfunding</span></a>
       <a href="#" id="navOps" onclick="switchPage('ops')"><span class="e">📜</span> <span data-i18n="navOps">Opérations</span></a>
       <a href="#" id="navRev" onclick="switchPage('rev')"><span class="e">📅</span> <span data-i18n="navRev">Revenus</span></a>
       <a href="#" id="navFire" onclick="switchPage('fire')"><span class="e">🔮</span> <span data-i18n="navFire">Indépendance</span></a>
@@ -391,6 +398,89 @@
         <span class="muted" data-i18n="opsNote"><b>Source de vérité du coût investi</b> (dépôts − retraits) dès qu'un actif possède des opérations.</span>
       </div>
       <div id="opsTableWrap"></div>
+    </section>
+
+    <!-- ---------- CROWDFUNDING (module, v2026.09.047) ---------- -->
+    <section id="pageCrowd" class="hidden">
+      <div class="page-title">
+        <h1>🧱 <span data-i18n="crowdTtl">Crowdfunding</span></h1>
+        <div class="seg" id="crowdSeg">
+          <button data-v="apercu" class="on" onclick="cfView('apercu')"><span data-i18n="crowdSeg1">Aperçu</span></button>
+          <button data-v="projets" onclick="cfView('projets')"><span data-i18n="crowdSeg2">Projets</span></button>
+          <button data-v="ops" onclick="cfView('ops')"><span data-i18n="crowdSeg3">Opérations</span></button>
+        </div>
+      </div>
+
+      <!-- sous-vue : aperçu -->
+      <div id="crowdApercu">
+        <div class="cards" id="crowdCards"></div>
+        <div class="chart-row">
+          <div class="panel">
+            <h3>🥧 <span data-i18n="crowdDough1">Mise par plateforme</span></h3>
+            <div class="chartbox"><canvas id="chCrowdDough1"></canvas></div>
+            <div class="legend" id="crowdLeg1"></div>
+          </div>
+          <div class="panel">
+            <h3>🧮 <span data-i18n="crowdDough2">Projets par plateforme</span></h3>
+            <div class="chartbox"><canvas id="chCrowdDough2"></canvas></div>
+            <div class="legend" id="crowdLeg2"></div>
+          </div>
+        </div>
+        <div class="panel" style="margin-top:14px">
+          <h3>👁 <span data-i18n="crowdSeamTitle">Patrimoine global</span> <span class="hint" data-i18n="crowdSeamHint">la valeur des plateformes alimente automatiquement la classe Crowdfunding du tableau de bord (aucune saisie en double)</span></h3>
+          <div class="muted" style="font-size:12px" id="crowdSeamNote"></div>
+        </div>
+      </div>
+
+      <!-- sous-vue : projets -->
+      <div id="crowdProjets" class="hidden">
+        <div class="toolbar">
+          <input type="search" id="cfQ" data-i18n-ph="prjSearch" placeholder="Rechercher…" oninput="cfRenderProjects()">
+          <select id="cfPlat" onchange="cfRenderProjects()">
+            <option value="" data-i18n="prjAllPlat">Toutes les plateformes</option>
+            <option value="bricks">Bricks.co</option>
+            <option value="lapremierebrique">La Première Brique</option>
+          </select>
+          <select id="cfStatus" onchange="cfRenderProjects()">
+            <option value="" data-i18n="prjAllStatus">Tous les statuts</option>
+            <option value="en_collecte" data-i18n="stEnCollecte">En collecte</option>
+            <option value="en_cours" data-i18n="stEnCours">En cours</option>
+            <option value="retard" data-i18n="stRetard">Retard de paiement</option>
+            <option value="rembourse" data-i18n="stRembourse">Remboursé</option>
+            <option value="perdu" data-i18n="stPerdu">Perte / défaut</option>
+          </select>
+          <span class="spacer"></span>
+          <button class="btn primary" onclick="cfProjectModal()">➕ <span data-i18n="prjAdd">Nouveau projet</span></button>
+        </div>
+        <div class="muted" id="cfPrjCount" style="font-size:11.5px;margin:-6px 0 10px;min-height:0"></div>
+        <div class="tablewrap" id="cfPrjWrap"></div>
+        <div class="muted" style="font-size:11.5px;margin-top:8px" data-i18n="prjNote">Échéance ≈ = estimée (début + durée ou durée restante annoncée par la plateforme) — le retard n’est calculé que sur une échéance réelle.</div>
+      </div>
+
+      <!-- sous-vue : opérations -->
+      <div id="crowdOps" class="hidden">
+        <div class="toolbar">
+          <button class="btn ghost" onclick="document.getElementById('cfXlsx').click()">⬆️ <span data-i18n="cfOpsImport">Import xlsx</span></button>
+          <input type="file" id="cfXlsx" accept=".xlsx" class="hidden" onchange="cfImportFile(this)">
+          <select id="cfOpsPlat" onchange="cfRenderOps()">
+            <option value="" data-i18n="prjAllPlat">Toutes les plateformes</option>
+            <option value="bricks">Bricks.co</option>
+            <option value="lapremierebrique">La Première Brique</option>
+          </select>
+          <select id="cfOpsKind" onchange="cfRenderOps()">
+            <option value="" data-i18n="cfOpsAllKinds">Tous les types</option>
+            <option value="inv" data-i18n="kindInv">Investissements</option>
+            <option value="inc" data-i18n="kindInc">Revenus</option>
+            <option value="cap" data-i18n="kindCap">Remboursements / reventes</option>
+            <option value="other" data-i18n="kindOther">Autres</option>
+          </select>
+          <span class="spacer"></span>
+          <span class="muted" id="cfOpsStats" style="font-size:12px"></span>
+        </div>
+        <div class="muted" id="cfOpsCount" style="font-size:11.5px;margin:-6px 0 10px;min-height:0"></div>
+        <div class="tablewrap" id="cfOpsWrap"></div>
+        <div class="muted" style="font-size:11.5px;margin-top:8px" data-i18n="cfOpsNote">Les exports Bricks.co et La Première Brique sont reconnus automatiquement ; un même fichier peut être ré-importé sans doublon.</div>
+      </div>
     </section>
 
     <!-- ---------- REVENUS ---------- -->
@@ -602,6 +692,15 @@ fr: {
   txClose:'Fermer', txGross:'PV brute', txLosses:'Moins-values', txAllowance:'Abattement / ajustement', txTaxable:'PV nette fiscale',
   txTaxablePs:'Base prélèvements sociaux', txIr:'Impôt sur le revenu (estimé)', txPs:'Prélèvements sociaux', txExtra:'Taxe / contribution additionnelle', txExempt:'Exonération', txNet:'PV nette estimée', txMisc:'Ligne', txOpt2op:'Simuler l\'option barème (2OP)', txOpt3cn:'Simuler l\'option barème (3CN)', txOptSub:'Détention ≥ 10 % (LU)', txSettTitle:'Hypothèses fiscales', txSettNote:'Utilisées par les estimations 🧮 « si liquidation aujourd\'hui » — le moteur ne connaît pas le revenu de votre foyer : ces hypothèses le remplacent (modifiables à tout moment, chaque estimation rappelle les siennes).', txTmiLu:'Taux marginal LU (%)', txTmiFr:'Taux marginal FR (%)', txMarried:'Imposition collective (abattements doublés)', txAv150:'Assurance-vie FR : primes versées ≤ 150 000 €', txSubstantial:'Luxembourg : détention ≥ 10 % du capital (demi-taux au lieu de l\'exonération)', txSettSave:'Enregistrer', txSettReady:'Hypothèses chargées — appliquées à vos prochaines estimations.', txSettSaved:'hypothèses enregistrées — appliquées à vos prochaines estimations.',
   txEstNote:'🧪 Démonstration — aucune valeur officielle : une simple idée de ce que serait votre impôt, et cela ne remplace pas un fiscaliste.',txLockTitle:'Estimation fiscale désactivée', txLockSub:'Première utilisation — lisez les avertissements et confirmez pour activer les estimations fiscales.', txDc1:'Cet outil est une démonstration pédagogique : il applique une lecture simplifiée des règles fiscales françaises et luxembourgeoises, sans garantie d\'exhaustivité.', txDc2:'Les montants affichés n\'ont aucune valeur officielle ni légale — ce ne sont pas des avis fiscaux.', txDc3:'Votre situation réelle (historique des versements, résidence, conventions internationales…) n\'est pas entièrement modélisée : les résultats peuvent être inexacts.', txDc4:'Ces estimations ne remplacent en aucun cas le conseil d\'un fiscaliste ou d\'un professionnel qualifié.', txDc5:'En activant, je reconnais avoir lu et compris ces avertissements et je les accepte.', txLockType:'Pour activer, tapez exactement « {w} » :', txConsentWord:'je confirme', txLockBtn:'Activer l\'estimation fiscale', txConsentAt:'Avertissement accepté le {d}', txRevoke:'Révoquer', txG0:'Rien à payer — tranquille 😎', txG1:'Un petit peu 💸', txG2:'Ça pique un peu 🌶️', txG3:'Beaucoup 😰', txG4:'Ouhla, vraiment beaucoup… fais gaffe 🚨',
+  navCrowd:'Crowdfunding', crowdTtl:'Suivi crowdfunding', crowdSeg1:'Aperçu', crowdSeg2:'Projets', crowdSeg3:'Opérations',
+  cStMise:'Mise totale', cStMiseS:'somme des mises', cStEnc:'Capital restant dû', cStEncS:'encours réel (hors remboursés)', cStInt:'Intérêts perçus', cStIntS:'source de vérité : exports & saisie', cStAcc:'Intérêts latents', cStAccS:'prorata annuel — projets en cours', cStLoss:'Pertes + latentes', cStLossS:'réalisées + moins-value latente', cStNet:'Gain total net', cStNetS:'perçu + latent − pertes',
+  crowdDough1:'Mise par plateforme', crowdDough2:'Projets par plateforme', crowdLeg:'{v} · {n} projets', crowdEmpty:'Aucun projet pour le moment — ajoutez votre premier investissement ou importez un export de plateforme.', crowdEmptyOps:'Aucune opération — importez un export xlsx (Bricks.co ou La Première Brique).',
+  crowdSeamTitle:'Patrimoine global', crowdSeamHint:'valeur = projets + solde plateforme — alimente automatiquement la classe Crowdfunding du tableau de bord (zéro double saisie)',
+  stEnCollecte:'En collecte', stEnCours:'En cours', stRetard:'⚠️ Retard de paiement', stRembourse:'Remboursé', stPerdu:'Perte / défaut',
+  prjAdd:'Nouveau projet', prjSearch:'Rechercher…', prjAllPlat:'Toutes les plateformes', prjAllStatus:'Tous les statuts', prjNote:'Échéance ≈ = estimée (début + durée, ou durée restante annoncée par la plateforme) — le retard n’est calculé que sur une échéance réelle.', prjCount:'{n} projets', prjEdit:'✏️ Modifier', prjDel:'🗑 Supprimer', prjDelAsk:'Supprimer ce projet et ses opérations ?',
+  prjColProj:'Projet', prjColPlat:'Plateforme', prjColStatus:'Statut', prjColMise:'Mise', prjColRate:'Taux', prjColEch:'Échéance', prjColInt:'Intérêts perçus', prjColRateReal:'Taux réel', prjColAct:'',
+  mPrjNew:'Nouveau projet', mPrjEdit:'Modifier le projet', mPlat:'Plateforme', mName:'Nom du projet', mCity:'Ville', mMise:'Mise (€)', mRate:'Taux brut (%/an)', mDur:'Durée (mois)', mStart:'Début — 1er investissement', mEch:'Échéance prévue (réelle)', mEchReal:'Date de fin réelle', mStatus:'Statut', mRepaid:'Capital remboursé (€)', mInt:'Intérêts perçus (€)', mRoyalty:'Type de contrat', mStd:'Standard (remboursement par échéancier)', mRoy:'Royalties (capital à la revente)', mValuation:'Valeur actuelle des parts (€)', mNotes:'Notes', mInvAfter:'Mise et intérêts saisis à la main ; les imports et l’extension ne remplissent que les champs vides.',
+  cfOpsImport:'Import xlsx', cfOpsAllKinds:'Tous les types', kindInv:'Investissements', kindInc:'Revenus', kindCap:'Remboursements / reventes', kindOther:'Autres', cfOpsNote:'Exports Bricks.co (transactions…) et La Première Brique (payment_operations…) reconnus automatiquement. Ré-import possible sans doublon.', cfOpsIn:'Entrées {v}', cfOpsOut:'Sorties {v}', cfOpsNet:'Net {v}', cfOpsCount:'{n} opérations', cfImported:'{n} opérations importées ({p} projets créés, {d} doublons ignorés)', cfImportBad:'Fichier illisible ou format non reconnu.', cfErr:'Erreur : {e}', cfOpsColDate:'Date', cfOpsColProj:'Projet', cfOpsColType:'Type', cfOpsColAmt:'Montant', cfOpsColStatus:'Statut',
   lnSection:'Crédit lié au bien', lnPrin:'Capital restant dû', lnRate:'Taux annuel (%)', lnMonthly:'Mensualité (€)',
   lnNote:'Capital restant à ce jour — à mettre à jour comme la valeur du bien. Pour le cash-flow, suivez la mensualité comme règle de dépense (page Revenus et dépenses).',
   lnEquity:'équité', lnTip:'Cliquez pour ouvrir la courbe de remboursement (le capital restant dû est soustrait de la valeur)',
@@ -747,6 +846,15 @@ en: {
   txClose:'Close', txGross:'Gross capital gain', txLosses:'Capital losses', txAllowance:'Allowance / adjustment', txTaxable:'Taxable gain',
   txTaxablePs:'Social contributions base', txIr:'Income tax (estimated)', txPs:'Social contributions', txExtra:'Additional tax / contribution', txExempt:'Exemption', txNet:'Estimated net gain', txMisc:'Line', txOpt2op:'Simulate the flat-rate option (2OP)', txOpt3cn:'Simulate the progressive option (3CN)', txOptSub:'Holding ≥ 10% (LU)', txSettTitle:'Tax assumptions', txSettNote:'Used by the 🧮 "if I liquidate today" estimates — the engine does not know your household income: these assumptions stand in for it (editable at any time; each estimate recalls its own).', txTmiLu:'LU marginal rate (%)', txTmiFr:'FR marginal rate (%)', txMarried:'Joint taxation (doubled allowances)', txAv150:'FR life insurance: premiums paid ≤ €150,000', txSubstantial:'Luxembourg: holding ≥ 10% of the capital (half-rate instead of exemption)', txSettSave:'Save', txSettReady:'Assumptions loaded — applied to your next estimates.', txSettSaved:'assumptions saved — applied to your next estimates.',
   txEstNote:'🧪 Demonstration — no official value: just an idea of what your tax could look like, not a substitute for a tax advisor.', txLockTitle:'Tax estimate disabled', txLockSub:'First use — read the notices below and confirm to enable tax estimates.', txDc1:'This tool is an educational demonstration: it applies a simplified reading of French and Luxembourg tax rules, with no guarantee of completeness.', txDc2:'Displayed amounts carry no official or legal value — they are not tax advice.', txDc3:'Your actual situation (contribution history, residence, international tax treaties…) is not fully modelled: results may be inaccurate.', txDc4:'These estimates are in no way a substitute for the advice of a tax professional or qualified advisor.', txDc5:'By enabling, I acknowledge that I have read and understood these notices and I accept them.', txLockType:'To enable, type exactly "{w}":', txConsentWord:'I confirm', txLockBtn:'Enable tax estimates', txConsentAt:'Notice accepted on {d}', txRevoke:'Revoke', txG0:'Nothing to pay — all good 😎', txG1:'A little bit 💸', txG2:'It stings a bit 🌶️', txG3:'A lot 😰', txG4:'Whoa, really a lot… watch out 🚨',
+  navCrowd:'Crowdfunding', crowdTtl:'Crowdfunding tracking', crowdSeg1:'Overview', crowdSeg2:'Projects', crowdSeg3:'Operations',
+  cStMise:'Total invested', cStMiseS:'sum of all investments', cStEnc:'Capital outstanding', cStEncS:'principal not yet repaid', cStInt:'Interest received', cStIntS:'source of truth: exports & manual entry', cStAcc:'Accrued interest', cStAccS:'pro-rata per annum — active projects', cStLoss:'Losses + latent', cStLossS:'realised + mark-to-market', cStNet:'Net total gain', cStNetS:'received + accrued − losses',
+  crowdDough1:'Invested by platform', crowdDough2:'Projects by platform', crowdLeg:'{v} · {n} projects', crowdEmpty:'No projects yet — add your first investment or import a platform export.', crowdEmptyOps:'No operations — import an xlsx export (Bricks.co or La Première Brique).',
+  crowdSeamTitle:'Global wealth', crowdSeamHint:'value = projects + platform balance — automatically feeds the Crowdfunding class of the dashboard (zero double entry)',
+  stEnCollecte:'Raising', stEnCours:'In progress', stRetard:'⚠️ Late payment', stRembourse:'Repaid', stPerdu:'Loss / default',
+  prjAdd:'New project', prjSearch:'Search…', prjAllPlat:'All platforms', prjAllStatus:'All statuses', prjNote:'≈ = estimated (start + term, or remaining term announced by the platform) — lateness is only computed on a real due date.', prjCount:'{n} projects', prjEdit:'✏️ Edit', prjDel:'🗑 Delete', prjDelAsk:'Delete this project and its operations?',
+  prjColProj:'Project', prjColPlat:'Platform', prjColStatus:'Status', prjColMise:'Invested', prjColRate:'Rate', prjColEch:'Due date', prjColInt:'Interest received', prjColRateReal:'Real rate', prjColAct:'',
+  mPrjNew:'New project', mPrjEdit:'Edit project', mPlat:'Platform', mName:'Project name', mCity:'City', mMise:'Invested (€)', mRate:'Gross rate (% p.a.)', mDur:'Term (months)', mStart:'Start — first investment', mEch:'Expected end (real)', mEchReal:'Actual end date', mStatus:'Status', mRepaid:'Capital repaid (€)', mInt:'Interest received (€)', mRoyalty:'Contract type', mStd:'Standard (scheduled repayments)', mRoy:'Royalties (capital repaid on resale)', mValuation:'Current value of shares (€)', mNotes:'Notes', mInvAfter:'Invested + interest are entered manually; imports and the extension only fill empty fields.',
+  cfOpsImport:'Import xlsx', cfOpsAllKinds:'All types', kindInv:'Investments', kindInc:'Income', kindCap:'Repayments / resales', kindOther:'Other', cfOpsNote:'Bricks.co (transactions…) and La Première Brique (payment_operations…) exports are detected automatically. Re-importing the same file creates no duplicates.', cfOpsIn:'In {v}', cfOpsOut:'Out {v}', cfOpsNet:'Net {v}', cfOpsCount:'{n} operations', cfImported:'{n} operations imported ({p} projects created, {d} duplicates skipped)', cfImportBad:'Unreadable file or unrecognised format.', cfErr:'Error: {e}', cfOpsColDate:'Date', cfOpsColProj:'Project', cfOpsColType:'Type', cfOpsColAmt:'Amount', cfOpsColStatus:'Status',
   lnSection:'Loan linked to the property', lnPrin:'Principal remaining', lnRate:'Annual rate (%)', lnMonthly:'Monthly payment',
   lnNote:'Remaining principal as of today — update it like the property value. For cash-flow, track the payment as a recurring expense (Income & expenses page).',
   lnEquity:'equity', lnTip:'Click to open the repayment curve (remaining principal subtracted from the value)',
@@ -892,6 +1000,15 @@ de: {
   txClose:'Schließen', txGross:'Brutto-Kursgewinn', txLosses:'Verluste', txAllowance:'Freibetrag / Anpassung', txTaxable:'Steuerpflichtiger Gewinn',
   txTaxablePs:'Bemessungsgrundlage Sozialabgaben', txIr:'Einkommensteuer (geschätzt)', txPs:'Sozialabgaben', txExtra:'Zusatzsteuer / Beitrag', txExempt:'Steuerbefreiung', txNet:'Geschätzter Nettogewinn', txMisc:'Zeile', txOpt2op:'Abgeltungsoption simulieren (2OP)', txOpt3cn:'Tarifoption simulieren (3CN)', txOptSub:'Beteiligung ≥ 10 % (LU)', txSettTitle:'Steuerannahmen', txSettNote:'Von den 🧮-Schätzungen « wenn ich heute liquidiere » verwendet — das Modul kennt das Haushaltseinkommen nicht: diese Annahmen ersetzen es (jederzeit änderbar, jede Schätzung nennt ihre eigenen).', txTmiLu:'LU-Grenzsteuersatz (%)', txTmiFr:'FR-Grenzsteuersatz (%)', txMarried:'Gemeinsame Veranlagung (doppelte Freibeträge)', txAv150:'FR-Lebensversicherung: Prämien ≤ 150 000 €', txSubstantial:'Luxemburg: Beteiligung ≥ 10 % des Kapitals (halber Satz statt Befreiung)', txSettSave:'Speichern', txSettReady:'Annahmen geladen — für Ihre nächsten Schätzungen.', txSettSaved:'Annahmen gespeichert — für Ihre nächsten Schätzungen.',
   txEstNote:'🧪 Demonstration — ohne offiziellen Wert: nur eine Idee, wie Ihre Steuer aussehen könnte, kein Ersatz für eine Steuerberatung.', txLockTitle:'Steuerschätzung deaktiviert', txLockSub:'Erste Verwendung — lesen Sie die Hinweise und bestätigen Sie, um die Steuerschätzung zu aktivieren.', txDc1:'Dieses Werkzeug ist eine pädagogische Demonstration: es wendet eine vereinfachte Lesart der französischen und luxemburgischen Steuervorschriften an, ohne Anspruch auf Vollständigkeit.', txDc2:'Die angezeigten Beträge haben keinerlei offiziellen oder rechtlichen Wert — sie sind keine Steuerberatung.', txDc3:'Ihre tatsächliche Situation (Einzahlungshistorie, Wohnsitz, internationale Abkommen…) wird nicht vollständig abgebildet: Ergebnisse können ungenau sein.', txDc4:'Diese Schätzungen ersetzen in keiner Weise die Beratung durch einen Steuerberater oder qualifizierten Fachmann.', txDc5:'Mit der Aktivierung erkenne ich an, diese Hinweise gelesen und verstanden zu haben, und ich akzeptiere sie.', txLockType:'Zum Aktivieren geben Sie genau « {w} » ein:', txConsentWord:'ich bestätige', txLockBtn:'Steuerschätzung aktivieren', txConsentAt:'Hinweis akzeptiert am {d}', txRevoke:'Widerrufen', txG0:'Nichts zu zahlen — entspannt 😎', txG1:'Ein bisschen 💸', txG2:'Es beißt ein wenig 🌶️', txG3:'So einiges 😰', txG4:'Hoppla, wirklich viel… Vorsicht 🚨',
+  navCrowd:'Crowdfunding', crowdTtl:'Crowdfunding-Übersicht', crowdSeg1:'Überblick', crowdSeg2:'Projekte', crowdSeg3:'Transaktionen',
+  cStMise:'Investiert gesamt', cStMiseS:'Summe der Einlagen', cStEnc:'Ausstehendes Kapital', cStEncS:'noch nicht zurückgezahlt', cStInt:'Erhaltene Zinsen', cStIntS:'Quelle: Exporte & manuelle Eingabe', cStAcc:'Aufgelaufene Zinsen', cStAccS:'anteilig pro Jahr — laufende Projekte', cStLoss:'Verluste + latent', cStLossS:'realisiert + Marktbewertung', cStNet:'Nettogewinn gesamt', cStNetS:'erhalten + aufgelaufen − Verluste',
+  crowdDough1:'Investiert nach Plattform', crowdDough2:'Projekte nach Plattform', crowdLeg:'{v} · {n} Projekte', crowdEmpty:'Noch keine Projekte — fügen Sie Ihre erste Investition hinzu oder importieren Sie einen Plattform-Export.', crowdEmptyOps:'Keine Transaktionen — importieren Sie einen xlsx-Export (Bricks.co oder La Première Brique).',
+  crowdSeamTitle:'Gesamtvermögen', crowdSeamHint:'Wert = Projekte + Plattformguthaben — speist automatisch die Crowdfunding-Klasse des Dashboards (keine Doppelerfassung)',
+  stEnCollecte:'In Sammlung', stEnCours:'Laufend', stRetard:'⚠️ Zahlungsverzug', stRembourse:'Zurückgezahlt', stPerdu:'Verlust / Ausfall',
+  prjAdd:'Neues Projekt', prjSearch:'Suchen…', prjAllPlat:'Alle Plattformen', prjAllStatus:'Alle Status', prjNote:'≈ = geschätzt (Start + Laufzeit bzw. von der Plattform angegebene Restlaufzeit) — Verspätung wird nur bei realem Fälligkeitsdatum berechnet.', prjCount:'{n} Projekte', prjEdit:'✏️ Bearbeiten', prjDel:'🗑 Löschen', prjDelAsk:'Dieses Projekt und seine Transaktionen löschen?',
+  prjColProj:'Projekt', prjColPlat:'Plattform', prjColStatus:'Status', prjColMise:'Investiert', prjColRate:'Zinssatz', prjColEch:'Fälligkeit', prjColInt:'Erhaltene Zinsen', prjColRateReal:'Realzins', prjColAct:'',
+  mPrjNew:'Neues Projekt', mPrjEdit:'Projekt bearbeiten', mPlat:'Plattform', mName:'Projektname', mCity:'Stadt', mMise:'Investiert (€)', mRate:'Bruttozins (% p.a.)', mDur:'Laufzeit (Monate)', mStart:'Start — erste Investition', mEch:'Erwartetes Ende (real)', mEchReal:'Tatsächliches Ende', mStatus:'Status', mRepaid:'Zurückgezahltes Kapital (€)', mInt:'Erhaltene Zinsen (€)', mRoyalty:'Vertragsart', mStd:'Standard (planmäßige Rückzahlung)', mRoy:'Royalties (Kapital beim Verkauf)', mValuation:'Aktueller Wert der Anteile (€)', mNotes:'Notizen', mInvAfter:'Investiert + Zinsen werden manuell erfasst; Importe und die Extension füllen nur leere Felder.',
+  cfOpsImport:'xlsx importieren', cfOpsAllKinds:'Alle Typen', kindInv:'Investitionen', kindInc:'Einkünfte', kindCap:'Rückzahlungen / Verkäufe', kindOther:'Sonstige', cfOpsNote:'Bricks.co- und La-Première-Brique-Exporte werden automatisch erkannt. Erneuter Import derselben Datei erzeugt keine Duplikate.', cfOpsIn:'Eingänge {v}', cfOpsOut:'Ausgänge {v}', cfOpsNet:'Netto {v}', cfOpsCount:'{n} Transaktionen', cfImported:'{n} Transaktionen importiert ({p} Projekte neu, {d} Duplikate übersprungen)', cfImportBad:'Datei unlesbar oder Format nicht erkannt.', cfErr:'Fehler: {e}', cfOpsColDate:'Datum', cfOpsColProj:'Projekt', cfOpsColType:'Typ', cfOpsColAmt:'Betrag', cfOpsColStatus:'Status',
   lnSection:'Darlehen an die Immobilie gebunden', lnPrin:'Restkapital', lnRate:'Jahreszins (%)', lnMonthly:'Monatsrate (€)',
   lnNote:'Restkapital heute — wie den Immobilienwert aktuell halten. Für den Cashflow die Rate als Ausgabe-Regel erfassen (Seite Einnahmen und Ausgaben).',
   lnEquity:'Eigenkapital', lnTip:'Zum Öffnen der Tilgungskurve klicken (Restkapital wird vom Wert abgezogen)',
@@ -1036,6 +1153,15 @@ lu: {
   txClose:'Zoumaachen', txGross:'Brutto-Capitalgain', txLosses:'Verloschter', txAllowance:'Fréibetrag / Upassung', txTaxable:'Besteierbare Gewënn',
   txTaxablePs:'Bemessungsgrondlag Sozialbäiträg', txIr:'Akommessteier (geschat)', txPs:'Sozialbäiträg', txExtra:'Zousazsteier / Bäitrag', txExempt:'Steierbefreiung', txNet:'Geschate Nettogewënn', txMisc:'Zeil', txOpt2op:'Abgeltungsoptioun simuléieren (2OP)', txOpt3cn:'Tarifsoptioun simuléieren (3CN)', txOptSub:'Beteilegung ≥ 10 % (LU)', txSettTitle:'Steierannahmen', txSettNote:'Benotzt vun de 🧮-Schätzungen « wann ech haut liquidéieren » — de Moteur kennt d\'Akommes vum Stot net: dës Annahmen ersetzen et (all Moment änderbar, all Schätzung nennt déi hir).', txTmiLu:'LU-Marginalsteiersaz (%)', txTmiFr:'FR-Marginalsteiersaz (%)', txMarried:'Gemeinsam Besteierung (duebel Fräibeträg)', txAv150:'FR-Liewensversécherung: Primen ≤ 150 000 €', txSubstantial:'Lëtzebuerg: Beteilegung ≥ 10 % vum Kapital (hallefen Tarif amplaz vun der Befreiung)', txSettSave:'Späicheren', txSettReady:'Annahme gelueden — fir Är nächst Schätzungen.', txSettSaved:'Annahme gespäichert — fir Är nächst Schätzungen.',
   txEstNote:'🧪 Demonstratioun — keen offizielle Wäert: just eng Iddi, wéi Är Steier kéint ausgesinn, a keng Steierberodung.', txLockTitle:'Steierschätzung desaktivéiert', txLockSub:'Éischt Benotzung — liest d\'Hiweiser a bestätegt, fir d\'Steierschätzungen z\'aktivéieren.', txDc1:'Dëst Tool ass eng pedagogesch Demonstratioun: et applizéiert eng vereinfacht Liesung vun de franséischen a lëtzebuergesche Steierregelen, ouni Usproch op Vollständegkeet.', txDc2:'D\'Beträg, déi gewise ginn, hunn keen offizielle Wäert a keng legal Wäert — si sinn keng Steierberodung.', txDc3:'Är real Situatioun (Abezuelungshistoire, Wunnsëtz, international Ofkommes…) ass net komplett modelléiert: Resultater kënnen ongenau sinn.', txDc4:'Dës Schätzungen ersetzen op kee Fall d\'Berodung vun engem Steierberoder oder engem qualifizéierte Fachmann.', txDc5:'Mat der Aktivatioun erkennen ech un, dës Hiweiser gelies a verstanen ze hunn, an ech akzeptéieren se.', txLockType:'Fir z\'aktivéieren, tippt genee « {w} »:', txConsentWord:'ech bestätegen', txLockBtn:'Steierschätzung aktivéieren', txConsentAt:'Hiweis akzeptéiert den {d}', txRevoke:'Zréckzéien', txG0:'Näischt ze bezuelen — entspaant 😎', txG1:'E bësse 💸', txG2:'Dat bäisst e bëssen 🌶️', txG3:'Vill 😰', txG4:'Oha, wierklech vill… pass op 🚨',
+  navCrowd:'Crowdfunding', crowdTtl:'Crowdfunding-Iwwerbléck', crowdSeg1:'Iwwerbléck', crowdSeg2:'Projeten', crowdSeg3:'Transaktiounen',
+  cStMise:'Investéiert total', cStMiseS:'Zomm vun den Investitiounen', cStEnc:'Kapital ausstehend', cStEncS:'nach net zeréckbezuelt', cStInt:'Zënser kritt', cStIntS:'Quell: Exporten & manuell Erfaassung', cStAcc:'Opgelaf Zënser', cStAccS:'pro rata pro Joer — lafend Projeten', cStLoss:'Verloschter + latent', cStLossS:'realiséiert + Maartwäert', cStNet:'Nettogewënn total', cStNetS:'kritt + opgelaf − Verloschter',
+  crowdDough1:'Investéiert pro Plattform', crowdDough2:'Projeten pro Plattform', crowdLeg:'{v} · {n} Projeten', crowdEmpty:'Nach keng Projeten — füügt Är éischt Investitioun derbäi oder importéiert e Plattform-Export.', crowdEmptyOps:'Keng Transaktiounen — importéiert en xlsx-Export (Bricks.co oder La Première Brique).',
+  crowdSeamTitle:'Gesamtverméigen', crowdSeamHint:'Wäert = Projeten + Plattformsolde — fiddert automatesch d’Crowdfunding-Klass vum Dashboard (kee Duebel)',
+  stEnCollecte:'Am Sammelen', stEnCours:'Lafend', stRetard:'⚠️ Bezuelsverzögerung', stRembourse:'Zeréckbezuelt', stPerdu:'Verloscht / Ausfall',
+  prjAdd:'Neie Projet', prjSearch:'Sichen…', prjAllPlat:'All Plattformen', prjAllStatus:'All Status', prjNote:'≈ = geschat (Start + Dauer, oder Reschtlafzäit vun der Plattform) — Verspéidung gëtt nëmmen op engem reellen Datum gerechent.', prjCount:'{n} Projeten', prjEdit:'✏️ Änneren', prjDel:'🗑 Läschen', prjDelAsk:'Dëse Projet a seng Transaktiounen läschen?',
+  prjColProj:'Projet', prjColPlat:'Plattform', prjColStatus:'Status', prjColMise:'Investéiert', prjColRate:'Taux', prjColEch:'Fällegkeet', prjColInt:'Zënser kritt', prjColRateReal:'Realen Taux', prjColAct:'',
+  mPrjNew:'Neie Projet', mPrjEdit:'Projet änneren', mPlat:'Plattform', mName:'Numm vum Projet', mCity:'Stad', mMise:'Investéiert (€)', mRate:'Bruttotaux (% pro Joer)', mDur:'Dauer (Mount)', mStart:'Start — éischt Investitioun', mEch:'Erwaart Enn (reell)', mEchReal:'Reellt Enn', mStatus:'Status', mRepaid:'Kapital zeréckbezuelt (€)', mInt:'Zënser kritt (€)', mRoyalty:'Vertragsaart', mStd:'Standard (planméisseg Remboursement)', mRoy:'Royalties (Kapital beim Verkaf)', mValuation:'Aktuelle Wäert vun den Deeler (€)', mNotes:'Notizen', mInvAfter:'Investéiert + Zënser ginn manuell erfaasst; Importer an d’Extension fëllen nëmmen eidel Felder.',
+  cfOpsImport:'xlsx importéieren', cfOpsAllKinds:'All Typen', kindInv:'Investitiounen', kindInc:'Akommes', kindCap:'Remboursementer / Verkafen', kindOther:'Anerer', cfOpsNote:'Bricks.co- a La-Première-Brique-Exporten gi automatesch erkannt. Neien Import vun der selwechter Fichier mécht keng Duebelen.', cfOpsIn:'Akommes {v}', cfOpsOut:'Ausgaben {v}', cfOpsNet:'Netto {v}', cfOpsCount:'{n} Transaktiounen', cfImported:'{n} Transaktiounen importéiert ({p} Projeten nei, {d} Duebelen iwwersprongen)', cfImportBad:'Fichier net liesbar oder Format net erkannt.', cfErr:'Feeler: {e}', cfOpsColDate:'Datum', cfOpsColProj:'Projet', cfOpsColType:'Typ', cfOpsColAmt:'Betrag', cfOpsColStatus:'Status',
   lnSection:'Kredit un de Bem gebonnen', lnPrin:'Reschtkapital', lnRate:'Joreszénks (%)', lnMonthly:'Monatsquot (€)',
   lnNote:'Reschtkapital haut — aktuell halen wéi de Wäert vum Bem. Fir de Cashflow d\'Quot als Ausgabereegel erfaassen (Säit Akommes an Ausgaben).',
   lnEquity:'Eegekapital', lnTip:'Klickt fir d\'Tilgungskurve opzemaachen (Reschtkapital gëtt vum Wäert ofgezunn)',
@@ -1242,11 +1368,12 @@ async function api(path, opts={}) {
 function switchPage(p) {
   if (MEMBER && (p === 'fire' || p === 'params')) p = 'dash';  // hors périmètre vue membre
   CUR_PAGE = p;
-  ['dash','ev','actifs','ops','rev','fire','params'].forEach(x => $('page'+x[0].toUpperCase()+x.slice(1)).classList.toggle('hidden', x!==p));
+  ['dash','ev','actifs','crowd','ops','rev','fire','params'].forEach(x => $('page'+x[0].toUpperCase()+x.slice(1)).classList.toggle('hidden', x!==p));
   document.querySelectorAll('nav a').forEach(a => a.classList.toggle('active', a.id === 'nav'+p[0].toUpperCase()+p.slice(1)));
   if (p==='dash') { loadSummary(); loadHistory(); loadBench(); }
   if (p==='ev') { loadEv(); }
   if (p==='actifs') { loadAccounts(); }
+  if (p==='crowd') { cfLoad(); }
   if (p==='ops') { loadOps(); }
   if (p==='rev') { loadRev(); }
   if (p==='fire') { renderFire(); }
@@ -3139,7 +3266,266 @@ function setOffline(off) { $('offBanner').classList.toggle('hidden', !off); }
 window.addEventListener('offline', () => setOffline(true));
 window.addEventListener('online', () => setOffline(false));
 
-/* ---------- init ---------- */
+/* ================================================================ module Crowdfunding (v2026.09.047) */
+/* Suivi projet-par-projet (Bricks.co, La Première Brique) — API /api/cf/* ; la
+   valeur des plateformes alimente la classe Crowdfunding via les comptes-auto. */
+const CF_PLAT = {bricks:'Bricks.co', lapremierebrique:'La Première Brique'};
+const CF_PLAT_COLORS = {bricks:'#f97316', lapremierebrique:'#a371f7'};
+const CF_ST_KEY = {en_collecte:'stEnCollecte', en_cours:'stEnCours', retard:'stRetard', rembourse:'stRembourse', perdu:'stPerdu'};
+const CF_ST_COLOR = {en_collecte:'#39c5cf', en_cours:'#3fb950', retard:'#f0883e', rembourse:'#8b949e', perdu:'#f85149'};
+const CF_ST_ORDER = ['en_collecte','en_cours','retard','rembourse','perdu'];
+const cfStl = k => t(CF_ST_KEY[k] || k);
+const cfPlat = k => CF_PLAT[k] || k;
+const cfNum = (v, d) => { const n = parseFloat(String(v==null?'':v).replace(/\s/g,'').replace(',','.')); return isNaN(n) ? (d||0) : n; };
+const cfDate = v => v ? String(v).slice(0,10) : null;
+let CF_VIEW = 'apercu';
+let chCrowdDough1Var = null, chCrowdDough2Var = null;
+
+function cfView(v) {
+  CF_VIEW = v;
+  document.querySelectorAll('#crowdSeg button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  $('crowdApercu').classList.toggle('hidden', v !== 'apercu');
+  $('crowdProjets').classList.toggle('hidden', v !== 'projets');
+  $('crowdOps').classList.toggle('hidden', v !== 'ops');
+  if (v === 'apercu') cfLoadApercu();
+  if (v === 'projets') cfLoadProjets();
+  if (v === 'ops') cfLoadOps();
+}
+function cfLoad() { cfView(CF_VIEW || 'apercu'); }
+
+/* ---------------- aperçu : cartes + donuts + note patrimoine ---------------- */
+async function cfLoadApercu() {
+  const [s, ov] = await Promise.all([
+    api('/api/cf/summary' + scopeSuffix()).catch(() => null),
+    api('/api/cf/overview' + scopeSuffix()).catch(() => null),
+  ]);
+  const z = s || {};
+  const cards = [
+    ['🏗️', t('cStMise'), mon(z.total_invested), t('cStMiseS')],
+    ['📦', t('cStEnc'), mon(z.capital_due), t('cStEncS')],
+    ['💶', t('cStInt'), mon(z.interest_received), t('cStIntS')],
+    ['⏳', t('cStAcc'), mon(z.accrued_interest), t('cStAccS')],
+    ['💥', t('cStLoss'), mon((z.loss||0) + (z.unrealized_loss||0)), t('cStLossS')],
+    ['✨', t('cStNet'), mon(z.net), t('cStNetS')],
+  ];
+  $('crowdCards').innerHTML = cards.map(c =>
+    '<div class="card"><div class="k">'+c[0]+' '+esc(c[1])+'</div><div class="v">'+c[2]+'</div><div class="s">'+esc(c[3])+'</div></div>'
+  ).join('');
+  // donuts par plateforme (mise + nb projets)
+  const byP = z.by_platform || [];
+  const rows = (z.counts && (z.counts.total||0)) ? (await api('/api/cf/projects' + scopeSuffix()).catch(() => ({projects:[]}))).projects : [];
+  const nbP = {}; (rows||[]).forEach(p => { nbP[p.platform] = (nbP[p.platform]||0) + 1; });
+  const labels = byP.map(b => cfPlat(b.key));
+  const vals = byP.map(b => b.invested);
+  const nbs = byP.map(b => nbP[b.key] || 0);
+  const colors = byP.map(b => CF_PLAT_COLORS[b.key] || '#8b949e');
+  cfDoughV('chCrowdDough1', 'chCrowdDough1Var', labels, vals, colors);
+  cfDoughV('chCrowdDough2', 'chCrowdDough2Var', labels, nbs, colors);
+  // légendes nb + montant (règle UI : les deux dimensions)
+  $('crowdLeg1').innerHTML = byP.length
+    ? byP.map((b, i) => '<span>'+esc(cfPlat(b.key))+' : '+tF('crowdLeg', {v: mon(b.invested), n: nbs[i]})+'</span>').join('')
+    : '<span class="muted">—</span>';
+  $('crowdLeg2').innerHTML = byP.length
+    ? byP.map((b, i) => '<span>'+esc(cfPlat(b.key))+' : '+tF('crowdLeg', {v: mon(b.invested), n: nbs[i]})+'</span>').join('')
+    : '<span class="muted">—</span>';
+  // note patrimoine global (comptes-auto, valeurs de l'overview)
+  const plats = (ov && ov.platforms) || [];
+  $('crowdSeamNote').innerHTML = plats.length
+    ? plats.map(p => esc(cfPlat(p.platform))+' : '+mon(p.patrimoine)+' <span class="cf-est">('+esc(t('cStMise'))+' '+mon(p.deposited)+' · solde '+mon(p.balance)+')</span>').join('<br>')
+    : t('crowdEmpty');
+}
+function cfDoughV(canvasId, holder, labels, vals, colors) {
+  const cv = $(canvasId); if (!cv) return;
+  const existing = window[holder]; if (existing) existing.destroy();
+  const total = vals.reduce((a, b) => a + (b || 0), 0);
+  const ctx = cv.getContext('2d');
+  if (!total) {
+    window[holder] = new Chart(ctx, {type:'doughnut', data:{labels:[''], datasets:[{data:[1], backgroundColor:['#232b36'], borderWidth:0}]},
+      options:{responsive:true, maintainAspectRatio:false, cutout:'68%', plugins:{legend:{display:false}, tooltip:{enabled:false}}}});
+    return;
+  }
+  window[holder] = new Chart(ctx, {type:'doughnut', data:{labels, datasets:[{data:vals, backgroundColor:colors, borderWidth:0}]},
+    options:{responsive:true, maintainAspectRatio:false, cutout:'68%', plugins:{legend:{display:false},
+      tooltip:{callbacks:{label: c => ' '+c.label+' : ' + (DISCRET ? '•••' : fmt(c.parsed))}}}}});
+}
+
+/* ---------------- projets : liste + filtres + CRUD ---------------- */
+let CF_PROJ = [];
+async function cfLoadProjets() {
+  const d = await api('/api/cf/projects' + scopeSuffix()).catch(() => ({projects: []}));
+  CF_PROJ = d.projects || [];
+  cfRenderProjects();
+}
+function cfFiltered() {
+  const q = ($('cfQ').value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const plat = $('cfPlat').value, st = $('cfStatus').value;
+  return CF_PROJ.filter(p =>
+    (!plat || p.platform === plat) &&
+    (!st || p.status === st) &&
+    (!q || (p.name+' '+p.city+' '+cfPlat(p.platform)).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').includes(q))
+  );
+}
+function cfRenderProjects() {
+  const list = cfFiltered();
+  $('cfPrjCount').textContent = tF('prjCount', {n: list.length});
+  if (!list.length) { $('cfPrjWrap').innerHTML = '<div class="crowd-empty">'+esc(t('crowdEmpty'))+'</div>'; return; }
+  const rows = list.map(p => {
+    const ech = p.expected_end_date ? fmtDate(p.expected_end_date)
+      : (p.derived_end_date ? '<span class="cf-est">≈ '+fmtDate(p.derived_end_date)+'</span>' : '—');
+    const roy = p.contract_type === 'royalty' ? ' <span class="cf-royal" title="'+esc(t('mRoy'))+'">🎵</span>' : '';
+    const late = p.is_late ? ' <span title="'+p.days_delayed+' j" style="color:#f85149">⚠️</span>' : '';
+    return '<tr>'+
+      '<td style="font-weight:600">'+esc(p.name)+roy+'<div class="muted" style="font-size:11px">'+esc(p.city||'')+'</div></td>'+
+      '<td class="muted" style="white-space:nowrap">'+esc(cfPlat(p.platform))+'</td>'+
+      '<td style="white-space:nowrap;color:'+CF_ST_COLOR[p.status]+'">'+esc(cfStl(p.status))+late+'</td>'+
+      '<td class="num">'+mon(p.invested)+'</td>'+
+      '<td class="num"><span class="cf-rate">'+(p.rate ? p.rate.toLocaleString(locale(),{maximumFractionDigits:2})+' %' : '—')+'</span></td>'+
+      '<td class="num">'+((p.real_annual_pct!=null) ? (p.real_annual_pct*100).toLocaleString(locale(),{maximumFractionDigits:2})+' %' : '—')+'</td>'+
+      '<td class="num cf-est">'+ech+'</td>'+
+      '<td class="num">'+mon(p.interest_received)+'</td>'+
+      '<td style="white-space:nowrap"><button class="btn small" onclick="cfProjectModal('+p.id+')">✏️</button> <button class="btn small danger" onclick="cfProjectDelete('+p.id+')">🗑</button></td>'+
+    '</tr>';
+  }).join('');
+  $('cfPrjWrap').innerHTML =
+    '<table><thead><tr>'+
+      '<th>'+esc(t('prjColProj'))+'</th><th>'+esc(t('prjColPlat'))+'</th><th>'+esc(t('prjColStatus'))+'</th>'+
+      '<th class="num">'+esc(t('prjColMise'))+'</th><th class="num">'+esc(t('prjColRate'))+'</th>'+
+      '<th class="num">'+esc(t('prjColRateReal'))+'</th><th class="num">'+esc(t('prjColEch'))+'</th>'+
+      '<th class="num">'+esc(t('prjColInt'))+'</th><th></th>'+
+    '</tr></thead><tbody>'+rows+'</tbody></table>';
+}
+function cfStatusOptions(sel) {
+  return CF_ST_ORDER.map(k => '<option value="'+k+'"'+(k===sel?' selected':'')+'>'+esc(cfStl(k))+'</option>').join('');
+}
+function cfProjectModal(id) {
+  const p = id ? CF_PROJ.find(x => x.id === id) : null;
+  openModal(
+    '<h2>'+(p ? esc(t('mPrjEdit')) : esc(t('mPrjNew')))+'</h2>'+
+    '<div class="grid2">'+
+      '<div><label>'+esc(t('mPlat'))+'</label><select id="cfFPlat" style="width:100%">'+
+        Object.keys(CF_PLAT).map(k => '<option value="'+k+'"'+(p&&p.platform===k?' selected':'')+'>'+esc(CF_PLAT[k])+'</option>').join('')+
+      '</select></div>'+
+      '<div><label>'+esc(t('mStatus'))+'</label><select id="cfFStatus" style="width:100%">'+cfStatusOptions(p ? p.status : 'en_cours')+'</select></div>'+
+    '</div>'+
+    '<label>'+esc(t('mName'))+'</label><input id="cfFName" value="'+(p?esc(p.name):'')+'" style="width:100%">'+
+    '<div class="grid2">'+
+      '<div><label>'+esc(t('mCity'))+'</label><input id="cfFCity" value="'+(p?esc(p.city||''):'')+'" style="width:100%"></div>'+
+      '<div><label>'+esc(t('mRoyalty'))+'</label><select id="cfFType" style="width:100%">'+
+        '<option value=""'+(p&&!p.contract_type?' selected':'')+'>'+esc(t('mStd'))+'</option>'+
+        '<option value="royalty"'+(p&&p.contract_type==='royalty'?' selected':'')+'>'+esc(t('mRoy'))+'</option>'+
+      '</select></div>'+
+    '</div>'+
+    '<div class="grid2">'+
+      '<div><label>'+esc(t('mMise'))+'</label><input id="cfFMise" type="number" step="0.01" min="0" value="'+(p&&p.invested?p.invested:'')+'" style="width:100%"></div>'+
+      '<div><label>'+esc(t('mRate'))+'</label><input id="cfFRate" type="number" step="0.01" min="0" value="'+(p&&p.rate?p.rate:'')+'" style="width:100%"></div>'+
+    '</div>'+
+    '<div class="grid2">'+
+      '<div><label>'+esc(t('mDur'))+'</label><input id="cfFDur" type="number" step="1" min="0" value="'+(p&&p.duration_months?p.duration_months:'')+'" style="width:100%"></div>'+
+      '<div><label>'+esc(t('mStart'))+'</label><input id="cfFStart" type="date" value="'+(p&&p.start_date?p.start_date.slice(0,10):'')+'" style="width:100%"></div>'+
+    '</div>'+
+    '<div class="grid2">'+
+      '<div><label>'+esc(t('mEch'))+'</label><input id="cfFEch" type="date" value="'+(p&&p.expected_end_date?p.expected_end_date.slice(0,10):'')+'" style="width:100%"></div>'+
+      '<div><label>'+esc(t('mEchReal'))+'</label><input id="cfFEchReal" type="date" value="'+(p&&p.actual_end_date?p.actual_end_date.slice(0,10):'')+'" style="width:100%"></div>'+
+    '</div>'+
+    '<div class="grid2">'+
+      '<div><label>'+esc(t('mRepaid'))+'</label><input id="cfFRepaid" type="number" step="0.01" min="0" value="'+(p&&p.repaid_capital?p.repaid_capital:'')+'" style="width:100%"></div>'+
+      '<div><label>'+esc(t('mInt'))+'</label><input id="cfFInt" type="number" step="0.01" min="0" value="'+(p&&p.interest_received?p.interest_received:'')+'" style="width:100%"></div>'+
+    '</div>'+
+    '<label>'+esc(t('mValuation'))+'</label><input id="cfFVal" type="number" step="0.01" min="0" value="'+(p&&p.valuation?p.valuation:'')+'" style="width:100%">'+
+    '<label>'+esc(t('mNotes'))+'</label><input id="cfFNotes" value="'+(p?esc(p.notes||''):'')+'" style="width:100%">'+
+    '<p class="note">'+esc(t('mInvAfter'))+'</p>'+
+    '<div class="modal-actions">'+
+      '<button class="btn ghost" onclick="closeModal()">'+esc(t('cancel'))+'</button>'+
+      '<button class="btn primary" onclick="cfSaveProject('+(id||'null')+')">'+esc(t('save'))+'</button>'+
+    '</div>', true
+  );
+}
+async function cfSaveProject(id) {
+  const body = {
+    platform: $('cfFPlat').value, name: $('cfFName').value.trim(),
+    city: $('cfFCity').value.trim(), status: $('cfFStatus').value,
+    contract_type: $('cfFType').value,
+    invested: cfNum($('cfFMise').value), rate: cfNum($('cfFRate').value),
+    duration_months: Math.round(cfNum($('cfFDur').value)),
+    start_date: cfDate($('cfFStart').value), expected_end_date: cfDate($('cfFEch').value),
+    actual_end_date: cfDate($('cfFEchReal').value),
+    repaid_capital: cfNum($('cfFRepaid').value), interest_received: cfNum($('cfFInt').value),
+    valuation: cfNum($('cfFVal').value), notes: $('cfFNotes').value.trim(),
+  };
+  if (!body.name) { alert(t('cfErr').replace('{e}', t('mName'))); return; }
+  try {
+    await api('/api/cf/projects' + (id ? '/' + id : ''), {method: id ? 'PUT' : 'POST', body: JSON.stringify(body)});
+  } catch (e) { alert(e.message); return; }
+  closeModal();
+  cfView('projets');
+}
+async function cfProjectDelete(id) {
+  if (!confirm(t('prjDelAsk'))) return;
+  try { await api('/api/cf/projects/' + id, {method: 'DELETE'}); }
+  catch (e) { alert(e.message); return; }
+  cfView('projets');
+}
+
+/* ---------------- opérations : liste + stats + import xlsx ---------------- */
+let CF_OPS = [];
+async function cfLoadOps() {
+  const [d, st] = await Promise.all([
+    api('/api/cf/operations?limit=1000' + scopeSuffix()).catch(() => ({items: [], total: 0})),
+    api('/api/cf/operations/stats' + scopeSuffix()).catch(() => null),
+  ]);
+  CF_OPS = d.items || [];
+  const s = st || {};
+  $('cfOpsStats').innerHTML = s.total_in != null
+    ? esc(tF('cfOpsIn', {v: mon(s.total_in)}))+' · '+esc(tF('cfOpsOut', {v: mon(s.total_out)}))+' · <b>'+esc(tF('cfOpsNet', {v: mon(s.net)}))+'</b>'
+    : '';
+  cfRenderOps();
+}
+function cfOpsKind(o) {
+  const ty = (o.type || '').toLowerCase();
+  if (/(achat|souscription|frais d'achat)/.test(ty)) return 'inv';
+  if (/revente|remboursement|remboursé|final/.test(ty)) return 'cap';
+  if (/revenus|intérêts|interets|dividende/.test(ty)) return 'inc';
+  return 'other';
+}
+function cfRenderOps() {
+  const plat = $('cfOpsPlat').value, kind = $('cfOpsKind').value;
+  const list = CF_OPS.filter(o => (!plat || o.platform === plat) && (!kind || cfOpsKind(o) === kind));
+  $('cfOpsCount').textContent = tF('cfOpsCount', {n: list.length});
+  if (!list.length) { $('cfOpsWrap').innerHTML = '<div class="crowd-empty">'+esc(t('crowdEmptyOps'))+'</div>'; return; }
+  const rows = list.map(o => {
+    const ok = o.status === 'Validée' || o.status === 'Réussi';
+    return '<tr>'+
+      '<td class="num" style="white-space:nowrap">'+fmtDate(o.op_date)+'</td>'+
+      '<td class="muted" style="white-space:nowrap">'+esc(cfPlat(o.platform))+'</td>'+
+      '<td>'+esc(o.project_name || '—')+'</td>'+
+      '<td style="max-width:340px">'+esc(o.type)+'</td>'+
+      '<td class="num" style="white-space:nowrap;color:'+(o.amount < 0 ? '#f0883e' : '#3fb950')+'">'+(o.amount < 0 ? '−' : '+')+fmt(Math.abs(o.amount))+'</td>'+
+      '<td class="muted" style="white-space:nowrap">'+esc(o.status)+(ok ? '' : ' <span style="color:#8b949e">(?)</span>')+'</td>'+
+    '</tr>';
+  }).join('');
+  $('cfOpsWrap').innerHTML =
+    '<table><thead><tr>'+
+      '<th class="num">'+esc(t('cfOpsColDate'))+'</th><th>'+esc(t('prjColPlat'))+'</th><th>'+esc(t('cfOpsColProj'))+'</th>'+
+      '<th>'+esc(t('cfOpsColType'))+'</th><th class="num">'+esc(t('cfOpsColAmt'))+'</th><th>'+esc(t('cfOpsColStatus'))+'</th>'+
+    '</tr></thead><tbody>'+rows+'</tbody></table>';
+}
+async function cfImportFile(input) {
+  const file = input.files && input.files[0];
+  input.value = '';
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async () => {
+    try {
+      const b64 = String(reader.result).split(',')[1] || '';
+      const r = await api('/api/cf/import-xlsx', {method: 'POST', body: JSON.stringify({b64})});
+      alert(tF('cfImported', {n: r.imported, p: r.projects_created, d: r.duplicates}));
+      cfView('ops');
+    } catch (e) { alert(e.message || t('cfImportBad')); }
+  };
+  reader.readAsDataURL(file);
+}
+
+
 window.addEventListener('DOMContentLoaded', () => {
   document.documentElement.lang = {fr:'fr',en:'en',de:'de',lu:'lb'}[LANG] || 'fr';
   document.querySelectorAll('#loginLangSel button').forEach(b => b.classList.toggle('on', b.dataset.lang === LANG));

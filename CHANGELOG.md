@@ -2,9 +2,28 @@
 
 All notable changes to Patrimony are documented in this file.
 
-## [2026.09.046] — 2026-09-08
+## [2026.09.047] — 2026-09-08
 
 ### Added
+- Crowdfunding section (🧱 nav entry, page with Overview / Projects /
+  Operations sub-views) for the crowdfunding module introduced in v046:
+  - Overview: stat cards (total invested, capital outstanding, interest
+    received/accrued, losses + latent, net gain), platform doughnut charts
+    with count+amount legends, and a note on the automatic global-wealth
+    linkage (no double entry).
+  - Projects: searchable/filterable table (platform, status incl. late
+    payment, real rate, ≈ estimated due date, royalty 🎵 badge, received
+    interest) with full create/edit modal and delete.
+  - Operations: platform exports (Bricks.co / La Première Brique) import,
+    kind/status filtering, in/out/net chips.
+- i18n FR/DE/LU/EN for the whole section (~110 new keys per language);
+  full integration with discret mode, member consultation view and mobile
+  layout (bottom nav bar includes the new entry).
+
+### Notes
+- The operations sub-view lists the 1000 most recent operations; full
+  pagination is planned with the v048 additions (delays/performance/sync).
+
 - Crowdfunding module: per-project tracking of equity/loan crowdfunding
   platforms (Bricks.co, La Première Brique) directly inside Patrimony —
   replaces the standalone Crowdfunding Tracker app (single source of truth).
