@@ -1,10 +1,16 @@
 {
   "manifest_version": 3,
   "name": "Patrimony Capture",
-  "version": "1.1.0",
-  "description": "Capture un montant sélectionné sur n'importe quelle page (solde, valorisation…) et l'envoie à votre instance Patrimony (LAN ou HTTPS). Mappings optionnels : sélecteur CSS par site → capture automatique quotidienne. Aucune donnée ne quitte votre réseau, aucun identifiant stocké.",
+  "version": "1.2.0",
+  "description": "Capture un montant sélectionné sur n'importe quelle page (solde, valorisation…) et l'envoie à votre instance Patrimony (LAN ou HTTPS). Mappings optionnels : sélecteur CSS par site → capture automatique quotidienne. Capture Crowdfunding : Bricks.co / La Première Brique → suivi projet-par-projet (page « Crowdfunding »). Aucune donnée ne quitte votre réseau, aucun identifiant stocké.",
   "permissions": ["contextMenus", "storage", "scripting", "tabs"],
-  "optional_host_permissions": ["http://*/*", "https://*/*"],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*",
+    "https://app.bricks.co/*",
+    "https://app-legacy.bricks.co/*",
+    "https://app.lapremierebrique.fr/*"
+  ],
   "background": { "service_worker": "background.js" },
   "action": {
     "default_popup": "popup.html",

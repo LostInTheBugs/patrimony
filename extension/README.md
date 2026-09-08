@@ -48,6 +48,26 @@ droit → Inspecter sur la valeur → copier le sélecteur), et l'actif cible.
   révocable dans chrome://extensions → détails du site).
 - Les résultats récents s'affichent dans le popup et dans les options.
 
+## Capture Crowdfunding (Bricks.co / La Première Brique) — v1.2.0
+
+Dans les options, section « 🧱 Capture Crowdfunding » : cochez **Activer**,
+accordez l'accès aux 3 domaines (app.bricks.co, app-legacy.bricks.co,
+app.lapremierebrique.fr) et collez un **jeton de portée crowdfund**
+(Patrimony → Paramètres → Accès API → Nouveau jeton → « 🧱 Crowdfunding » —
+*distinct* du jeton de valorisation, les scopes sont cloisonnés côté
+serveur).
+
+- Sur ces sites, le content script `content-cf.js` (porté du Crowdfunding
+  Tracker, parseurs éprouvés) lit **les pages que vous visitez** : listes
+  d'investissements (cards), pages projet, réponses JSON des apps — rien
+  d'autre — et les garde **en attente** dans `chrome.storage.local`.
+- Dans le popup : « 📤 Envoyer » → `POST /api/cf/sync/ingest` (jeton
+  crowdfund) ; le rapport d'enrichissement + conformité apparaît dans
+  Patrimony → Crowdfunding → **Synchronisation**. « 🔍 Capturer l'onglet »
+  déclenche une lecture immédiate de la page ouverte.
+- Aucune donnée ne quitte votre réseau ; aucun identifiant de compte n'est
+  lu ni stocké ; les captures sont purgées après envoi.
+
 ## Sécurité
 
 - **Jeton API** : stocké uniquement dans `chrome.storage.local` (votre

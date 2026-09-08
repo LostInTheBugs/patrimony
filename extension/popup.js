@@ -106,5 +106,47 @@ async function main() {
 }
 
 function flash(msg, cls) { const s = $('pStatus'); s.className = cls; s.textContent = msg; }
+function cfFlash(msg, cls) { const s = $('cfStatus'); s.className = cls; s.textContent = msg; }
 
-main();
+async function renderCf() {
+  const st = await chrome.runtime.sendMessage({ type: 'pat-cf-state' }).catch(() => null);
+  if (!st) return;
+  $('cfHead').style.display = 'block';
+  const d = st.diag || {};
+  const bits = [];
+  if (!st.enabled) bits.push('⏸ désactivée (Options)');
+  else {
+    if (!st.hasToken) bits.push('jeton manquant (Options)');
+    bits.push(st.captures + ' capture(s) en attente');
+    if ((d.injected || []).length) bits.push((d.injected || []).length + ' page(s) vue(s)');
+    if (d.lastSendAt) bits.push('envoi : ' + new Date(d.lastSendAt).toLocaleTimeString('fr-FR'));
+    if (d.lastError) bits.push('⚠️ ' + d.lastError);
+    else if (d.lastSendAt) bits.push('✓ dernier envoi OK');
+  }
+  $('cfState').textContent = bits.join(' · ');
+  $('cfSend').disabled = !st.enabled || !st.hasToken || !st.captures;
+  $('cfForce').disabled = !st.enabled;
+  $('cfSend').onclick = async () => {
+    $('cfSend').disabled = true;
+    const res = await chrome.runtime.sendMessage({ type: 'pat-cf-send' }).catch(() => ({}));
+    $('cfSend').disabled = false;
+    if (res && res.ok) {
+      const s = (res.data && res.data.summary) || {};
+      cfFlash('✅ Envoyé — ' + (s.projects_updated ?? '') + ' projet(s) enrichi(s), ' + (s.fields_filled ?? '') + ' champ(s) complété(s). Rapport : Patrimony → Crowdfunding → Synchronisation.', 'ok');
+    } else {
+      cfFlash('❌ ' + ((res && res.error) || 'erreur'), 'err');
+    }
+    renderCf();
+  };
+  $('cfForce').onclick = async () => {
+    $('cfForce').disabled = true;
+    const res = await chrome.runtime.sendMessage({ type: 'pat-cf-tab', action: 'force' }).catch(() => ({}));
+    $('cfForce').disabled = false;
+    cfFlash(res && res.ok ? '✅ Capture déclenchée sur cet onglet — puis « Envoyer ».' : '⚠️ ' + ((res && res.error) || 'erreur'), res && res.ok ? 'ok' : 'err');
+    renderCf();
+  };
+}
+
+main().then(() => {
+  renderCf();
+});

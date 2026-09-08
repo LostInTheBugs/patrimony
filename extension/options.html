@@ -63,6 +63,19 @@
     <div class="note">💡 Astuce pour trouver le sélecteur : clic droit sur le montant → « Inspecter » → copier le sélecteur CSS (`.classe` ou `#id`). L'extension ne lit que cet élément. Éditez un mapping : double-clic sur la ligne (ou cliquez sur ✎), puis « Enregistrer ». Testez avec « ▶ » sur la ligne (site ouvert requis).</div>
     <div class="note">⚠️ L'ajout d'un mapping demande l'autorisation d'accès au site (optionnelle, révocable dans chrome://extensions → détails → accès aux sites).</div>
   </div>
+
+  <div class="card">
+    <h2>🧱 Capture Crowdfunding (Bricks.co / La Première Brique)</h2>
+    <div class="sub">Sur ces sites, l'extension lit les pages que vous visitez (listes d'investissements, pages projet — <b>rien d'autre</b>) et les garde en attente. « Envoyer » (popup) les envoie à l'instance → page « Crowdfunding → Synchronisation » : enrichissement automatique des projets (taux, durées, échéances, montants, statuts) + rapport de conformité. Aucun identifiant : l'extension lit la page déjà ouverte, rien d'autre.</div>
+    <label><input id="oCfOn" type="checkbox" style="width:auto;vertical-align:-2px"> Activer la capture Crowdfunding (accès aux 3 domaines requis à l'enregistrement)</label>
+    <label>Jeton « Crowdfunding » — portée crowdfund (Paramètres Patrimony → Accès API → Nouveau jeton → « 🧱 Crowdfunding »)</label>
+    <input id="oCfToken" type="password" autocomplete="off" placeholder="collez ici le jeton de portée crowdfund (distinct du jeton de valorisation)">
+    <div class="row">
+      <button class="ghost" id="oCfClear" style="color:#f85149;border-color:#f8514933">Vider les captures</button>
+      <button id="oCfSave">Enregistrer</button>
+    </div>
+    <div id="cfStatus" class="note"></div>
+  </div>
 </div>
 <script src="options.js"></script>
 </body>

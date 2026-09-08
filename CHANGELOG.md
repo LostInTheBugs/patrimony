@@ -2,6 +2,25 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.048] — 2026-09-08
+
+### Added
+- Crowdfunding sub-views « Delays » (platform late badge + auto-overdue list,
+  severity buckets, received vs expected, months without interest) and
+  « Performance » (per-platform table: deposited / balance / in projects /
+  wealth / gain / annualised since first buy, editable deposited & balance —
+  LPB in-projects value stays auto) — i18n ×4, discret, mobile.
+- « Synchronisation » sub-view: setup steps for the capture extension and the
+  latest ingestion report (captures, matched/enriched projects, filled fields,
+  site-vs-export conformity table).
+- Operations list pagination (200/page, all pages fetched server-side
+  limit/offset).
+- API token UI: new « crowdfund » scope (selectable, dedicated badge).
+- Extension « Patrimony Capture » 1.2.0 : content script `content-cf.js`
+  (porté du Crowdfunding Tracker — parseurs Bricks/LPB éprouvés), section
+  popup « Envoyer / Capturer l'onglet », options dédiées (jeton portée
+  crowdfund, autorisations 3 domaines) — envoi POST /api/cf/sync/ingest.
+
 ## [2026.09.047] — 2026-09-08
 
 ### Added

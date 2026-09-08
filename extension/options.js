@@ -14,13 +14,43 @@ function uid() { return Date.now().toString(36) + Math.random().toString(36).sli
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 
 async function load() {
-  const cfg = await chrome.storage.local.get({ url: '', token: '', note: '', mappings: [], autoLog: {} });
+  const cfg = await chrome.storage.local.get({ url: '', token: '', note: '', mappings: [], autoLog: {}, cfEnabled: false, cfToken: '', cfCaptures: [], cfDiag: {} });
   $('oUrl').value = cfg.url;
   $('oToken').value = cfg.token;
   $('oNote').value = cfg.note || '';
+  $('oCfOn').checked = !!cfg.cfEnabled;
+  $('oCfToken').value = cfg.cfToken || '';
+  const d = cfg.cfDiag || {};
+  const nInj = (d.injected || []).length;
+  $('cfStatus').textContent = (cfg.cfEnabled ? '✅ Capture active sur Bricks/LPB — ' : '⏸ Capture désactivée — ') +
+    'captures en attente : ' + ((cfg.cfCaptures || []).length) + (nInj ? ' · pages vues : ' + nInj : '') +
+    (d.lastSendAt ? ' · dernier envoi : ' + new Date(d.lastSendAt).toLocaleString('fr-FR') : '') +
+    (d.lastError ? ' · ⚠️ ' + d.lastError : '');
   renderMappings(cfg.mappings, cfg.autoLog);
   refreshAccounts();
 }
+
+$('oCfSave').onclick = async () => {
+  const on = $('oCfOn').checked;
+  const token = $('oCfToken').value.trim();
+  if (on && token.length < 20) { setStatus('❌ Jeton crowdfunding manquant ou trop court (créez-le dans Patrimony : Paramètres → Accès API → portée « 🧱 Crowdfunding »)', 'err', $('cfStatus')); return; }
+  if (on) {
+    const okPerm = await chrome.permissions.request({ origins: ['https://app.bricks.co/*', 'https://app-legacy.bricks.co/*', 'https://app.lapremierebrique.fr/*'] });
+    if (!okPerm) { setStatus('❌ Autorisation d\'accès aux sites Bricks/LPB refusée — capture non activée.', 'err', $('cfStatus')); return; }
+  }
+  await chrome.storage.local.set({ cfEnabled: on, cfToken: token });
+  await chrome.runtime.sendMessage({ type: 'pat-cf-sync' }).catch(() => {});
+  setStatus(on ? '✅ Capture Crowdfunding active — naviguez sur Bricks/LPB puis « Envoyer » dans le popup.' : 'Capture Crowdfunding désactivée.', 'ok', $('cfStatus'));
+};
+
+$('oCfClear').onclick = async () => {
+  if (!confirm('Vider les captures Crowdfunding en attente ?')) return;
+  await chrome.runtime.sendMessage({ type: 'pat-cf-clear' }).catch(() => {});
+  setStatus('Captures vidées.', 'ok', $('cfStatus'));
+  load();
+};
+
+load();
 function fmtDate(iso) {
   if (!iso) return '—';
   return new Date(iso + 'T12:00:00').toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
@@ -167,6 +197,7 @@ $('oSave').onclick = async () => {
     ? '✅ Enregistré — autorisation d\'accès à ' + origin + ' accordée.'
     : '⚠️ Enregistré, mais autorisation d\'accès refusée : l\'envoi échouera.', 'ok');
   refreshAccounts();
+  load();
 };
 
 load();
