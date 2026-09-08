@@ -106,6 +106,16 @@
   .card .v{font-size:21px;font-weight:800;margin-top:5px}
   .card .s{font-size:11.5px;color:var(--muted);margin-top:3px}
   .pos{color:var(--green)} .neg{color:var(--red)} .warn{color:var(--orange)}
+  .act-sec{margin-top:16px}
+  .act-sec>h3{display:flex;gap:12px;align-items:baseline;margin:0 0 4px;font-size:15px;flex-wrap:wrap}
+  .act-sec>h3 .m{color:var(--text-dim);font-size:12px;font-weight:400}
+  .act-sec .tablewrap{margin-top:2px}
+  .act-acc td:first-child{cursor:pointer}
+  .act-tgl{border:0;background:transparent;cursor:pointer;font-size:12px;color:var(--text-dim);padding:2px 6px;border-radius:6px}
+  .act-tgl:hover{background:var(--bg2)}
+  .act-sub td{font-size:12.5px;padding:5px 10px !important}
+  .act-sub .num{text-align:right}
+  .av-typ{font-size:11px;font-weight:600;padding:1px 8px;border-radius:10px;background:var(--bg2);white-space:nowrap}
   .gold{color:var(--gold2)}
 
   /* ---------- charts ---------- */
@@ -268,6 +278,8 @@
       <a href="#" id="navDash" onclick="switchPage('dash')"><span class="e">📊</span> <span data-i18n="navDash">Tableau de bord</span></a>
       <a href="#" id="navEv" onclick="switchPage('ev')"><span class="e">📈</span> <span data-i18n="navEv">Évolution</span></a>
       <a href="#" id="navActifs" onclick="switchPage('actifs')"><span class="e">💼</span> <span data-i18n="navActifs">Actifs</span></a>
+      <a href="#" id="navAct" onclick="switchPage('act')"><span class="e">📈</span> <span data-i18n="navAct">Actions</span></a>
+      <a href="#" id="navAv" onclick="switchPage('av')"><span class="e">🛡️</span> <span data-i18n="navAv">Assurance vie</span></a>
       <a href="#" id="navCw" onclick="switchPage('cw')"><span class="e">₿</span> <span data-i18n="navCw">Crypto</span></a>
       <a href="#" id="navCrowd" onclick="switchPage('crowd')"><span class="e">🧱</span> <span data-i18n="navCrowd">Crowdfunding</span></a>
       <a href="#" id="navOps" onclick="switchPage('ops')"><span class="e">📜</span> <span data-i18n="navOps">Opérations</span></a>
@@ -429,6 +441,29 @@
       </div>
       <div class="tablewrap" style="margin-top:14px" id="cwWrap"></div>
       <div class="muted" style="font-size:11.5px;margin-top:8px"><span data-i18n="cwNote">Les soldes proviennent des explorers publics (Blockscout) et des prix DefiLlama — aucune clé ni identifiant requis.</span></div>
+    </section>
+
+    <!-- ---------- INVESTISSEMENTS (module, v2026.09.055) : Actions + Assurance vie ---------- -->
+    <section id="pageAct" class="hidden">
+      <div class="page-title">
+        <h1>📈 <span data-i18n="actTtl">Actions (PEA / CTO)</span></h1>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button class="btn ghost inv-admin" id="actRefreshBtn" onclick="actRefresh()">↻ <span data-i18n="actRefresh">Mettre à jour les cours</span></button>
+          <span class="muted" id="actSyncInfo" style="font-size:12px"></span>
+        </div>
+      </div>
+      <div class="cards" id="actCards"></div>
+      <div id="actWrap" style="margin-top:6px"></div>
+      <div class="muted" style="font-size:11.5px;margin-top:10px"><span data-i18n="actNote">Les enveloppes PEA/CTO alimentent automatiquement la classe Bourse &amp; assurances-vie du tableau de bord (zéro double saisie) : la valeur affichée est celle de la dernière valorisation du compte, les lignes titres sont informatives (cours du cache).</span></div>
+    </section>
+
+    <section id="pageAv" class="hidden">
+      <div class="page-title">
+        <h1>🛡️ <span data-i18n="avTtl">Assurance vie</span></h1>
+      </div>
+      <div class="cards" id="avCards"></div>
+      <div class="tablewrap" style="margin-top:14px" id="avWrap"></div>
+      <div class="muted" style="font-size:11.5px;margin-top:10px"><span data-i18n="avNote">Un compte = un contrat. La classe Épargne = fonds €, la classe Bourse = unités de compte. Les versements sont lus dans vos opérations — enregistrez vos dépôts et retraits par contrat pour un coût exact.</span></div>
     </section>
 
     <!-- ---------- CROWDFUNDING (module, v2026.09.047) ---------- -->
@@ -760,7 +795,19 @@ fr: {
   mPrjNew:'Nouveau projet', mPrjEdit:'Modifier le projet', mPlat:'Plateforme', mName:'Nom du projet', mCity:'Ville', mMise:'Mise (€)', mRate:'Taux brut (%/an)', mDur:'Durée (mois)', mStart:'Début — 1er investissement', mEch:'Échéance prévue (réelle)', mEchReal:'Date de fin réelle', mStatus:'Statut', mRepaid:'Capital remboursé (€)', mInt:'Intérêts perçus (€)', mRoyalty:'Type de contrat', mStd:'Standard (remboursement par échéancier)', mRoy:'Royalties (capital à la revente)', mValuation:'Valeur actuelle des parts (€)', mNotes:'Notes', mInvAfter:'Mise et intérêts saisis à la main ; les imports et l’extension ne remplissent que les champs vides.',
   cfOpsImport:'Import xlsx', cfOpsAllKinds:'Tous les types', kindInv:'Investissements', kindInc:'Revenus', kindCap:'Remboursements / reventes', kindOther:'Autres', cfOpsNote:'Exports Bricks.co (transactions…) et La Première Brique (payment_operations…) reconnus automatiquement. Ré-import possible sans doublon.', cfOpsIn:'Entrées {v}', cfOpsOut:'Sorties {v}', cfOpsNet:'Net {v}', cfOpsCount:'{n} opérations', cfImported:'{n} opérations importées ({p} projets créés, {d} doublons ignorés)', cfImportBad:'Fichier illisible ou format non reconnu.', cfErr:'Erreur : {e}', cfOpsColDate:'Date', cfOpsColProj:'Projet', cfOpsColType:'Type', cfOpsColAmt:'Montant', cfOpsColStatus:'Statut',
   crowdSeg4:'Retards', crowdSeg5:'Performance', crowdSeg6:'Synchronisation',
-  navCw:'Crypto', cwTtl:'Wallets crypto', cwAdd:'Ajouter un wallet', cwLabelPh:'Libellé (ex. Ledger)', cwAddrPh:'Adresse publique 0x…', cwAddSubmit:'Suivre ce wallet', cwCancel:'Annuler', cwSync:'Actualiser', cwSyncing:'Actualisation en cours…', cwSyncDone:'Synchronisé le {d}', cwSyncErr:'Échec de la synchronisation — réessayez', cwErrFill:'Renseignez le libellé et l’adresse (0x…).', cwBusy:'Premier scan en cours — patience (une minute environ).', cwStVal:'Valeur des wallets', cwStValS:'soldes on-chain (scan public)', cwStCost:'Coût total', cwStCostS:'coût d’acquisition estimé (historique)', cwStGain:'Gain', cwStGainS:'valeur − coût', cwStWal:'Wallets suivis', cwStWalS:'adresses non-custodial', cwEmpty:'Aucun wallet suivi — ajoutez une adresse publique (ex. votre Ledger).', cwErrLoad:'Module indisponible pour le moment.', cwColWallet:'Wallet', cwColAddr:'Adresse', cwColVal:'Valeur', cwColCost:'Coût', cwColGain:'Gain', cwColChains:'Chaînes / jetons', cwColLast:'Dernière synchro', cwDet:'Détails', cwDel:'Retirer', cwDelConfirm:'Retirer ce wallet et son compte-auto (historique inclus) ?', cwReconT:'écart entre l’historique estimé et le solde réel (scan) — l’historique des transferts ERC-20 ne voit pas tout', cwDemo:'démo', cwTokChain:'Chaîne', cwTokSym:'Jeton', cwTokCat:'Catégorie', cwTokBal:'Solde', cwTokPx:'Prix (USD)', cwTokVal:'Valeur', cwTokEmp:'Aucune position — le premier scan alimentera ce détail.', cwCatLending:'Lending', cwCatLp:'LP (pool)', cwCatStaked:'Staké', cwCatVault:'Vault', cwCatSynthetic:'Stable/synth.', cwCatWallet:'Wallet', cwTokN:'jetons', cwTokN1:'jeton', cwChnN:'chaînes', cwChnN1:'chaîne', cwNote:'Les soldes proviennent des explorers publics (Blockscout) et des prix DefiLlama — aucune clé ni identifiant requis. Valeur en USD, conversion EUR au taux BCE du jour. Ces comptes alimentent automatiquement la classe Cryptomonnaies du tableau de bord (zéro double saisie) ; l’historique est une estimation (transferts visibles), le solde affiché fait foi.',
+  navCw:'Crypto', cwTtl:'Wallets crypto', cwAdd:'Ajouter un wallet', cwLabelPh:'Libellé (ex. Ledger)', cwAddrPh:'Adresse publique 0x…', cwAddSubmit:'Suivre ce wallet', cwCancel:'Annuler', cwSync:'Actualiser', cwSyncing:'Actualisation en cours…', cwSyncDone:'Synchronisé le {d}', cwSyncErr:'Échec de la synchronisation — réessayez', cwErrFill:'Renseignez le libellé et l’adresse (0x…).', cwBusy:'Premier scan en cours — patience (une minute environ).', navAct:'Actions', navAv:'Assurance vie',
+actTtl:'Actions (PEA / CTO)', actRefresh:'Mettre à jour les cours', actRefreshing:'Mise à jour des cours…', actRefreshed:'{n} cours mis à jour', actFail:'{n} échec(s)', actErrLoad:'Module indisponible pour le moment.',
+actCardVal:'Valeur', actCardValS:'somme des enveloppes (dernière valorisation du compte)', actCardCost:'Coût', actCardCostS:'versements nets (dépôts − retraits, ou coût saisi)', actCardGain:'Gain', actCardGainS:'valeur − coût', actCardDiv:'Dividendes (année)', actCardDivS:'revenus détachés enregistrés',
+actEmpty:'Aucun compte PEA/CTO. Créez un compte Bourse et choisissez l’enveloppe PEA ou CTO dans sa fiche.',
+actColAcct:'Compte', actColVal:'Valeur', actColCost:'Coût', actColGain:'Gain', actColDiv:'Dividendes', actColLast:'Dernière valo',
+actColSym:'Symbole', actColLib:'Libellé', actColQty:'Qté', actColPru:'Prix de revient', actColPx:'Cours', actColPv:'Plus-value', actColDiv2:'Div.',
+actNoPos:'Aucune position', actPos1:'ligne', actPosN:'lignes', actTgl:'Déplier les lignes titres',
+invValo:'Valorisé le {d}', invStale:'dernière valorisation ancienne (> 35 j)',
+avTtl:'Assurance vie', avCardVal:'Valeur', avCardValS:'contrats (dernière valorisation)', avCardCost:'Coût', avCardCostS:'versements nets', avCardGain:'Gain', avCardGainS:'valeur − coût', avCardRet:'Retraits (année)', avCardRetS:'sorties enregistrées cette année',
+avEmpty:'Aucun contrat AV. Créez un compte Bourse (unités de compte) ou Épargne (fonds €) et choisissez l’enveloppe Assurance-vie.',
+avColContract:'Contrat', avColType:'Fonds', avTypeEuro:'fonds €', avTypeUC:'unités de compte', avColVers:'Versements', avColRet:'Retraits (année)', avColDiv:'Dividendes',
+actNote:'Les enveloppes PEA/CTO alimentent automatiquement la classe Bourse & assurances-vie du tableau de bord (zéro double saisie) : la valeur affichée est celle de la dernière valorisation du compte, les lignes titres sont informatives (cours du cache, actualisables ci-dessus).',
+avNote:'Un compte = un contrat. La classe Épargne = fonds €, la classe Bourse = unités de compte. Enregistrez vos dépôts et retraits par contrat dans les opérations pour un coût exact.', cwStVal:'Valeur des wallets', cwStValS:'soldes on-chain (scan public)', cwStCost:'Coût total', cwStCostS:'coût d’acquisition estimé (historique)', cwStGain:'Gain', cwStGainS:'valeur − coût', cwStWal:'Wallets suivis', cwStWalS:'adresses non-custodial', cwEmpty:'Aucun wallet suivi — ajoutez une adresse publique (ex. votre Ledger).', cwErrLoad:'Module indisponible pour le moment.', cwColWallet:'Wallet', cwColAddr:'Adresse', cwColVal:'Valeur', cwColCost:'Coût', cwColGain:'Gain', cwColChains:'Chaînes / jetons', cwColLast:'Dernière synchro', cwDet:'Détails', cwDel:'Retirer', cwDelConfirm:'Retirer ce wallet et son compte-auto (historique inclus) ?', cwReconT:'écart entre l’historique estimé et le solde réel (scan) — l’historique des transferts ERC-20 ne voit pas tout', cwDemo:'démo', cwTokChain:'Chaîne', cwTokSym:'Jeton', cwTokCat:'Catégorie', cwTokBal:'Solde', cwTokPx:'Prix (USD)', cwTokVal:'Valeur', cwTokEmp:'Aucune position — le premier scan alimentera ce détail.', cwCatLending:'Lending', cwCatLp:'LP (pool)', cwCatStaked:'Staké', cwCatVault:'Vault', cwCatSynthetic:'Stable/synth.', cwCatWallet:'Wallet', cwTokN:'jetons', cwTokN1:'jeton', cwChnN:'chaînes', cwChnN1:'chaîne', cwNote:'Les soldes proviennent des explorers publics (Blockscout) et des prix DefiLlama — aucune clé ni identifiant requis. Valeur en USD, conversion EUR au taux BCE du jour. Ces comptes alimentent automatiquement la classe Cryptomonnaies du tableau de bord (zéro double saisie) ; l’historique est une estimation (transferts visibles), le solde affiché fait foi.',
   rHint:'Gravité = intérêts reçus vs attendus depuis le début (🔴 critique si rien ou presque n’a été perçu).', rNone:'Aucun projet en retard — tout est à l’heure 🎉', rColRecv:'Reçu', rColExp:'Attendu', rColRatio:'Ratio', rColSev:'Gravité',
   sevCritique:'🔴 Critique', sevImportant:'🟠 Important', sevSignificatif:'🟡 Significatif', sevNegligeable:'🟢 Négligeable', rMonths:'{n} mois sans intérêt', rInfine:'(in-fine : intérêts versés au terme)', rOverdueTitle:'Échéance réelle dépassée (retard automatique)', rLateTitle:'Retard de paiement (badge plateforme)',
   pHint:'Annualisé depuis le premier investissement de chaque plateforme ; « déposé » est la seule valeur non dérivable — saisie manuelle.', pDeposited:'Déposé (cumul)', pBalance:'Solde dispo', pInProj:'Dans les projets', pWealth:'Patrimoine', pGain:'Gain', pAnnual:'Annualisé', pSince:'Depuis', pTotal:'Total', pEditTitle:'Modifier la plateforme', pValAuto:'valeur calculée automatiquement', pNoData:'Importez un export (page Opérations) pour voir la performance.',
@@ -926,7 +973,19 @@ en: {
   mPrjNew:'New project', mPrjEdit:'Edit project', mPlat:'Platform', mName:'Project name', mCity:'City', mMise:'Invested (€)', mRate:'Gross rate (% p.a.)', mDur:'Term (months)', mStart:'Start — first investment', mEch:'Expected end (real)', mEchReal:'Actual end date', mStatus:'Status', mRepaid:'Capital repaid (€)', mInt:'Interest received (€)', mRoyalty:'Contract type', mStd:'Standard (scheduled repayments)', mRoy:'Royalties (capital repaid on resale)', mValuation:'Current value of shares (€)', mNotes:'Notes', mInvAfter:'Invested + interest are entered manually; imports and the extension only fill empty fields.',
   cfOpsImport:'Import xlsx', cfOpsAllKinds:'All types', kindInv:'Investments', kindInc:'Income', kindCap:'Repayments / resales', kindOther:'Other', cfOpsNote:'Bricks.co (transactions…) and La Première Brique (payment_operations…) exports are detected automatically. Re-importing the same file creates no duplicates.', cfOpsIn:'In {v}', cfOpsOut:'Out {v}', cfOpsNet:'Net {v}', cfOpsCount:'{n} operations', cfImported:'{n} operations imported ({p} projects created, {d} duplicates skipped)', cfImportBad:'Unreadable file or unrecognised format.', cfErr:'Error: {e}', cfOpsColDate:'Date', cfOpsColProj:'Project', cfOpsColType:'Type', cfOpsColAmt:'Amount', cfOpsColStatus:'Status',
   crowdSeg4:'Delays', crowdSeg5:'Performance', crowdSeg6:'Synchronisation',
-  navCw:'Crypto', cwTtl:'Crypto wallets', cwAdd:'Add a wallet', cwLabelPh:'Label (e.g. Ledger)', cwAddrPh:'Public address 0x…', cwAddSubmit:'Track this wallet', cwCancel:'Cancel', cwSync:'Refresh', cwSyncing:'Refreshing…', cwSyncDone:'Synced {d}', cwSyncErr:'Sync failed — try again', cwErrFill:'Fill in the label and the address (0x…).', cwBusy:'First scan in progress — please wait (about a minute).', cwStVal:'Wallet value', cwStValS:'on-chain balances (public scan)', cwStCost:'Total cost', cwStCostS:'estimated acquisition cost (history)', cwStGain:'Gain', cwStGainS:'value − cost', cwStWal:'Tracked wallets', cwStWalS:'non-custodial addresses', cwEmpty:'No wallet tracked — add a public address (e.g. your Ledger).', cwErrLoad:'Module unavailable for now.', cwColWallet:'Wallet', cwColAddr:'Address', cwColVal:'Value', cwColCost:'Cost', cwColGain:'Gain', cwColChains:'Chains / tokens', cwColLast:'Last sync', cwDet:'Details', cwDel:'Remove', cwDelConfirm:'Remove this wallet and its auto account (history included)?', cwReconT:'gap between the estimated history and the real on-chain balance (ERC-20 transfer history is incomplete)', cwDemo:'demo', cwTokChain:'Chain', cwTokSym:'Token', cwTokCat:'Category', cwTokBal:'Balance', cwTokPx:'Price (USD)', cwTokVal:'Value', cwTokEmp:'No position — the first scan will fill this detail.', cwCatLending:'Lending', cwCatLp:'LP (pool)', cwCatStaked:'Staked', cwCatVault:'Vault', cwCatSynthetic:'Stable/synth.', cwCatWallet:'Wallet', cwTokN:'tokens', cwTokN1:'token', cwChnN:'chains', cwChnN1:'chain', cwNote:'Balances come from public explorers (Blockscout) and DefiLlama prices — no key or identifier required. Values in USD, EUR conversion at the ECB rate of the day. These accounts automatically feed the Cryptocurrencies class of the dashboard (zero double entry); the history is an estimate (visible transfers), the displayed balance prevails.',
+  navCw:'Crypto', cwTtl:'Crypto wallets', cwAdd:'Add a wallet', cwLabelPh:'Label (e.g. Ledger)', cwAddrPh:'Public address 0x…', cwAddSubmit:'Track this wallet', cwCancel:'Cancel', cwSync:'Refresh', cwSyncing:'Refreshing…', cwSyncDone:'Synced {d}', cwSyncErr:'Sync failed — try again', cwErrFill:'Fill in the label and the address (0x…).', cwBusy:'First scan in progress — please wait (about a minute).', navAct:'Stocks', navAv:'Life insurance',
+actTtl:'Stocks (PEA / CTO)', actRefresh:'Refresh quotes', actRefreshing:'Refreshing quotes…', actRefreshed:'{n} quotes updated', actFail:'{n} failure(s)', actErrLoad:'Module unavailable for now.',
+actCardVal:'Value', actCardValS:'all wrappers (latest account valuation)', actCardCost:'Cost', actCardCostS:'net contributions (deposits − withdrawals, or entered cost)', actCardGain:'Gain', actCardGainS:'value − cost', actCardDiv:'Dividends (year)', actCardDivS:'recorded distribution events',
+actEmpty:'No PEA/CTO account yet. Create a Stocks (Bourse) account and pick the PEA or CTO wrapper in its form.',
+actColAcct:'Account', actColVal:'Value', actColCost:'Cost', actColGain:'Gain', actColDiv:'Dividends', actColLast:'Last val.',
+actColSym:'Symbol', actColLib:'Label', actColQty:'Qty', actColPru:'Cost basis', actColPx:'Price', actColPv:'Gain/Loss', actColDiv2:'Div.',
+actNoPos:'No position', actPos1:'line', actPosN:'lines', actTgl:'Expand positions',
+invValo:'Valued on {d}', invStale:'stale valuation (> 35 days)',
+avTtl:'Life insurance', avCardVal:'Value', avCardValS:'contracts (latest valuation)', avCardCost:'Cost', avCardCostS:'net contributions', avCardGain:'Gain', avCardGainS:'value − cost', avCardRet:'Withdrawals (year)', avCardRetS:'outflows recorded this year',
+avEmpty:'No AV contract yet. Create a Savings (fonds €) or Stocks (unit-linked) account and pick the Life insurance wrapper.',
+avColContract:'Contract', avColType:'Funds', avTypeEuro:'funds €', avTypeUC:'unit-linked', avColVers:'Contributions', avColRet:'Withdrawals (year)', avColDiv:'Dividends',
+actNote:'PEA/CTO wrappers automatically feed the Stocks & life insurance class of the dashboard (zero double entry): the displayed value is the account\'s latest valuation, positions are informational (cached quotes, refreshable above).',
+avNote:'One account = one contract. Savings class = funds €, Stocks class = unit-linked. Record deposits and withdrawals per contract in the operations for an exact cost.', cwStVal:'Wallet value', cwStValS:'on-chain balances (public scan)', cwStCost:'Total cost', cwStCostS:'estimated acquisition cost (history)', cwStGain:'Gain', cwStGainS:'value − cost', cwStWal:'Tracked wallets', cwStWalS:'non-custodial addresses', cwEmpty:'No wallet tracked — add a public address (e.g. your Ledger).', cwErrLoad:'Module unavailable for now.', cwColWallet:'Wallet', cwColAddr:'Address', cwColVal:'Value', cwColCost:'Cost', cwColGain:'Gain', cwColChains:'Chains / tokens', cwColLast:'Last sync', cwDet:'Details', cwDel:'Remove', cwDelConfirm:'Remove this wallet and its auto account (history included)?', cwReconT:'gap between the estimated history and the real on-chain balance (ERC-20 transfer history is incomplete)', cwDemo:'demo', cwTokChain:'Chain', cwTokSym:'Token', cwTokCat:'Category', cwTokBal:'Balance', cwTokPx:'Price (USD)', cwTokVal:'Value', cwTokEmp:'No position — the first scan will fill this detail.', cwCatLending:'Lending', cwCatLp:'LP (pool)', cwCatStaked:'Staked', cwCatVault:'Vault', cwCatSynthetic:'Stable/synth.', cwCatWallet:'Wallet', cwTokN:'tokens', cwTokN1:'token', cwChnN:'chains', cwChnN1:'chain', cwNote:'Balances come from public explorers (Blockscout) and DefiLlama prices — no key or identifier required. Values in USD, EUR conversion at the ECB rate of the day. These accounts automatically feed the Cryptocurrencies class of the dashboard (zero double entry); the history is an estimate (visible transfers), the displayed balance prevails.',
   rHint:'Severity = interest received vs expected since inception (🔴 critical when little or nothing has been received).', rNone:'No late projects — everything is on schedule 🎉', rColRecv:'Received', rColExp:'Expected', rColRatio:'Ratio', rColSev:'Severity',
   sevCritique:'🔴 Critical', sevImportant:'🟠 Important', sevSignificatif:'🟡 Significant', sevNegligeable:'🟢 Negligible', rMonths:'{n} months without interest', rInfine:'(in-fine: interest paid at term)', rOverdueTitle:'Real due date passed (automatic delay)', rLateTitle:'Late payment (platform badge)',
   pHint:'Annualised since each platform’s first investment; “deposited” is the only non-derivable value — manual entry.', pDeposited:'Deposited (cum.)', pBalance:'Available balance', pInProj:'In projects', pWealth:'Wealth', pGain:'Gain', pAnnual:'Annualised', pSince:'Since', pTotal:'Total', pEditTitle:'Edit platform', pValAuto:'value computed automatically', pNoData:'Import an export (Operations page) to see performance.',
@@ -1092,7 +1151,19 @@ de: {
   mPrjNew:'Neues Projekt', mPrjEdit:'Projekt bearbeiten', mPlat:'Plattform', mName:'Projektname', mCity:'Stadt', mMise:'Investiert (€)', mRate:'Bruttozins (% p.a.)', mDur:'Laufzeit (Monate)', mStart:'Start — erste Investition', mEch:'Erwartetes Ende (real)', mEchReal:'Tatsächliches Ende', mStatus:'Status', mRepaid:'Zurückgezahltes Kapital (€)', mInt:'Erhaltene Zinsen (€)', mRoyalty:'Vertragsart', mStd:'Standard (planmäßige Rückzahlung)', mRoy:'Royalties (Kapital beim Verkauf)', mValuation:'Aktueller Wert der Anteile (€)', mNotes:'Notizen', mInvAfter:'Investiert + Zinsen werden manuell erfasst; Importe und die Extension füllen nur leere Felder.',
   cfOpsImport:'xlsx importieren', cfOpsAllKinds:'Alle Typen', kindInv:'Investitionen', kindInc:'Einkünfte', kindCap:'Rückzahlungen / Verkäufe', kindOther:'Sonstige', cfOpsNote:'Bricks.co- und La-Première-Brique-Exporte werden automatisch erkannt. Erneuter Import derselben Datei erzeugt keine Duplikate.', cfOpsIn:'Eingänge {v}', cfOpsOut:'Ausgänge {v}', cfOpsNet:'Netto {v}', cfOpsCount:'{n} Transaktionen', cfImported:'{n} Transaktionen importiert ({p} Projekte neu, {d} Duplikate übersprungen)', cfImportBad:'Datei unlesbar oder Format nicht erkannt.', cfErr:'Fehler: {e}', cfOpsColDate:'Datum', cfOpsColProj:'Projekt', cfOpsColType:'Typ', cfOpsColAmt:'Betrag', cfOpsColStatus:'Status',
   crowdSeg4:'Verzögerungen', crowdSeg5:'Performance', crowdSeg6:'Synchronisation',
-  navCw:'Krypto', cwTtl:'Krypto-Wallets', cwAdd:'Wallet hinzufügen', cwLabelPh:'Bezeichnung (z. B. Ledger)', cwAddrPh:'Öffentliche Adresse 0x…', cwAddSubmit:'Dieses Wallet verfolgen', cwCancel:'Abbrechen', cwSync:'Aktualisieren', cwSyncing:'Aktualisierung läuft…', cwSyncDone:'Synchronisiert am {d}', cwSyncErr:'Synchronisierung fehlgeschlagen — erneut versuchen', cwErrFill:'Bezeichnung und Adresse (0x…) ausfüllen.', cwBusy:'Erster Scan läuft — bitte warten (etwa eine Minute).', cwStVal:'Wallet-Wert', cwStValS:'On-Chain-Salden (öffentlicher Scan)', cwStCost:'Gesamtkosten', cwStCostS:'geschätzte Anschaffungskosten (Verlauf)', cwStGain:'Gewinn', cwStGainS:'Wert − Kosten', cwStWal:'Verfolgte Wallets', cwStWalS:'nicht verwahrte Adressen', cwEmpty:'Kein Wallet verfolgt — fügen Sie eine öffentliche Adresse hinzu (z. B. Ihr Ledger).', cwErrLoad:'Modul momentan nicht verfügbar.', cwColWallet:'Wallet', cwColAddr:'Adresse', cwColVal:'Wert', cwColCost:'Kosten', cwColGain:'Gewinn', cwColChains:'Ketten / Token', cwColLast:'Letzte Synchronisierung', cwDet:'Details', cwDel:'Entfernen', cwDelConfirm:'Dieses Wallet und sein automatisches Konto entfernen (inkl. Verlauf)?', cwReconT:'Abweichung zwischen geschätztem Verlauf und echtem On-Chain-Saldo (ERC-20-Transferverlauf ist unvollständig)', cwDemo:'Demo', cwTokChain:'Kette', cwTokSym:'Token', cwTokCat:'Kategorie', cwTokBal:'Saldo', cwTokPx:'Preis (USD)', cwTokVal:'Wert', cwTokEmp:'Keine Position — der erste Scan füllt dieses Detail.', cwCatLending:'Lending', cwCatLp:'LP (Pool)', cwCatStaked:'Gestaket', cwCatVault:'Vault', cwCatSynthetic:'Stable/synth.', cwCatWallet:'Wallet', cwTokN:'Token', cwTokN1:'Token', cwChnN:'Ketten', cwChnN1:'Kette', cwNote:'Salden stammen aus öffentlichen Explorern (Blockscout) und DefiLlama-Preisen — kein Schlüssel oder Identifikator nötig. Werte in USD, EUR-Umrechnung zum EZB-Kurs des Tages. Diese Konten speisen automatisch die Kryptowährungs-Klasse des Dashboards (keine Doppelerfassung); der Verlauf ist eine Schätzung (sichtbare Transfers), der angezeigte Saldo gilt.',
+  navCw:'Krypto', cwTtl:'Krypto-Wallets', cwAdd:'Wallet hinzufügen', cwLabelPh:'Bezeichnung (z. B. Ledger)', cwAddrPh:'Öffentliche Adresse 0x…', cwAddSubmit:'Dieses Wallet verfolgen', cwCancel:'Abbrechen', cwSync:'Aktualisieren', cwSyncing:'Aktualisierung läuft…', cwSyncDone:'Synchronisiert am {d}', cwSyncErr:'Synchronisierung fehlgeschlagen — erneut versuchen', cwErrFill:'Bezeichnung und Adresse (0x…) ausfüllen.', cwBusy:'Erster Scan läuft — bitte warten (etwa eine Minute).', navAct:'Aktien', navAv:'Lebensversicherung',
+actTtl:'Aktien (PEA / CTO)', actRefresh:'Kurse aktualisieren', actRefreshing:'Kurse werden aktualisiert…', actRefreshed:'{n} Kurse aktualisiert', actFail:'{n} Fehler', actErrLoad:'Modul momentan nicht verfügbar.',
+actCardVal:'Wert', actCardValS:'alle Hüllen (letzte Kontobewertung)', actCardCost:'Kosten', actCardCostS:'Netto-Einzahlungen (Einzahlungen − Abhebungen, oder erfasste Kosten)', actCardGain:'Gewinn', actCardGainS:'Wert − Kosten', actCardDiv:'Dividenden (Jahr)', actCardDivS:'erfasste Ausschüttungen',
+actEmpty:'Noch kein PEA/CTO-Konto. Erstellen Sie ein Wertpapierkonto (Bourse) und wählen Sie die Hülle PEA oder CTO im Formular.',
+actColAcct:'Konto', actColVal:'Wert', actColCost:'Kosten', actColGain:'Gewinn', actColDiv:'Dividenden', actColLast:'Letzte Bew.',
+actColSym:'Symbol', actColLib:'Bezeichnung', actColQty:'Menge', actColPru:'Einstandskurs', actColPx:'Kurs', actColPv:'Gewinn/Verlust', actColDiv2:'Div.',
+actNoPos:'Keine Position', actPos1:'Position', actPosN:'Positionen', actTgl:'Positionen aufklappen',
+invValo:'Bewertet am {d}', invStale:'veraltete Bewertung (> 35 Tage)',
+avTtl:'Lebensversicherung', avCardVal:'Wert', avCardValS:'Verträge (letzte Bewertung)', avCardCost:'Kosten', avCardCostS:'Netto-Einzahlungen', avCardGain:'Gewinn', avCardGainS:'Wert − Kosten', avCardRet:'Abhebungen (Jahr)', avCardRetS:'Ausgänge dieses Jahr',
+avEmpty:'Noch kein AV-Vertrag. Erstellen Sie ein Sparkonto (fonds €) oder Wertpapierkonto (UC) und wählen Sie die Hülle Lebensversicherung.',
+avColContract:'Vertrag', avColType:'Fonds', avTypeEuro:'fonds €', avTypeUC:'UC', avColVers:'Einzahlungen', avColRet:'Abhebungen (Jahr)', avColDiv:'Dividenden',
+actNote:'PEA/CTO-Hüllen speisen automatisch die Klasse Börse & Lebensversicherung des Dashboards (keine Doppelerfassung): angezeigt wird die letzte Kontobewertung, die Positionen sind informativ (Kurse aus dem Cache, oben aktualisierbar).',
+avNote:'Ein Konto = ein Vertrag. Sparklasse = fonds €, Wertpapierklasse = UC. Erfassen Sie Ein- und Auszahlungen pro Vertrag in den Transaktionen für exakte Kosten.', cwStVal:'Wallet-Wert', cwStValS:'On-Chain-Salden (öffentlicher Scan)', cwStCost:'Gesamtkosten', cwStCostS:'geschätzte Anschaffungskosten (Verlauf)', cwStGain:'Gewinn', cwStGainS:'Wert − Kosten', cwStWal:'Verfolgte Wallets', cwStWalS:'nicht verwahrte Adressen', cwEmpty:'Kein Wallet verfolgt — fügen Sie eine öffentliche Adresse hinzu (z. B. Ihr Ledger).', cwErrLoad:'Modul momentan nicht verfügbar.', cwColWallet:'Wallet', cwColAddr:'Adresse', cwColVal:'Wert', cwColCost:'Kosten', cwColGain:'Gewinn', cwColChains:'Ketten / Token', cwColLast:'Letzte Synchronisierung', cwDet:'Details', cwDel:'Entfernen', cwDelConfirm:'Dieses Wallet und sein automatisches Konto entfernen (inkl. Verlauf)?', cwReconT:'Abweichung zwischen geschätztem Verlauf und echtem On-Chain-Saldo (ERC-20-Transferverlauf ist unvollständig)', cwDemo:'Demo', cwTokChain:'Kette', cwTokSym:'Token', cwTokCat:'Kategorie', cwTokBal:'Saldo', cwTokPx:'Preis (USD)', cwTokVal:'Wert', cwTokEmp:'Keine Position — der erste Scan füllt dieses Detail.', cwCatLending:'Lending', cwCatLp:'LP (Pool)', cwCatStaked:'Gestaket', cwCatVault:'Vault', cwCatSynthetic:'Stable/synth.', cwCatWallet:'Wallet', cwTokN:'Token', cwTokN1:'Token', cwChnN:'Ketten', cwChnN1:'Kette', cwNote:'Salden stammen aus öffentlichen Explorern (Blockscout) und DefiLlama-Preisen — kein Schlüssel oder Identifikator nötig. Werte in USD, EUR-Umrechnung zum EZB-Kurs des Tages. Diese Konten speisen automatisch die Kryptowährungs-Klasse des Dashboards (keine Doppelerfassung); der Verlauf ist eine Schätzung (sichtbare Transfers), der angezeigte Saldo gilt.',
   rHint:'Schweregrad = erhaltene vs. erwartete Zinsen seit Beginn (🔴 kritisch, wenn kaum etwas eingegangen ist).', rNone:'Keine verspäteten Projekte — alles im Zeitplan 🎉', rColRecv:'Erhalten', rColExp:'Erwartet', rColRatio:'Ratio', rColSev:'Schweregrad',
   sevCritique:'🔴 Kritisch', sevImportant:'🟠 Wichtig', sevSignificatif:'🟡 Signifikant', sevNegligeable:'🟢 Unerheblich', rMonths:'{n} Monate ohne Zinsen', rInfine:'(in-fine: Zinsen am Laufzeitende)', rOverdueTitle:'Reales Fälligkeitsdatum überschritten (automatisch)', rLateTitle:'Zahlungsverzug (Plattform-Badge)',
   pHint:'Annualisiert seit der ersten Investition jeder Plattform; „eingezahlt“ ist der einzige nicht ableitbare Wert — manuelle Eingabe.', pDeposited:'Eingezahlt (kum.)', pBalance:'Verfügbares Guthaben', pInProj:'In Projekten', pWealth:'Vermögen', pGain:'Gewinn', pAnnual:'Annualisiert', pSince:'Seit', pTotal:'Gesamt', pEditTitle:'Plattform bearbeiten', pValAuto:'automatisch berechneter Wert', pNoData:'Importieren Sie einen Export (Transaktionen-Seite), um die Performance zu sehen.',
@@ -1257,7 +1328,19 @@ lu: {
   mPrjNew:'Neie Projet', mPrjEdit:'Projet änneren', mPlat:'Plattform', mName:'Numm vum Projet', mCity:'Stad', mMise:'Investéiert (€)', mRate:'Bruttotaux (% pro Joer)', mDur:'Dauer (Mount)', mStart:'Start — éischt Investitioun', mEch:'Erwaart Enn (reell)', mEchReal:'Reellt Enn', mStatus:'Status', mRepaid:'Kapital zeréckbezuelt (€)', mInt:'Zënser kritt (€)', mRoyalty:'Vertragsaart', mStd:'Standard (planméisseg Remboursement)', mRoy:'Royalties (Kapital beim Verkaf)', mValuation:'Aktuelle Wäert vun den Deeler (€)', mNotes:'Notizen', mInvAfter:'Investéiert + Zënser ginn manuell erfaasst; Importer an d’Extension fëllen nëmmen eidel Felder.',
   cfOpsImport:'xlsx importéieren', cfOpsAllKinds:'All Typen', kindInv:'Investitiounen', kindInc:'Akommes', kindCap:'Remboursementer / Verkafen', kindOther:'Anerer', cfOpsNote:'Bricks.co- a La-Première-Brique-Exporten gi automatesch erkannt. Neien Import vun der selwechter Fichier mécht keng Duebelen.', cfOpsIn:'Akommes {v}', cfOpsOut:'Ausgaben {v}', cfOpsNet:'Netto {v}', cfOpsCount:'{n} Transaktiounen', cfImported:'{n} Transaktiounen importéiert ({p} Projeten nei, {d} Duebelen iwwersprongen)', cfImportBad:'Fichier net liesbar oder Format net erkannt.', cfErr:'Feeler: {e}', cfOpsColDate:'Datum', cfOpsColProj:'Projet', cfOpsColType:'Typ', cfOpsColAmt:'Betrag', cfOpsColStatus:'Status',
   crowdSeg4:'Verspéidungen', crowdSeg5:'Performance', crowdSeg6:'Synchronisatioun',
-  navCw:'Krypto', cwTtl:'Krypto-Wallets', cwAdd:'Wallet derbäisetzen', cwLabelPh:'Bezeechnung (z. B. Ledger)', cwAddrPh:'Ëffentlech Adress 0x…', cwAddSubmit:'Dëst Wallet verfollegen', cwCancel:'Ofbriechen', cwSync:'Aktualiséieren', cwSyncing:'Aktualiséierung am Laf…', cwSyncDone:'Synchroniséiert den {d}', cwSyncErr:'Synchronisatioun feelgeschloen — probéiert nach eng Kéier', cwErrFill:'Fëllt d’Bezeechnung an d’Adress (0x…) aus.', cwBusy:'Éischte Scan am Laf — Gedold (ongeféier eng Minutt).', cwStVal:'Wäert vun de Wallets', cwStValS:'on-chain Salden (ëffentleche Scan)', cwStCost:'Total Käschten', cwStCostS:'geschate Käschte vum Kaf (Historie)', cwStGain:'Gewënn', cwStGainS:'Wäert − Käschten', cwStWal:'Verfollegt Wallets', cwStWalS:'Net-Verwahr-Adressen', cwEmpty:'Kee Wallet verfollegt — füügt eng ëffentlech Adress derbäi (z. B. Äre Ledger).', cwErrLoad:'Modul elo net disponibel.', cwColWallet:'Wallet', cwColAddr:'Adress', cwColVal:'Wäert', cwColCost:'Käschten', cwColGain:'Gewënn', cwColChains:'Ketten / Token', cwColLast:'Lescht Synchronisatioun', cwDet:'Detailer', cwDel:'Ewechhuelen', cwDelConfirm:'Dëst Wallet a säin Auto-Konto ewechhuelen (mat der Historie)?', cwReconT:'Ënnerscheed tëscht der geschater Historie an dem echte on-chain Saldo (ERC-20 Transfer-Historie ass onvollstänneg)', cwDemo:'Demo', cwTokChain:'Kette', cwTokSym:'Token', cwTokCat:'Kategorie', cwTokBal:'Saldo', cwTokPx:'Präis (USD)', cwTokVal:'Wäert', cwTokEmp:'Keng Positioun — den éischte Scan fëllt dësen Detail.', cwCatLending:'Lending', cwCatLp:'LP (Pool)', cwCatStaked:'Gestaket', cwCatVault:'Vault', cwCatSynthetic:'Stable/synth.', cwCatWallet:'Wallet', cwTokN:'Token', cwTokN1:'Token', cwChnN:'Ketten', cwChnN1:'Kette', cwNote:'Salden kommen aus ëffentlechen Exploreren (Blockscout) a DefiLlama-Präisser — kee Schlëssel oder Identifikatioun néideg. Wäerter an USD, EUR-Ëmrechnung zum EZB-Kurs vum Dag. Dës Konten speisen automatesch d’Kryptowährungen-Klass vum Dashboard (keng Duebel-Erfaassung); d’Historie ass eng Schätzung (siichtbar Transfers), de gewise Saldo zielt.',
+  navCw:'Krypto', cwTtl:'Krypto-Wallets', cwAdd:'Wallet derbäisetzen', cwLabelPh:'Bezeechnung (z. B. Ledger)', cwAddrPh:'Ëffentlech Adress 0x…', cwAddSubmit:'Dëst Wallet verfollegen', cwCancel:'Ofbriechen', cwSync:'Aktualiséieren', cwSyncing:'Aktualiséierung am Laf…', cwSyncDone:'Synchroniséiert den {d}', cwSyncErr:'Synchronisatioun feelgeschloen — probéiert nach eng Kéier', cwErrFill:'Fëllt d’Bezeechnung an d’Adress (0x…) aus.', cwBusy:'Éischte Scan am Laf — Gedold (ongeféier eng Minutt).', navAct:'Aktien', navAv:'Liewensversécherung',
+actTtl:'Aktien (PEA / CTO)', actRefresh:'Courssen aktualiséieren', actRefreshing:'Courssen aktualiséiert…', actRefreshed:'{n} Courssen aktualiséiert', actFail:'{n} Feeler', actErrLoad:'Modul elo net disponibel.',
+actCardVal:'Wäert', actCardValS:'all Enveloppen (lescht Kontobewäertung)', actCardCost:'Käschten', actCardCostS:'Netto-Afloss (Afloss − Ofhuelungen, oder erfaasste Käschten)', actCardGain:'Gewënn', actCardGainS:'Wäert − Käschten', actCardDiv:'Dividenden (Joer)', actCardDivS:'erfaassten Ausbezuelungen',
+actEmpty:'Nach kee PEA/CTO-Konto. Erstellt e Bourse-Konto a wielt d’Enveloppe PEA oder CTO am Formulaire.',
+actColAcct:'Konto', actColVal:'Wäert', actColCost:'Käschten', actColGain:'Gewënn', actColDiv:'Dividenden', actColLast:'Lescht Bew.',
+actColSym:'Symbol', actColLib:'Bezeechnung', actColQty:'Quantitéit', actColPru:'Akeefspräis', actColPx:'Cours', actColPv:'Gewënn/Verloscht', actColDiv2:'Div.',
+actNoPos:'Keng Positioun', actPos1:'Positioun', actPosN:'Positiounen', actTgl:'Positiounen opklappen',
+invValo:'Bewäert den {d}', invStale:'al Bewäertung (> 35 Deeg)',
+avTtl:'Liewensversécherung', avCardVal:'Wäert', avCardValS:'Kontrakter (lescht Bewäertung)', avCardCost:'Käschten', avCardCostS:'Netto-Afloss', avCardGain:'Gewënn', avCardGainS:'Wäert − Käschten', avCardRet:'Ofhuelungen (Joer)', avCardRetS:'Ausgäng dëst Joer',
+avEmpty:'Nach keen AV-Kontrakt. Erstellt e Spuerkonto (fonds €) oder Bourse-Konto (UC) a wielt d’Enveloppe Liewensversécherung.',
+avColContract:'Kontrakt', avColType:'Fongen', avTypeEuro:'fonds €', avTypeUC:'UC', avColVers:'Afloss', avColRet:'Ofhuelungen (Joer)', avColDiv:'Dividenden',
+actNote:'PEA/CTO-Enveloppen speisen automatesch d’Klass Bourse & Liewensversécherung vum Dashboard (keng Duebel-Erfaassung): gewise gëtt déi lescht Kontobewäertung, d’Positiounen si informativ (Courssen aus dem Cache, uewen aktualiséierbar).',
+avNote:'Ee Konto = ee Kontrakt. Spuerklass = fonds €, Bourse-Klass = UC. Erfaasst Aflëss an Ofhuelungen pro Kontrakt an den Transaktiounen fir exakt Käschten.', cwStVal:'Wäert vun de Wallets', cwStValS:'on-chain Salden (ëffentleche Scan)', cwStCost:'Total Käschten', cwStCostS:'geschate Käschte vum Kaf (Historie)', cwStGain:'Gewënn', cwStGainS:'Wäert − Käschten', cwStWal:'Verfollegt Wallets', cwStWalS:'Net-Verwahr-Adressen', cwEmpty:'Kee Wallet verfollegt — füügt eng ëffentlech Adress derbäi (z. B. Äre Ledger).', cwErrLoad:'Modul elo net disponibel.', cwColWallet:'Wallet', cwColAddr:'Adress', cwColVal:'Wäert', cwColCost:'Käschten', cwColGain:'Gewënn', cwColChains:'Ketten / Token', cwColLast:'Lescht Synchronisatioun', cwDet:'Detailer', cwDel:'Ewechhuelen', cwDelConfirm:'Dëst Wallet a säin Auto-Konto ewechhuelen (mat der Historie)?', cwReconT:'Ënnerscheed tëscht der geschater Historie an dem echte on-chain Saldo (ERC-20 Transfer-Historie ass onvollstänneg)', cwDemo:'Demo', cwTokChain:'Kette', cwTokSym:'Token', cwTokCat:'Kategorie', cwTokBal:'Saldo', cwTokPx:'Präis (USD)', cwTokVal:'Wäert', cwTokEmp:'Keng Positioun — den éischte Scan fëllt dësen Detail.', cwCatLending:'Lending', cwCatLp:'LP (Pool)', cwCatStaked:'Gestaket', cwCatVault:'Vault', cwCatSynthetic:'Stable/synth.', cwCatWallet:'Wallet', cwTokN:'Token', cwTokN1:'Token', cwChnN:'Ketten', cwChnN1:'Kette', cwNote:'Salden kommen aus ëffentlechen Exploreren (Blockscout) a DefiLlama-Präisser — kee Schlëssel oder Identifikatioun néideg. Wäerter an USD, EUR-Ëmrechnung zum EZB-Kurs vum Dag. Dës Konten speisen automatesch d’Kryptowährungen-Klass vum Dashboard (keng Duebel-Erfaassung); d’Historie ass eng Schätzung (siichtbar Transfers), de gewise Saldo zielt.',
   rHint:'Gravitéit = Zënser kritt vs. erwaart zënter dem Ufank (🔴 kritesch, wa kaum eppes koum).', rNone:'Keng verspéite Projeten — alles am Zäitplang 🎉', rColRecv:'Kritt', rColExp:'Erwaart', rColRatio:'Ratio', rColSev:'Gravitéit',
   sevCritique:'🔴 Kriteschen', sevImportant:'🟠 Wichteg', sevSignificatif:'🟡 Signifikant', sevNegligeable:'🟢 Net wichteg', rMonths:'{n} Méint ouni Zënser', rInfine:'(in-fine: Zënser um Enn vum Kontrakt)', rOverdueTitle:'Reellt Fällegkeetsdatum iwwerschratt (automatesch)', rLateTitle:'Bezuelsverzögerung (Plattform-Badge)',
   pHint:'Annualiséiert zënter der éischter Investitioun vun all Plattform; „abezuelt“ ass deen eenzege Wäert, deen net ofgeleet ka ginn — manuell Erfaassung.', pDeposited:'Abezuelt (kum.)', pBalance:'Disponibel Saldo', pInProj:'An de Projeten', pWealth:'Verméigen', pGain:'Gewënn', pAnnual:'Annualiséiert', pSince:'Zënter', pTotal:'Total', pEditTitle:'Plattform änneren', pValAuto:'Wäert automatesch berechent', pNoData:'Importéiert en Export (Säit Transaktiounen) fir d’Performance ze gesinn.',
@@ -1474,11 +1557,13 @@ async function api(path, opts={}) {
 function switchPage(p) {
   if (MEMBER && (p === 'fire' || p === 'params')) p = 'dash';  // hors périmètre vue membre
   CUR_PAGE = p;
-  ['dash','ev','actifs','cw','crowd','ops','rev','fire','params'].forEach(x => $('page'+x[0].toUpperCase()+x.slice(1)).classList.toggle('hidden', x!==p));
+  ['dash','ev','actifs','act','av','cw','crowd','ops','rev','fire','params'].forEach(x => $('page'+x[0].toUpperCase()+x.slice(1)).classList.toggle('hidden', x!==p));
   document.querySelectorAll('nav a').forEach(a => a.classList.toggle('active', a.id === 'nav'+p[0].toUpperCase()+p.slice(1)));
   if (p==='dash') { loadSummary(); loadHistory(); loadBench(); }
   if (p==='ev') { loadEv(); }
   if (p==='actifs') { loadAccounts(); }
+  if (p==='act') { actLoad(); }
+  if (p==='av') { avLoad(); }
   if (p==='cw') { cwLoad(); }
   if (p==='crowd') { cfLoad(); }
   if (p==='ops') { loadOps(); }
@@ -3815,6 +3900,153 @@ function cwCatL(cat) {
   const k = 'cwCat' + cat.charAt(0).toUpperCase() + cat.slice(1);
   const v = t(k);
   return v === k ? cat : v;
+}
+/* ---------- module Investissements (v2026.09.055) : Actions (PEA/CTO) & AV ---------- */
+function invAdminMask() {
+  document.querySelectorAll('.inv-admin').forEach(b => b.classList.toggle('hidden', !!MEMBER));
+}
+function invGain(v, pct) {
+  if (v == null) return '—';
+  const cl = v >= 0 ? 'pos' : 'neg';
+  let s = '<span class="'+cl+'">'+mon(v)+'</span>';
+  if (pct != null) s += ' <span class="'+cl+'" style="font-size:11px">('+(pct>0?'+':'')+pct+' %)</span>';
+  return s;
+}
+function invValDate(d, stale) {
+  if (!d) return '';
+  const base = ' · <span class="muted" style="font-size:11px">'+esc(tF('invValo', {d: fmtDate(String(d).slice(0,10))}))+'</span>';
+  if (stale) return base + ' <span class="warn" style="font-size:11px" title="'+esc(t('invStale'))+'">⚠</span>';
+  return base;
+}
+async function actLoad() {
+  try {
+    const d = await api('/api/actions/overview' + scopeSuffix());
+    actRender(d);
+  } catch (e) {
+    $('actWrap').innerHTML = '<div class="crowd-empty">'+esc(t('actErrLoad'))+'</div>';
+  }
+}
+async function actRender(d) {
+  invAdminMask();
+  const info = $('actSyncInfo'); if (info) info.textContent = '';
+  const net = d.net || {};
+  $('actCards').innerHTML = [
+    ['💰', t('actCardVal'), mon(net.value), t('actCardValS')],
+    ['🧾', t('actCardCost'), net.cost != null ? mon(net.cost) : '—', t('actCardCostS')],
+    ['✨', t('actCardGain'), invGain(net.gain, net.gain_pct), t('actCardGainS')],
+    ['🎁', t('actCardDiv'), mon(net.dividends_ytd || 0), t('actCardDivS')],
+  ].map(c => '<div class="card"><div class="k">'+c[0]+' '+esc(c[1])+'</div><div class="v">'+c[2]+'</div><div class="s">'+esc(c[3])+'</div></div>').join('');
+  const ws = (d.wrappers || []).filter(w => (w.accounts || []).length);
+  if (!ws.length) {
+    $('actWrap').innerHTML = '<div class="crowd-empty">'+esc(t('actEmpty'))+'</div>';
+    applyI18n(); return;
+  }
+  const ageDays = dstr => { try { return Math.max(0, Math.floor((Date.now() - new Date(dstr+'T12:00:00').getTime())/86400000)); } catch (e) { return 0; } };
+  const wrapHtml = ws.map(w => {
+    const wv = '<span style="font-weight:700">'+mon(w.value)+'</span> '+(w.gain_pct != null ? invGain(w.gain, w.gain_pct) : '');
+    const rows = w.accounts.map(a => {
+      const poss = (a.positions || []).filter(p => p.active !== false);
+      const divT = (a.dividends_total || 0);
+      const divCell = divT ? mon(divT) : '<span class="muted">—</span>';
+      const posRows = poss.length ? poss.map(p => {
+        const dv = (p.dividends || []);
+        const dvAmt = dv.reduce((s, x) => s + (x.amount || 0), 0);
+        const px = p.price_eur != null ? p.price_eur : p.price;
+        return '<tr class="act-sub">' +
+          '<td style="font-weight:600;white-space:nowrap">'+esc(p.symbol)+'</td>' +
+          '<td class="muted">'+esc(p.label||'')+'</td>' +
+          '<td class="num">'+fmtQty(p.quantity)+'</td>' +
+          '<td class="num">'+(p.pru != null ? mon(p.pru) : '—')+'</td>' +
+          '<td class="num">'+(px != null ? mon(px) : '<span class="muted">—</span>')+'</td>' +
+          '<td class="num">'+(p.value_eur != null ? mon(p.value_eur) : '—')+'</td>' +
+          '<td class="num">'+invGain(p.gain_eur, p.gain_pct)+'</td>' +
+          '<td class="num">'+(dvAmt ? mon(dvAmt) : '<span class="muted">—</span>')+'</td>' +
+          '</tr>';
+      }).join('') : '<tr class="act-sub"><td colspan="8" class="muted">'+esc(t('actNoPos'))+'</td></tr>';
+      const stale = ageDays(a.last_val_date) > 35;
+      return '<tr class="act-acc" onclick="actTgl('+a.id+',this)" title="'+esc(t('actTgl'))+'">' +
+        '<td style="white-space:nowrap"><span class="act-cv">▸</span> <span style="font-weight:600">'+esc(a.name)+'</span>' +
+        '<div class="muted" style="font-size:11px">'+esc(a.institution||'')+invValDate(a.last_val_date, stale)+'</div></td>' +
+        '<td class="num">'+mon(a.value)+'</td>' +
+        '<td class="num cf-est">'+(a.cost != null ? mon(a.cost) : '—')+'</td>' +
+        '<td class="num">'+invGain(a.gain, a.gain_pct)+'</td>' +
+        '<td class="num" title="'+esc(t('actColDiv'))+'">'+divCell+'</td>' +
+        '</tr>' +
+        '<tr class="hidden" id="actPosRow'+a.id+'"><td colspan="5" style="padding:0 0 8px">' +
+        '<table style="width:100%;border-collapse:collapse"><thead><tr>' +
+        '<th>'+esc(t('actColSym'))+'</th><th>'+esc(t('actColLib'))+'</th><th class="num">'+esc(t('actColQty'))+'</th>' +
+        '<th class="num">'+esc(t('actColPru'))+'</th><th class="num">'+esc(t('actColPx'))+'</th><th class="num">'+esc(t('actColVal'))+'</th>' +
+        '<th class="num">'+esc(t('actColPv'))+'</th><th class="num">'+esc(t('actColDiv2'))+'</th>' +
+        '</tr></thead><tbody>'+posRows+'</tbody></table></td></tr>';
+    }).join('');
+    const th = '<tr><th>'+esc(t('actColAcct'))+'</th><th class="num">'+esc(t('actColVal'))+'</th><th class="num">'+esc(t('actColCost'))+'</th>' +
+      '<th class="num">'+esc(t('actColGain'))+'</th><th class="num">'+esc(t('actColDiv'))+'</th></tr>';
+    return '<div class="act-sec"><h3><span>'+esc(w.label)+'</span><span class="m">'+wv+'</span></h3>' +
+      '<div class="tablewrap"><table><thead>'+th+'</thead><tbody>'+rows+'</tbody></table></div></div>';
+  }).join('');
+  $('actWrap').innerHTML = wrapHtml;
+  applyI18n();
+}
+function actTgl(aid, row) {
+  const tr = $('actPosRow'+aid);
+  if (!tr) return;
+  tr.classList.toggle('hidden');
+  const cv = row ? row.querySelector('.act-cv') : null;
+  if (cv) cv.textContent = tr.classList.contains('hidden') ? '▸' : '▾';
+}
+async function actRefresh() {
+  if (MEMBER) return;
+  const btn = $('actRefreshBtn'); if (!btn) return;
+  btn.disabled = true;
+  const info = $('actSyncInfo'); if (info) info.textContent = t('actRefreshing');
+  const d = await api('/api/actions/refresh', {method:'POST'}).catch(() => null);
+  if (d) {
+    let s = tF('actRefreshed', {n: (d.updated||[]).length});
+    if (d.failed && d.failed.length) s += ' · ' + tF('actFail', {n: d.failed.length});
+    if (info) info.textContent = s;
+    actLoad();
+  } else {
+    if (info) info.textContent = t('actErrLoad');
+  }
+  btn.disabled = false;
+}
+async function avLoad() {
+  const d = await api('/api/av/overview' + scopeSuffix()).catch(() => null);
+  if (!d) { $('avWrap').innerHTML = '<div class="crowd-empty">'+esc(t('actErrLoad'))+'</div>'; return; }
+  avRender(d);
+}
+async function avRender(d) {
+  invAdminMask();
+  const net = d.net || {};
+  $('avCards').innerHTML = [
+    ['💰', t('avCardVal'), mon(net.value), t('avCardValS')],
+    ['🧾', t('avCardCost'), net.cost != null ? mon(net.cost) : '—', t('avCardCostS')],
+    ['✨', t('avCardGain'), invGain(net.gain, net.gain_pct), t('avCardGainS')],
+    ['📤', t('avCardRet'), mon(net.withdrawn_ytd || 0), t('avCardRetS')],
+  ].map(c => '<div class="card"><div class="k">'+c[0]+' '+esc(c[1])+'</div><div class="v">'+c[2]+'</div><div class="s">'+esc(c[3])+'</div></div>').join('');
+  const cs = d.contracts || [];
+  if (!cs.length) {
+    $('avWrap').innerHTML = '<div class="crowd-empty">'+esc(t('avEmpty'))+'</div>';
+    applyI18n(); return;
+  }
+  const rows = cs.map(x => '<tr>' +
+    '<td style="white-space:nowrap"><span style="font-weight:600">'+esc(x.name)+'</span>' +
+    '<div class="muted" style="font-size:11px">'+esc(x.institution||'')+'</div></td>' +
+    '<td><span class="av-typ">'+esc(x.kind_funds === 'euro' ? t('avTypeEuro') : t('avTypeUC'))+'</span></td>' +
+    '<td class="num">'+mon(x.value)+'</td>' +
+    '<td class="num cf-est">'+(x.cost != null ? mon(x.cost) : '—')+'</td>' +
+    '<td class="num">'+invGain(x.gain, x.gain_pct)+'</td>' +
+    '<td class="num cf-est">'+(x.inflow ? mon(x.inflow) : '—')+'</td>' +
+    '<td class="num cf-est">'+(x.withdrawn_ytd ? mon(x.withdrawn_ytd) : '—')+'</td>' +
+    '<td class="num">'+(x.dividends_total ? mon(x.dividends_total) : '<span class="muted">—</span>')+'</td>' +
+    '<td class="muted" style="white-space:nowrap">'+(x.last_val_date ? fmtDate(String(x.last_val_date).slice(0,10)) : '—')+'</td>' +
+    '</tr>').join('');
+  $('avWrap').innerHTML = '<table><thead><tr>' +
+    '<th>'+esc(t('avColContract'))+'</th><th>'+esc(t('avColType'))+'</th><th class="num">'+esc(t('actColVal'))+'</th>' +
+    '<th class="num">'+esc(t('actColCost'))+'</th><th class="num">'+esc(t('actColGain'))+'</th>' +
+    '<th class="num">'+esc(t('avColVers'))+'</th><th class="num">'+esc(t('avColRet'))+'</th>' +
+    '<th class="num">'+esc(t('avColDiv'))+'</th><th>'+esc(t('actColLast'))+'</th></tr></thead><tbody>'+rows+'</tbody></table>';
+  applyI18n();
 }
 async function cwLoad() { await cwRender(); }
 function cwFmtDT(iso) {

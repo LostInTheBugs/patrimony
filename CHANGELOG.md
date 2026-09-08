@@ -2,6 +2,29 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.055] — 2026-09-08
+
+### Added — Investissements UI: « 📈 Actions » & « 🛡️ Assurance vie » pages
+
+Frontend of the Actions/AV chantier (backend v054). No backend change.
+
+- Nav: two entries after Actifs — `Actions` (PEA/CTO) and `Assurance vie`.
+- Actions page: net cards (value / cost / gain / dividends YTD), PEA &
+  CTO sections with per-account rows (value, cost, gain, dividends,
+  last valuation date + stale warning > 35 days) expanding to full
+  per-line tables (symbol, label, qty, cost basis, cached price, EUR
+  value, gain/Loss %, dividends) — cache prices only, never network at
+  render; `↻ Refresh quotes` button (admin) calls `/api/actions/refresh`.
+- AV page: net cards (value / cost / gain / withdrawals YTD) + contracts
+  table (funds € / UC badge, value, cost, gain, contributions,
+  withdrawals, dividends, last valuation).
+- i18n fr/en/de/lu (keys parity checked programmatically), member views
+  read-only, discreet mode honoured (mon()).
+- Verified end-to-end in browser on the demo seed (EN + FR switch):
+  PEA €26 384,73 (+31,92 %) · CTO €16 220,67 (+35,17 %) — AI.PA line
+  Air Liquide · 12 · PRU 141,50 · cours 168,40 · 2 020,80 · +322,80
+  (+19,01 %) · div 38,40 ; AV Linxea Avenir funds € 30 447,95 (+21,79 %).
+
 ## [2026.09.054] — 2026-09-08
 
 ### Added — Investissements backend (Actions PEA/CTO & Assurance vie pages)
