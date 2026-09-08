@@ -2,6 +2,46 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.050] — 2026-09-08
+
+### Added — Crypto wallets module (non-custodial, backend)
+
+The Crypto Wallet Tracker engine is now a native Patrimony module feeding
+the ₿ Cryptocurrencies class through derived auto accounts (one per wallet,
+locked, zero double entry).
+
+- **`src/crypto.py`** (~1 700 lines, ported from the CWT engine):
+  - 22 EVM chains (Blockscout v2, parallel scans, native coin endpoint,
+    pagination, spam filter at fetch time, per-item resilience);
+  - DefiLlama current prices (batched, chain-prefixed) and historical daily
+    series (200-day windows, idempotent `cw_price_cache`);
+  - token transfers with dedup on `(wallet, chain, tx_hash, log_index)`;
+  - daily series rebuild (unified timeline, UTC-noon alignment,
+    backward-extrapolated prices, per-token weighted-average cost basis,
+    orphan-token injection, live-portfolio anchoring);
+  - **current value is scan-authoritative**: the « today » valuation and
+    wallet overview use the on-chain balances; the reconstructed history is
+    flagged with a `recon_pct` reconciliation field when it diverges;
+  - auto accounts (class `crypto`, `valuation_mode='auto'`) with month-end
+    EUR grid (ECB rates) + daily refresh at boot and 06:00 (thread, opt-out
+    `PAT_CRYPTO_AUTO=0`), manual refresh button endpoint;
+  - offline deterministic demo wallet (synthetic ETH history, no network);
+  - vault seal copies, full export/import payload.
+- **Schema**: 5 owner-scoped tables `cw_wallets/cw_transfers/cw_history/
+  cw_price_cache/cw_scans`.
+- **API**: 8 routes `/api/cw/*` (wallets CRUD, refresh + status, overview,
+  tokens, monthly history) with family read-only views.
+- **`scripts/migrate_crypto.py`**: one-shot CWT backup → module import with
+  parity checks (wallets, per-chain transfers, history rows, final
+  value/cost to the cent, date bounds, orphans, dedup integrity, auto
+  accounts). Validated 17/17 against the real prod CWT backup.
+- 18 new tests (`tests/test_crypto.py`) — suite at 182 passing.
+
+> Note: the standalone CWT instance on vm-prod runs an outdated engine (it
+> ignores staked positions such as stETH/eETH and its historical series
+> diverge from on-chain balances); the module reads primary sources
+> (Blockscout/DefiLlama) directly.
+
 ## [2026.09.049] — 2026-09-08
 
 ### Changed

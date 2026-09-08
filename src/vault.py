@@ -331,6 +331,11 @@ def init_vault(main: sqlite3.Connection, username: str, salt: str, wrapped: str,
     copy_rows(main, mem, "cf_projects", "owner=?", (username,))
     copy_rows(main, mem, "cf_operations", "owner=?", (username,))
     copy_rows(main, mem, "cf_reports", "owner=?", (username,))
+    # module Crypto (v2026.09.050) : wallets + transferts + séries + scans
+    copy_rows(main, mem, "cw_wallets", "owner=?", (username,))
+    copy_rows(main, mem, "cw_transfers", "owner=?", (username,))
+    copy_rows(main, mem, "cw_history", "owner=?", (username,))
+    copy_rows(main, mem, "cw_scans", "owner=?", (username,))
     copy_rows(main, mem, "settings", "member=?", (username,))
     register(username, mem, dek, token)
     # la ligne vaults doit exister avant le flush du blob

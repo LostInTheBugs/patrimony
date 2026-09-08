@@ -60,6 +60,7 @@ def export_data(conn, username: str, app_version: str) -> dict:
         "settings": [dict(r) for r in conn.execute(
             "SELECT key, value FROM settings WHERE member=?", (username,)).fetchall()],
         "crowdfunding": _cf_payload(conn, username),
+        "crypto": _cw_payload(conn, username),
     }
 
 
@@ -68,6 +69,12 @@ def _cf_payload(conn, username: str) -> dict:
     différé pour éviter tout cycle d'import au chargement."""
     from src import crowdfund
     return crowdfund.export_payload(conn, username)
+
+
+def _cw_payload(conn, username: str) -> dict:
+    """Données du module Crypto wallets (wallets/transferts/séries/scans)."""
+    from src import crypto
+    return crypto.export_payload(conn, username)
 
 
 def do_import(conn, username: str, body: dict) -> str | None:
@@ -135,6 +142,14 @@ def do_import(conn, username: str, body: dict) -> str | None:
                 conn.rollback()
                 return err
             crowdfund.refresh_integration(conn, username)
+        # module Crypto wallets (v2026.09.050)
+        if "crypto" in body and body["crypto"]:
+            from src import crypto
+            err = crypto.do_cw_import(conn, username, body["crypto"])
+            if err:
+                conn.rollback()
+                return err
+            crypto.refresh_integration(conn, username)
         conn.commit()
     except Exception as e:
         conn.rollback()

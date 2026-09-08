@@ -47,6 +47,7 @@ from src import vault
 from src.schema import schema_data
 from src import bench
 from src import crowdfund
+from src import crypto
 
 FX_SUPPORTED = fx.SUPPORTED  # liste canonique des devises (module src/fx.py)
 
@@ -330,6 +331,23 @@ def init_db() -> None:
         "DELETE FROM cf_platforms WHERE owner IN"
         " (SELECT v.username FROM vaults v JOIN users u ON u.username=v.username WHERE u.mode='protected')"
     )
+    # module Crypto (v2026.09.050) : même purge pour les clairs orphelins
+    conn.execute(
+        "DELETE FROM cw_scans WHERE owner IN"
+        " (SELECT v.username FROM vaults v JOIN users u ON u.username=v.username WHERE u.mode='protected')"
+    )
+    conn.execute(
+        "DELETE FROM cw_history WHERE owner IN"
+        " (SELECT v.username FROM vaults v JOIN users u ON u.username=v.username WHERE u.mode='protected')"
+    )
+    conn.execute(
+        "DELETE FROM cw_transfers WHERE owner IN"
+        " (SELECT v.username FROM vaults v JOIN users u ON u.username=v.username WHERE u.mode='protected')"
+    )
+    conn.execute(
+        "DELETE FROM cw_wallets WHERE owner IN"
+        " (SELECT v.username FROM vaults v JOIN users u ON u.username=v.username WHERE u.mode='protected')"
+    )
     conn.execute(
         "DELETE FROM accounts WHERE owner IN"
         " (SELECT v.username FROM vaults v JOIN users u ON u.username=v.username WHERE u.mode='protected')"
@@ -425,6 +443,8 @@ def _seed_demo() -> None:
             )
     # module Crowdfunding (démo) : plateformes + projets fictifs → comptes-auto
     crowdfund.seed_demo(conn, owner)
+    # module Crypto (démo) : wallet fictif synthétique (hors-ligne) → compte-auto
+    crypto.seed_demo(conn, owner)
     conn.commit()
     conn.close()
 
@@ -3771,12 +3791,166 @@ async def cf_sync_ingest(request: Request):
     return {"ok": True, **res}
 
 
+# ------------------------------------------------------------- module Crypto (v2026.09.050)
+
+
+@app.get("/api/cw/wallets")
+async def cw_wallets_list(request: Request, family: int = 0, member: str = ""):
+    u = _need(request)
+    conn = db()
+    try:
+        owners = _visible_owners(conn, u, bool(family), member or None)
+        return {"wallets": crypto.wallets_rows(conn, owners)}
+    finally:
+        conn.close()
+
+
+@app.post("/api/cw/wallets")
+async def cw_wallets_add(request: Request):
+    """Ajoute un wallet non-custodial (adresse EVM publique) puis lance son
+    premier rafraîchissement complet (scan + historique)."""
+    u = _need(request)
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"detail": "JSON invalide"}, status_code=400)
+    label = (body.get("label") or "").strip()
+    address = (body.get("address") or "").strip()
+    conn = db()
+    try:
+        try:
+            w = crypto.add_wallet(conn, u["username"], label, address)
+        except ValueError as e:
+            return JSONResponse({"detail": str(e)}, status_code=400)
+        conn.commit()
+        if not w["demo"]:
+            if not crypto.refresh_claimed(u["username"]):
+                return JSONResponse({"detail": "Rafraîchissement déjà en cours"},
+                                    status_code=409)
+            try:
+                try:
+                    report = crypto.refresh_wallet(conn, u["username"], w["id"])
+                except ValueError as e:
+                    return JSONResponse({"detail": str(e)}, status_code=400)
+                conn.commit()
+            finally:
+                crypto.refresh_release(u["username"])
+        else:
+            report = {"demo": True}
+        wid = w["id"]
+    finally:
+        conn.close()
+    _audit(u["username"], "Module crypto : wallet ajouté",
+           f"#{wid} {label} ({address[:10]}…)")
+    return {"ok": True, "wallet": wid, "refresh": report}
+
+
+@app.delete("/api/cw/wallets/{wid}")
+async def cw_wallets_delete(wid: int, request: Request):
+    u = _need(request)
+    conn = db()
+    try:
+        try:
+            ok = crypto.remove_wallet(conn, u["username"], wid)
+        except Exception as e:
+            return JSONResponse({"detail": str(e)[:200]}, status_code=400)
+        if not ok:
+            return JSONResponse({"detail": "Wallet introuvable"}, status_code=404)
+        conn.commit()
+    finally:
+        conn.close()
+    _audit(u["username"], "Module crypto : wallet supprimé", f"#{wid}")
+    return {"ok": True}
+
+
+@app.post("/api/cw/refresh")
+async def cw_refresh(request: Request):
+    """Rafraîchit un wallet (ou tous ceux du compte) : scan → transferts →
+    prix → série → intégration. Synchrone (le premier passage peut durer
+    quelques minutes) ; 409 si déjà en cours."""
+    u = _need(request)
+    wid = None
+    try:
+        body = await request.json()
+        wid = body.get("wallet_id")
+    except Exception:
+        pass  # corps absent = tous les wallets
+    if not crypto.refresh_claimed(u["username"]):
+        return JSONResponse({"detail": "Rafraîchissement déjà en cours"},
+                            status_code=409)
+    conn = db()
+    try:
+        try:
+            if wid:
+                report = crypto.refresh_wallet(conn, u["username"], int(wid))
+            else:
+                report = {"wallets": [crypto.refresh_wallet(
+                    conn, u["username"], r["id"])
+                    for r in conn.execute(
+                        "SELECT id FROM cw_wallets WHERE owner=?",
+                        (u["username"],)).fetchall()]}
+            conn.commit()
+        except ValueError as e:
+            return JSONResponse({"detail": str(e)}, status_code=400)
+        except Exception as e:
+            conn.rollback()
+            return JSONResponse({"detail": str(e)[:300]}, status_code=500)
+    finally:
+        crypto.refresh_release(u["username"])
+        conn.close()
+    _audit(u["username"], "Module crypto : rafraîchissement", f"wallet={wid or 'tous'}")
+    return {"ok": True, "report": report}
+
+
+@app.get("/api/cw/refresh/status")
+async def cw_refresh_status(request: Request):
+    u = _need(request)
+    return {"owner": u["username"], **crypto.STATE.get(u["username"],
+                                                       {"state": "idle"})}
+
+
+@app.get("/api/cw/overview")
+async def cw_overview(request: Request, family: int = 0, member: str = ""):
+    u = _need(request)
+    conn = db()
+    try:
+        owners = _visible_owners(conn, u, bool(family), member or None)
+        return crypto.overview_rows(conn, owners)
+    finally:
+        conn.close()
+
+
+@app.get("/api/cw/tokens")
+async def cw_tokens(request: Request, wallet_id: int = 0,
+                    family: int = 0, member: str = ""):
+    u = _need(request)
+    conn = db()
+    try:
+        owners = _visible_owners(conn, u, bool(family), member or None)
+        return {"tokens": crypto.tokens_rows(conn, owners,
+                                             wallet_id or None)}
+    finally:
+        conn.close()
+
+
+@app.get("/api/cw/history")
+async def cw_history(request: Request, wallet_id: int = 0,
+                     family: int = 0, member: str = ""):
+    u = _need(request)
+    conn = db()
+    try:
+        owners = _visible_owners(conn, u, bool(family), member or None)
+        return {"points": crypto.monthly_history(conn, owners,
+                                                 wallet_id or None)}
+    finally:
+        conn.close()
+
+
 @app.get("/manifest.webmanifest")
 async def manifest_pwa():
     return JSONResponse(
         {
             "name": "Patrimony — Data Sovereignty",
-            "short_name": "Patrimony",
             "description": "Self-hosted wealth dashboard — your data stays on your network.",
             "start_url": "/",
             "scope": "/",
@@ -3844,3 +4018,15 @@ self.addEventListener('fetch', e => {
 app.mount("/", StaticFiles(directory=PUBLIC_DIR, html=True), name="public")
 
 init_db()
+
+# module Crypto (v2026.09.050) : rafraîchissement automatique des wallets
+# non-custodial — rattrapage au boot si > 24 h, puis boucle quotidienne à
+# 06:00 Europe/Paris. Désactivable (PAT_CRYPTO_AUTO=0). Ne démarre JAMAIS de
+# réseau dans les tests (aucun wallet en base → sommeil).
+if os.environ.get("PAT_CRYPTO_AUTO", "1") != "0":
+    threading.Thread(
+        target=crypto.auto_loop, args=(str(DB_PATH),), daemon=True,
+        name="pat-crypto-auto", kwargs={"max_age_h": float(
+            os.environ.get("PAT_CRYPTO_MAX_AGE_H", "24"))},
+    ).start()
+

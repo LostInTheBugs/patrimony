@@ -195,6 +195,81 @@ def schema_data(conn: sqlite3.Connection) -> None:
             data TEXT DEFAULT '{}',
             created_at TEXT NOT NULL
         );
+        -- module Crypto wallets non-custodial (v2026.09.050) : portefeuilles
+        -- EVM suivis par adresse publique (Blockscout 21 chaînes + prix
+        -- DefiLlama). La valeur est matérialisée dans des comptes-auto de
+        -- classe crypto (cw_wallets.account_id). Tables owner-scopées ; les
+        -- prix (cw_price_cache) sont globaux (partagés entre owners).
+        CREATE TABLE IF NOT EXISTS cw_wallets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            owner TEXT NOT NULL,
+            label TEXT NOT NULL,
+            address TEXT NOT NULL,
+            chain TEXT DEFAULT '',
+            watch_only INTEGER DEFAULT 1,
+            demo INTEGER DEFAULT 0,
+            account_id INTEGER,
+            first_date TEXT,
+            last_date TEXT,
+            last_value_usd REAL,
+            last_cost_usd REAL,
+            last_refresh TEXT,
+            status TEXT DEFAULT 'ok',
+            created_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_cww_owner ON cw_wallets(owner);
+        CREATE TABLE IF NOT EXISTS cw_transfers (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            wallet_id INTEGER NOT NULL REFERENCES cw_wallets(id) ON DELETE CASCADE,
+            owner TEXT NOT NULL DEFAULT '',
+            tx_hash TEXT NOT NULL,
+            log_index INTEGER NOT NULL DEFAULT 0,
+            chain TEXT NOT NULL,
+            block_time TEXT DEFAULT '',
+            token_symbol TEXT DEFAULT '',
+            token_name TEXT DEFAULT '',
+            token_addr TEXT DEFAULT '',
+            direction TEXT NOT NULL,
+            amount REAL DEFAULT 0,
+            usd_price REAL DEFAULT 0,
+            usd_value REAL DEFAULT 0
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_cwt_dedup
+            ON cw_transfers(wallet_id, chain, tx_hash, log_index);
+        CREATE TABLE IF NOT EXISTS cw_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            wallet_id INTEGER NOT NULL REFERENCES cw_wallets(id) ON DELETE CASCADE,
+            owner TEXT NOT NULL DEFAULT '',
+            date TEXT NOT NULL,
+            value_usd REAL,
+            cost_usd REAL,
+            net_flows_usd REAL DEFAULT 0,
+            token_symbol TEXT,
+            chain TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_cwh_wallet_date
+            ON cw_history(wallet_id, date);
+        CREATE TABLE IF NOT EXISTS cw_price_cache (
+            token_symbol TEXT NOT NULL,
+            date TEXT NOT NULL,
+            price_usd REAL NOT NULL,
+            PRIMARY KEY (token_symbol, date)
+        );
+        CREATE TABLE IF NOT EXISTS cw_scans (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            wallet_id INTEGER NOT NULL REFERENCES cw_wallets(id) ON DELETE CASCADE,
+            owner TEXT NOT NULL DEFAULT '',
+            scanned_at TEXT NOT NULL,
+            chain TEXT NOT NULL,
+            symbol TEXT DEFAULT '',
+            name TEXT DEFAULT '',
+            category TEXT DEFAULT 'wallet',
+            token_addr TEXT DEFAULT '',
+            balance REAL DEFAULT 0,
+            usd_price REAL DEFAULT 0,
+            usd_value REAL DEFAULT 0
+        );
+        CREATE INDEX IF NOT EXISTS idx_cws_wallet ON cw_scans(wallet_id);
         """
     )
     for col, ddl in (
