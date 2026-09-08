@@ -794,7 +794,7 @@ fr: {
   benchColIdx:'Indice', benchColAnn:'Perf. annualisée', benchColDiff:'Écart', benchUnavailable:'Indisponible :',
   benchUpdated:'Actualisé — chargement…', loading:'Chargement…',
   actTitle:'Mes actifs', actAdd:'Ajouter un actif', actSearch:'Rechercher…', actAllClasses:'Toutes les classes',
-  actRefresh:'Actualiser les cours', actRefreshing:'Actualisation…', actCountS:'actif(s)',
+  actRefresh:'Actualiser les cours', actRefreshing:'Actualisation…', actCountS:'actif(s)', actCountPlat:'plateforme(s)',
   actEmptySearch:'Aucun actif ne correspond à la recherche.', actEmptyNone:'Aucun actif suivi pour le moment.',
   actAddFirst:'➕ Ajouter mon premier actif', actColAsset:'Actif', actColClass:'Classe', actColVal:'Valeur actuelle',
   actColLast:'Dernière maj', actColInv:'Investi', actColGain:'Gain', total:'Total',
@@ -959,7 +959,7 @@ en: {
   benchColIdx:'Index', benchColAnn:'Annualized perf.', benchColDiff:'Spread', benchUnavailable:'Unavailable:',
   benchUpdated:'Refreshed — loading…', loading:'Loading…',
   actTitle:'My assets', actAdd:'Add an asset', actSearch:'Search…', actAllClasses:'All classes',
-  actRefresh:'Refresh prices', actRefreshing:'Refreshing…', actCountS:'asset(s)',
+  actRefresh:'Refresh prices', actRefreshing:'Refreshing…', actCountS:'asset(s)', actCountPlat:'platform(s)',
   actEmptySearch:'No asset matches the search.', actEmptyNone:'No asset tracked yet.',
   actAddFirst:'➕ Add my first asset', actColAsset:'Asset', actColClass:'Class', actColVal:'Current value',
   actColLast:'Last update', actColInv:'Invested', actColGain:'Gain', total:'Total',
@@ -1124,7 +1124,7 @@ de: {
   benchColIdx:'Index', benchColAnn:'Annualisierte Perf.', benchColDiff:'Abstand', benchUnavailable:'Nicht verfügbar:',
   benchUpdated:'Aktualisiert — wird geladen…', loading:'Wird geladen…',
   actTitle:'Meine Vermögenswerte', actAdd:'Vermögenswert hinzufügen', actSearch:'Suchen…', actAllClasses:'Alle Klassen',
-  actRefresh:'Kurse aktualisieren', actRefreshing:'Aktualisierung…', actCountS:'Vermögenswert(e)',
+  actRefresh:'Kurse aktualisieren', actRefreshing:'Aktualisierung…', actCountS:'Vermögenswert(e)', actCountPlat:'Plattform(en)',
   actEmptySearch:'Kein Vermögenswert entspricht der Suche.', actEmptyNone:'Noch keine Vermögenswerte erfasst.',
   actAddFirst:'➕ Ersten Vermögenswert hinzufügen', actColAsset:'Vermögenswert', actColClass:'Klasse', actColVal:'Aktueller Wert',
   actColLast:'Letzte Aktualisierung', actColInv:'Investiert', actColGain:'Gewinn', total:'Gesamt',
@@ -1288,7 +1288,7 @@ lu: {
   benchColIdx:'Index', benchColAnn:'Annualiséiert Perf.', benchColDiff:'Ënnerscheed', benchUnavailable:'Net disponibel:',
   benchUpdated:'Aktualiséiert — gëtt gelueden…', loading:'Gëtt gelueden…',
   actTitle:'Meng Aktiven', actAdd:'Aktiva derbäisetzen', actSearch:'Sichen…', actAllClasses:'All Klassen',
-  actRefresh:'Courssen aktualiséieren', actRefreshing:'Aktualiséierung…', actCountS:'Aktiva',
+  actRefresh:'Courssen aktualiséieren', actRefreshing:'Aktualiséierung…', actCountS:'Aktiva', actCountPlat:'Plattformen',
   actEmptySearch:'Keen Aktiva entsprécht der Sich.', actEmptyNone:'Nach keng Aktiven erfaasst.',
   actAddFirst:'➕ Éischt Aktiva derbäisetzen', actColAsset:'Aktiva', actColClass:'Klass', actColVal:'Aktuelle Wäert',
   actColLast:'Lescht Aktualiséierung', actColInv:'Investéiert', actColGain:'Gewënn', total:'Total',
@@ -1784,7 +1784,7 @@ async function loadSummary() {
   $('doughLeg').innerHTML = s.classes.map(c =>
     '<div class="li"><span class="dot" style="background:'+c.color+'"></span>'+esc(CLASS_EMOJI[c.key]+' '+clsLabel(c.key))+
     '<span class="pct">'+c.share_pct.toLocaleString(locale())+' %</span>'+
-    '<span class="amt">'+mon(c.value)+'</span><span class="muted" style="width:70px;text-align:right">'+c.count+' '+t('actCountS')+'</span></div>'
+    '<span class="amt">'+mon(c.value)+'</span><span class="muted" style="width:90px;text-align:right">'+c.count+' '+(c.key==='crowdfunding' ? t('actCountPlat') : t('actCountS'))+'</span></div>'
   ).join('');
   $('dashScopeHint').textContent = DISCRET ? t('modeDisc') : '';
   // multi-devises : note de conversion sous le résumé (taux BCE / actifs exclus)

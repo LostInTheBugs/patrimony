@@ -2,6 +2,14 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.049] — 2026-09-08
+
+### Changed
+- Dashboard class legend: the Crowdfunding class now counts its derived
+  platform accounts as « plateformes » instead of « assets » (the class is
+  fed automatically by the Bricks.co / La Première Brique accounts) — i18n
+  ×4.
+
 ## [2026.09.048] — 2026-09-08
 
 ### Added
