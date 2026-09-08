@@ -409,40 +409,54 @@ def _scan_chain(chain: str, host: str, address: str) -> dict:
     return {"chain": chain, "tokens": tokens, "error": error}
 
 
-def _fetch_defillama_current_prices(queries: list[tuple[str, str, str]]) -> dict:
-    """Prix courants DefiLlama (batch ≤ 50, préfixe {slug}: OBLIGATOIRE sur
-    CHAQUE adresse). Retourne {addr_minuscule: {price, confidence}}."""
+def _fetch_defillama_current_prices(queries: list[str]) -> dict:
+    """Prix courants DefiLlama (batch ≤ 50). Chaque entrée porte SON préfixe
+    : `ethereum:0x…` (jeton par chaîne) ou `coingecko:ethereum` (monnaie
+    native). Retourne {clé: {price, confidence}} — clé = segment après le
+    premier « : » (adresse minuscule ou id natif)."""
     out = {}
     if not queries:
         return out
-    by_chain: dict[str, list[str]] = {}
-    for chain_slug, contract_addr, _sym in queries:
-        slug = CHAIN_TO_LLAMA.get(chain_slug, chain_slug)
-        by_chain.setdefault(slug, []).append(contract_addr)
-    for slug, addrs in by_chain.items():
-        for i in range(0, len(addrs), 50):
-            batch = addrs[i:i + 50]
-            addr_csv = ",".join(f"{slug}:{a.lower()}" for a in batch)
+    by_prefix: dict[str, list[str]] = {}
+    for q in queries:
+        prefix, _, rest = q.partition(":")
+        if not rest:
+            continue
+        by_prefix.setdefault(prefix, []).append(f"{prefix}:{rest}")
+    for _prefix, entries in by_prefix.items():
+        for i in range(0, len(entries), 50):
+            batch = entries[i:i + 50]
+            addr_csv = ",".join(batch)
             url = f"https://coins.llama.fi/prices/current/{addr_csv}"
             if len(url) > 4000:
                 batch = batch[: len(batch) // 2]
-                addr_csv = ",".join(f"{slug}:{a.lower()}" for a in batch)
+                addr_csv = ",".join(batch)
                 url = f"https://coins.llama.fi/prices/current/{addr_csv}"
             data = _http_json(url, timeout=15, retries=2)
             if data:
                 for key, cd in (data.get("coins") or {}).items():
                     price = cd.get("price") or 0
                     if price > 0:
-                        addr = key.split(":", 1)[-1].lower() if ":" in key else key.lower()
+                        addr = key.split(":", 1)[-1].lower() if ":" in key \
+                            else key.lower()
                         conf = cd.get("confidence")
                         try:
                             conf = float(conf) if conf is not None else None
                         except (TypeError, ValueError):
                             conf = None
                         out[addr] = {"price": float(price), "confidence": conf}
-            if i + 50 < len(addrs):
+            if i + 50 < len(entries):
                 time.sleep(0.5)
     return out
+
+
+def _llama_native_key(chain: str, sym: str) -> str | None:
+    """Clé prix courant llama pour une monnaie native (`coingecko:<id>`) —
+    DefiLlama ne connaît pas les clés « chaîne seule » sur /prices/current."""
+    cg = SYMBOL_TO_CG.get((sym or "").lower())
+    if not cg:
+        return None
+    return f"coingecko:{cg}"
 
 
 def scan_portfolio(address: str) -> dict:
@@ -456,7 +470,6 @@ def scan_portfolio(address: str) -> dict:
 
     items = []
     total = 0.0
-    unpriced: list[tuple[str, str, str]] = []
     for r in results:
         for t in r["tokens"]:
             try:
@@ -464,7 +477,9 @@ def scan_portfolio(address: str) -> dict:
             except Exception:
                 continue
             bal = round(bal, 6)
-            price = float(t.get("usd_price") or 0)
+            if bal <= 0:
+                continue
+            price = float(t.get("usd_price") or 0)  # exchange_rate Blockscout
             usd = bal * price
             total += usd
             sym = t.get("symbol") or "?"
@@ -476,25 +491,35 @@ def scan_portfolio(address: str) -> dict:
                 "price_unknown": False, "category": _token_category(sym),
             }
             items.append(it)
-            if price <= 0 and bal > 0 and t.get("contract_address"):
-                unpriced.append((r["chain"], t["contract_address"], sym))
-    if unpriced:
-        llama = _fetch_defillama_current_prices(unpriced)
-        if llama:
-            for it in items:
-                if it["usd_price"] > 0:
-                    continue
-                addr = it["contract_address"].lower()
-                entry = llama.get(addr)
-                if entry and entry["price"] > 0:
-                    it["usd_price"] = entry["price"]
-                    new_usd = round(it["balance"] * entry["price"], 2)
-                    total += new_usd - it["usd_value"]
-                    it["usd_value"] = new_usd
+    # --- prix courant DefiLlama POUR TOUS les jetons (v2026.09.053) ---
+    # L'exchange_rate Blockscout est périmé (cache CMC) et, pour les jetons
+    # de staking (stETH/eETH…), exprimé « par part » → valeur sous-évaluée
+    # d'un facteur = taux de part. DefiLlama donne le prix de MARCHÉ réel :
+    # stETH ≈ ETH (jamais « ETH / taux »). Fallback : exchange_rate.
+    need: dict[str, list[int]] = {}
+    for i, it in enumerate(items):
+        c = it["contract_address"]
+        if c:
+            key = f"{CHAIN_TO_LLAMA.get(it['chain'], it['chain'])}:{c.lower()}"
+        else:
+            key = _llama_native_key(it["chain"], it["symbol"])
+        if key:
+            need.setdefault(key, []).append(i)
+    if need:
+        llama = _fetch_defillama_current_prices(list(need))
+        for key, idxs in need.items():
+            entry = llama.get(key.split(":", 1)[-1])
+            if not entry or entry["price"] <= 0:
+                continue
+            for i in idxs:
+                it = items[i]
+                new_usd = round(it["balance"] * entry["price"], 2)
+                total += new_usd - it["usd_value"]
+                it["usd_price"] = round(entry["price"], 6)
+                it["usd_value"] = new_usd
     for it in items:
-        if it["usd_price"] <= 0 and it["balance"] > 0:
+        if it["usd_price"] <= 0:
             it["price_unknown"] = True
-    items = [p for p in items if p["balance"] > 0]
     items.sort(key=lambda x: x["usd_value"], reverse=True)
     chain_totals: dict[str, float] = {}
     for p in items:

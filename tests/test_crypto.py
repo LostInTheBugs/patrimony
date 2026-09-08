@@ -518,3 +518,64 @@ def test_claim_guard_owner():
     crypto.refresh_release("zed")
     assert crypto.refresh_claimed("zed") is True
     crypto.refresh_release("zed")
+
+
+# ------------------------------------------------------- v2026.09.053 staking
+
+def test_scan_prices_llama_override(monkeypatch):
+    """v053 : le prix courant vient de DefiLlama POUR TOUS les jetons (le
+    exchange_rate Blockscout de stETH ≈ ETH/taux de part → sous-évalué) ;
+    la monnaie native passe par coingecko:<id> ; fallback = exchange_rate
+    quand llama n'a pas le jeton."""
+    steth = "0xae7ab96520de3a18e5e111b5eaab095312d7fe84"
+    usdc = "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48"
+    fam = "0x9d24364b97270961b2948734afe8d58832efd43a"
+
+    def fake_http(url, **k):
+        if "/tokens" in url:
+            return {"items": [
+                {"token": {"symbol": "STETH", "name": "Lido Staked Ether",
+                           "decimals": 18, "exchange_rate": 1898.24,
+                           "address": steth, "type": "ERC-20"},
+                 "value": "2187545000000000000"},
+                {"token": {"symbol": "USDC", "name": "USD Coin",
+                           "decimals": 6, "exchange_rate": 1.0,
+                           "address": usdc, "type": "ERC-20"},
+                 "value": "500000000"},
+                {"token": {"symbol": "FAM", "name": "Fam",
+                           "decimals": 18, "exchange_rate": 7.0,
+                           "address": fam, "type": "ERC-20"},
+                 "value": "500000000000000000"},
+            ], "next_page_params": None}
+        return {"coin_balance": "1500000000000000000",  # 1.5 ETH natif
+                "exchange_rate": 2500.0}
+
+    def fake_llama(queries):
+        qs = set(queries)
+        assert "coingecko:ethereum" in qs          # native
+        assert f"ethereum:{steth}" in qs and f"ethereum:{usdc}" in qs
+        return {steth: {"price": 2488.44}, usdc: {"price": 0.9999},
+                "ethereum": {"price": 2478.64}}
+
+    monkeypatch.setattr(crypto, "CHAINS", {"ethereum": "eth.blockscout.com"})
+    monkeypatch.setattr(crypto, "_http_json", fake_http)
+    monkeypatch.setattr(crypto, "_fetch_defillama_current_prices", fake_llama)
+    out = crypto.scan_portfolio("0x" + "ab" * 20)
+    by = {t["symbol"]: t for t in out["tokens"]}
+    assert by["STETH"]["usd_price"] == 2488.44          # marché réel (≈ ETH)
+    assert by["STETH"]["usd_value"] == round(2.187545 * 2488.44, 2)
+    assert by["ETH"]["usd_price"] == 2478.64            # native via llama
+    assert by["ETH"]["usd_value"] == round(1.5 * 2478.64, 2)
+    assert by["FAM"]["usd_price"] == 7.0                # fallback Blockscout
+    assert by["FAM"]["usd_value"] == 3.5
+    exp = sum(t["usd_value"] for t in out["tokens"])
+    assert abs(out["total_usd"] - exp) < 0.01
+    assert out["errors"] == []
+
+
+def test_llama_native_key_mapping():
+    assert crypto._llama_native_key("ethereum", "ETH") == "coingecko:ethereum"
+    assert crypto._llama_native_key("polygon", "POL") \
+        == "coingecko:polygon-ecosystem-token"
+    # symbole inconnu → pas de prix llama natif (fallback exchange_rate)
+    assert crypto._llama_native_key("ethereum", "???") is None

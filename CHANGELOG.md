@@ -2,6 +2,31 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.053] — 2026-09-08
+
+### Fixed — Current prices from DefiLlama for all tokens (staking shares)
+
+The scan valued every token with Blockscout's `exchange_rate`, which is a
+stale provider cache and — for staking tokens (stETH, eETH, …) — is
+expressed per raw share: stETH appeared at ≈ ETH/taux-de-part, understating
+the position by exactly the share rate (×1.31 stETH, ×1.49 eETH on the
+real wallet).
+
+- `scan_portfolio` now queries DefiLlama current prices for EVERY token
+  with a balance (chain:`contract`) and for native coins
+  (`coingecko:<id>`, since /prices/current ignores bare chain keys);
+  Blockscout `exchange_rate` remains only as fallback.
+- `_fetch_defillama_current_prices` now accepts full-prefix query strings
+  (`ethereum:0x…` / `coingecko:ethereum`) grouped per prefix.
+- Real wallet before/after (same refresh): stETH 4 152 $ → 5 419 $,
+  eETH 1 755 $ → 2 620 $, ETH repriced live; wallet total 8 988 $ →
+  11 094 $. History/series untouched; scan stays authoritative.
+
+### Tests
+
+- +2 deterministic (no network): llama override on staking token + native
+  + fallback; native key mapping. 186 total.
+
 ## [2026.09.052] — 2026-09-08
 
 ### Added — Native movements capture (history fix)
