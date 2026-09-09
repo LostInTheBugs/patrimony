@@ -407,8 +407,9 @@ def item_costs(conn: sqlite3.Connection, item_row, asof: date | None = None) -> 
     rows = conn.execute(
         "SELECT t.op_date, t.amount, i.category FROM tco_imputations i"
         " JOIN transactions t ON t.id=i.transaction_id"
-        " WHERE i.item_id=? AND i.owner=? AND t.kind='expense'",
-        (item_row["id"], own),
+        " WHERE i.item_id=? AND i.owner=? AND t.kind='expense'"
+        " AND t.op_date<=?",
+        (item_row["id"], own, asof.isoformat()),
     ).fetchall()
     by_cat: dict[str, float] = {}
     by_year: dict[str, float] = {}
@@ -447,6 +448,10 @@ def item_costs(conn: sqlite3.Connection, item_row, asof: date | None = None) -> 
         price = item_row["purchase_price"] or 0.0
         financed = loan["principal_initial"] if (loan is not None and bd) else 0.0
         down = max(0.0, price - financed) if loan is not None else price
+        # l'apport n'existe pas avant le mois d'achat (courbes rétroactives)
+        pd0 = item_row["purchase_date"] if "purchase_date" in item_row.keys() else None
+        if pd0 and str(pd0)[:10] > asof.isoformat():
+            down = 0.0
         if bd is not None:
             acquisition = round(down + bd["paid_capital"] + bd["paid_interest"]
                                 + bd["paid_insurance"], 2)

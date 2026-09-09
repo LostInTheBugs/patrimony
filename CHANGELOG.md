@@ -2,6 +2,48 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.062] — 2026-09-09
+
+### Added — Charts everywhere: backend curves (loans / TCO / crypto / crowdfunding)
+(step ② backend of the charts chantier — UI in v2026.09.063)
+
+Demande Fred « les mêmes graphiques » (courbes + donuts) sur Crédits,
+Immo & TCO, Crypto, Crowdfunding. Design `claude/design-charts-partout-2026.md`
+(never pushed). Toutes les routes curve → `{labels:[ym], series:[{key,name,…,
+values}]}` — zéro calcul côté UI (helpers v061 réutilisés).
+
+- `GET /api/loans/curve` — capital restant dû par prêt actif amortissable :
+  échéancier théorique (mêmes maths que paid_breakdown : amortissement
+  français, n dérivé de la mensualité), aligné sur l'union des mois du plus
+  ancien départ au plus long terme (0 avant/après chaque prêt). Devise
+  convertie en EUR (taux BCE ≤ jour) ; prêt sans taux → omis + `fx_missing`.
+  L'UI filtre par segment (Tous/🏠/🚗/🛒) et somme.
+- `GET /api/tco/curve?months=` — coût total cumulé par fiche (véhicules +
+  biens sans fiche, mêmes règles d'ownership que l'overview), mois par mois,
+  chaque point = `estate.item_costs(asof = fin de mois)` : AUCUNE logique
+  dupliquée, courbe exactement cohérente avec les KPI à date.
+- `estate.item_costs` gagne la dimension rétroactive : les imputations sont
+  filtrées par `op_date ≤ asof` et l'apport d'un véhicule n'existe qu'à
+  partir du mois d'achat (les appels existants, asof = aujourd'hui, sont
+  inchangés — une opération future n'était de toute façon jamais payée).
+- `GET /api/cw/curve` — valeur mensuelle des wallets par compte : dernier
+  snapshot cw_history du mois (tous jetons sommés), converti en EUR au taux
+  BCE ≤ la date du snapshot (None si taux indisponible). En prod la courbe
+  démarre au premier refresh/scan (les prix historiques ne sont jamais
+  rachetés) — la démo (wallet seedé depuis 2024-01) l'illustre.
+- `GET /api/cf/curve` — encours de la créance (capital encore dû) par
+  plateforme, reconstruit des cf_operations datées : souscription (montant
+  < 0) → encours + ; opération positive de type revenu (règle LIKE du
+  module) → sans effet ; tout autre positif (remboursement, revente) →
+  encours − (plancher 0). Les mois sans mouvement reportent l'encours du
+  mois précédent. Le donut par plateforme de l'aperçu suffit (pas de doublon).
+- Tests : 5 nouveaux (tests/test_charts_curve.py, membres dédiés `cv_*`) —
+  forme des courbes crédit (décroissance théorique, 0 avant le départ),
+  rétroactivité TCO (imputation datée n'apparaît qu'à son mois, dernier
+  point = KPI overview), snapshots crypto mensuels + conversion EUR (taux de
+  test nettoyé ensuite — base partagée), encours crowd (revenus sans effet,
+  op non validée ignorée). Suite 225/225.
+
 ## [2026.09.061] — 2026-09-09
 
 ### Added — Charts on Actions / Life-insurance pages, argus & estimates UI

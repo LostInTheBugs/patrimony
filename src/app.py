@@ -2806,6 +2806,34 @@ async def list_loans(request: Request, family: int = 0, member: str = ""):
     return {"loans": out, "totals": totals}
 
 
+@app.get("/api/loans/curve")
+async def loans_curve(request: Request, family: int = 0, member: str = ""):
+    """Courbes du capital restant dû (échéancier théorique) par prêt actif —
+    charts Crédits (v2026.09.062). Devise native convertie en EUR (taux BCE
+    ≤ aujourd'hui) ; un prêt sans taux de change est omis et listé."""
+    u = _need(request)
+    conn = db()
+    try:
+        owners = _visible_owners(conn, u, bool(family), member or None)
+        d = loans.plan_curve(conn, owners)
+        today = date.today().isoformat()
+        missing = []
+        kept = []
+        for s in d["series"]:
+            if (s["currency"] or "EUR") != "EUR":
+                fxr = fx.lookup(conn, s["currency"], today, None)
+                if fxr is None:
+                    missing.append(s["name"])
+                    continue
+                s["values"] = [round(v / fxr["rate"], 2) for v in s["values"]]
+            kept.append(s)
+        d["series"] = kept
+        d["fx_missing"] = missing
+        return d
+    finally:
+        conn.close()
+
+
 @app.post("/api/loans")
 async def create_loan(body: LoanIn, request: Request):
     u = _need(request)
@@ -3442,6 +3470,67 @@ async def tco_overview(request: Request, family: int = 0, member: str = ""):
     finally:
         conn.close()
     return {"items": out}
+
+
+@app.get("/api/tco/curve")
+async def tco_curve(request: Request, family: int = 0, member: str = "",
+                    months: int = 120):
+    """Coût total cumulé par fiche (imputations + crédit versé), mois par mois —
+    charts Coûts (v2026.09.062). Mêmes entités que /api/tco/overview ; chaque
+    point = estate.item_costs(asof=1er du mois) — aucune logique dupliquée."""
+    if not (12 <= months <= 240):
+        return JSONResponse({"detail": "Horizon invalide (12-240 mois)"},
+                            status_code=400)
+    u = _need(request)
+    conn = db()
+    try:
+        owners = _visible_owners(conn, u, bool(family), member or None)
+        wc = "owner IN (%s)" % ",".join("?" * len(owners))
+        items = conn.execute(
+            "SELECT * FROM tco_items WHERE active=1 AND " + wc +
+            " ORDER BY kind, label", owners).fetchall()
+        accs = conn.execute(
+            "SELECT * FROM accounts WHERE asset_class='immobilier' AND active=1"
+            " AND " + wc + " ORDER BY name", owners).fetchall()
+        ents = []  # (key, name, kind, row)
+        for it in items:
+            ents.append((it["id"], it["label"], it["kind"], it))
+        for a in accs:  # biens sans fiche : même ghost que l'overview
+            if any(o["account_id"] == a["id"] for o in items
+                   if o["kind"] == "immo"):
+                continue
+            ghost = {"id": -a["id"], "owner": a["owner"], "kind": "immo",
+                     "label": a["name"], "account_id": a["id"], "loan_id": None,
+                     "purchase_date": None, "purchase_price": None,
+                     "active": 1, "notes": ""}
+            ents.append((-a["id"], a["name"], "immo", ghost))
+        y, mo = date.today().year, date.today().month
+        labels = []
+        for k in range(months - 1, -1, -1):
+            yy, mm = y, mo - k
+            while mm <= 0:
+                mm += 12
+                yy -= 1
+            labels.append(f"{yy:04d}-{mm:02d}")
+        series = []
+        for key, name, kind, row in ents:
+            values = []
+            for ym in labels:
+                try:
+                    # fin de mois : toutes les échéances/imputations du mois
+                    # comptent au point du mois (cohérent avec les KPI à date)
+                    d0 = date(int(ym[:4]), int(ym[5:7]), 1)
+                    d1 = (date(d0.year + (d0.month == 12), d0.month % 12 + 1, 1)
+                          - timedelta(days=1))
+                    c = estate.item_costs(conn, row, asof=d1)
+                    values.append(c.get("total_to_date"))
+                except Exception:
+                    values.append(None)
+            series.append({"key": str(key), "name": name, "kind": kind,
+                           "values": values})
+        return {"labels": labels, "series": series}
+    finally:
+        conn.close()
 
 
 @app.get("/api/tco/imputations")
@@ -4978,6 +5067,84 @@ async def cf_delete_platform(platform: str, request: Request):
     return {"ok": True}
 
 
+@app.get("/api/cf/curve")
+async def cf_curve(request: Request, family: int = 0, member: str = ""):
+    """Encours de la créance (capital encore dû) par plateforme — charts
+    Crowdfunding (v2026.09.062), reconstruit des cf_operations datées :
+    souscription (montant < 0) → encours + ; opération positive de type
+    revenu (règle du module, ne rembourse pas le capital) → sans effet ;
+    toute autre opération positive d'un projet (remboursement, revente) →
+    encours − (plancher 0). Les ops sans projet ni plateforme suivie sont
+    ignorées. Série en EUR, cumul fin de mois."""
+    u = _need(request)
+    conn = db()
+    try:
+        owners = _visible_owners(conn, u, bool(family), member or None)
+        ow = ",".join("?" * len(owners))
+        pfs = conn.execute(
+            "SELECT platform, account_id FROM cf_platforms"
+            " WHERE owner IN (" + ow + ") AND account_id IS NOT NULL",
+            owners).fetchall()
+        pf2acc = {r["platform"]: r["account_id"] for r in pfs}
+        if not pf2acc:
+            return {"labels": [], "series": []}
+        names = {}
+        for r in conn.execute(
+                "SELECT id, name FROM accounts WHERE id IN (%s)"
+                % ",".join("?" * len(set(pf2acc.values()))),
+                list(set(pf2acc.values()))).fetchall():
+            names[r["id"]] = r["name"]
+        ops = conn.execute(
+            "SELECT platform, op_date, amount, type FROM cf_operations"
+            " WHERE owner IN (" + ow + ") AND project_id IS NOT NULL"
+            " AND status IN ('Validée','Réussi') ORDER BY op_date, id",
+            owners).fetchall()
+        run: dict[int, float] = {}
+        per: dict[int, dict] = {}
+        for o in ops:
+            aid = pf2acc.get(o["platform"])
+            if aid is None:
+                continue
+            amt = o["amount"] or 0.0
+            delta = 0.0
+            if amt < 0:
+                delta = -amt
+            elif amt > 0:
+                typ = (o["type"] or "").lower()
+                if not any(k in typ for k in ("revenu", "intérêt", "interet",
+                                              "interest", "dividende")):
+                    delta = -amt
+            if delta:
+                run[aid] = max(0.0, run.get(aid, 0.0) + delta)
+                per.setdefault(aid, {})[o["op_date"][:7]] = round(run[aid], 2)
+        # un mois sans mouvement de capital garde l'encours du mois précédent
+        for aid, m in per.items():
+            keys = sorted(m)
+            if len(keys) < 2:
+                continue
+            cur = m[keys[0]]
+            y, mo = int(keys[0][:4]), int(keys[0][5:7])
+            y1, mo1 = int(keys[-1][:4]), int(keys[-1][5:7])
+            while (y, mo) <= (y1, mo1):
+                ym = f"{y:04d}-{mo:02d}"
+                cur = m.get(ym, cur)
+                if ym not in m:
+                    m[ym] = cur
+                mo += 1
+                if mo > 12:
+                    mo = 1
+                    y += 1
+        labels = sorted({ym for m in per.values() for ym in m})
+        series = [
+            {"key": str(aid), "name": names.get(aid, str(aid)),
+             "values": [per.get(aid, {}).get(ym, 0.0) for ym in labels]}
+            for aid in per
+        ]
+        return {"labels": labels, "series": series}
+    finally:
+        conn.close()
+
+
 @app.get("/api/cf/overview")
 async def cf_overview(request: Request, family: int = 0, member: str = ""):
     u = _need(request)
@@ -5203,6 +5370,74 @@ async def cw_refresh_status(request: Request):
     u = _need(request)
     return {"owner": u["username"], **crypto.STATE.get(u["username"],
                                                        {"state": "idle"})}
+
+
+@app.get("/api/cw/curve")
+async def cw_curve(request: Request, family: int = 0, member: str = ""):
+    """Évolution mensuelle de la valeur des wallets, par compte — charts
+    Crypto (v2026.09.062). Point du mois = dernier snapshot cw_history du
+    mois (somme de tous les jetons du wallet), converti en EUR au taux BCE
+    ≤ date du snapshot (None si taux indisponible). Les wallets sans
+    historique ne tracent rien."""
+    u = _need(request)
+    conn = db()
+    try:
+        owners = _visible_owners(conn, u, bool(family), member or None)
+        wc = "a.owner IN (%s)" % ",".join("?" * len(owners))
+        wrows = conn.execute(
+            "SELECT w.id, w.account_id, a.name AS account_name"
+            " FROM cw_wallets w JOIN accounts a ON a.id=w.account_id"
+            " WHERE " + wc, owners).fetchall()
+        if not wrows:
+            return {"labels": [], "series": []}
+        wids = [w["id"] for w in wrows]
+        wq = ",".join("?" * len(wids))
+        # dernier snapshot par (wallet, mois)
+        sm = conn.execute(
+            "SELECT wallet_id, substr(date,1,7) ym, MAX(date) md"
+            " FROM cw_history WHERE wallet_id IN (" + wq + ")"
+            " GROUP BY wallet_id, substr(date,1,7)", wids).fetchall()
+        pts = {(r["wallet_id"], r["ym"]): r["md"] for r in sm}
+        # sommes par (wallet, date de snapshot)
+        md_dates = sorted({d for d in pts.values()})
+        vals: dict[tuple, float] = {}
+        for d in md_dates:
+            for r in conn.execute(
+                    "SELECT wallet_id, SUM(value_usd) v FROM cw_history"
+                    " WHERE date=? AND wallet_id IN (" + wq + ")"
+                    " GROUP BY wallet_id", [d] + wids).fetchall():
+                vals[(r["wallet_id"], d)] = r["v"] or 0.0
+        labels = sorted({ym for _, ym in pts})
+        byacc: dict[int, dict] = {}
+        for w in wrows:
+            e = byacc.setdefault(w["account_id"], {"name": w["account_name"],
+                                                   "wallets": []})
+            e["wallets"].append(w["id"])
+        series = []
+        for aid, e in byacc.items():
+            values = []
+            for ym in labels:
+                tot = 0.0
+                ok = False
+                md = None
+                for wid in e["wallets"]:
+                    d0 = pts.get((wid, ym))
+                    if not d0:
+                        continue
+                    md = d0 if md is None else max(md, d0)
+                    if (wid, d0) in vals:
+                        tot += vals[(wid, d0)]
+                        ok = True
+                if not ok:
+                    values.append(None)
+                    continue
+                eur = crypto._usd_to_eur(conn, tot, md)
+                values.append(round(eur, 2) if eur is not None else None)
+            series.append({"key": str(aid), "name": e["name"],
+                           "values": values})
+        return {"labels": labels, "series": series}
+    finally:
+        conn.close()
 
 
 @app.get("/api/cw/overview")

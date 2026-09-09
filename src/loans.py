@@ -297,3 +297,66 @@ def _total_interest_series(P0: float, r: float, M: float, n: int) -> float:
         if rest <= 1e-9:
             break
     return tot
+
+
+def plan_curve(conn: sqlite3.Connection, owners: list[str]) -> dict:
+    """Courbes théoriques du capital restant dû par prêt actif amortissable
+    (v2026.09.062, charts) — mêmes maths que paid_breakdown : amortissement
+    français, mensualités régulières depuis start_date jusqu'au terme (n
+    calculé de la mensualité). Devise native : l'appelant convertit.
+
+    Retour : {"labels": [ym…], "series": [{id, name, loan_type, currency,
+    values: [restant après le mois ou 0]}]} — labels = union triée des mois
+    (du départ du plus ancien prêt au terme du plus long), chaque série alignée
+    (0 avant son départ et après son terme). Le point du mois de départ vaut
+    le capital initial (aucune échéance encore échue)."""
+    rows = conn.execute(
+        "SELECT id, name, loan_type, currency, principal_initial, rate_annual,"
+        " monthly_payment, start_date FROM loans"
+        " WHERE active=1 AND owner IN (%s)" % ",".join("?" * len(owners)),
+        owners,
+    ).fetchall()
+    month_map: list[tuple[dict, dict]] = []  # (meta, {ym: rest})
+    for r in rows:
+        try:
+            start = date.fromisoformat(r["start_date"])
+        except (TypeError, ValueError):
+            continue
+        P0 = r["principal_initial"] or 0.0
+        r_m = (r["rate_annual"] or 0.0) / 100.0 / 12.0
+        M = r["monthly_payment"] or 0.0
+        if P0 <= 0 or M <= 0 or (r_m > 0 and M <= P0 * r_m):
+            continue
+        n = (int(math.ceil(math.log(M / (M - P0 * r_m)) / math.log(1 + r_m)))
+             if r_m > 0 else int(math.ceil(P0 / M)))
+        per: dict[str, float] = {}
+        rest = P0
+        per[f"{start.year:04d}-{start.month:02d}"] = round(P0, 2)
+        for k in range(1, n + 1):
+            if k > _SIM_MAX:
+                break
+            y = start.year + (start.month - 1 + k) // 12
+            mo = (start.month - 1 + k) % 12 + 1
+            it = rest * r_m
+            am = M - it
+            if am >= rest:
+                am = rest
+            rest -= am
+            per[f"{y:04d}-{mo:02d}"] = round(max(0.0, rest), 2)
+            if rest <= 1e-9:
+                break
+        month_map.append((
+            {"id": r["id"], "name": r["name"], "loan_type": r["loan_type"],
+             "currency": r["currency"] or "EUR"},
+            per,
+        ))
+    labels = sorted({ym for _, per in month_map for ym in per})
+    series = []
+    for meta, per in month_map:
+        series.append({
+            "id": meta["id"], "name": meta["name"],
+            "loan_type": meta["loan_type"] if meta["loan_type"] in LOAN_TYPES
+            else "conso",
+            "currency": meta["currency"], "values": [per.get(ym, 0.0) for ym in labels],
+        })
+    return {"labels": labels, "series": series}
