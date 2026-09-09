@@ -231,17 +231,18 @@ it with more than one worker (open vaults are process memory).
 ## Development cost (LLM)
 
 This project was built entirely through AI-assisted sessions (Hermes Agent).
-Usage so far (tally 2026-09-09, see `TOKENS.md` for the per-session detail):
+Usage since the first version (2026-09-04 bootstrap; see `TOKENS.md` for the
+per-session detail):
 
 | Metric | deepseek-v4-flash | gemini-3.6-flash (vision) | **Total** |
 |---|---|---|---|
-| Dev sessions | 5 | (same sessions) | **5** |
-| API calls | 3 831 | 28 | **3 859** |
-| Input tokens | 6 813 675 | 32 892 | **6 848 107** |
-| Output tokens | 3 202 604 | 35 459 | **3 238 079** |
-| **Subtotal (input + output)** | **10 016 279** | **68 351** | **10 086 186** |
-| Cache read (reused at reduced price) | 813 466 752 | 0 | **813 466 752** |
-| **Estimated cost** | **≈ 4.12 USD** | **≈ 0.27 USD** | **≈ 4.39 USD** |
+| Dev sessions (interactive + scripted) | 15 | (same sessions) | **15** |
+| API calls | 5 070 | 47 | **5 117** |
+| Input tokens | 8 952 795 | 55 337 | **9 009 672** |
+| Output tokens | 4 334 009 | 58 783 | **4 392 808** |
+| **Subtotal (input + output)** | **13 286 804** | **114 120** | **13 402 480** |
+| Cache read (reused at reduced price) | 1 048 377 472 | 0 | **1 048 377 472** |
+| **Estimated cost** | **≈ 5.27 USD** | **≈ 0.46 USD** | **≈ 5.73 USD** |
 
 ## License
 
