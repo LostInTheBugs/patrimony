@@ -12,8 +12,12 @@ Multilingual UI (FR / DE / LU / EN), feedback-driven.
 ## Live demo
 
 A public instance with **fictional data** (one asset per class, 2020–2026
-history) is hosted for review — ask the author for the current URL and the
-public demo login.
+history) is hosted for review:
+
+**https://patrimony.cloudfr.net**
+
+- Login: `demo`
+- Password: `patrimony-demo-2026`
 
 > The demo runs isolated public demo data only. For your real financial data,
 > self-host the app on your own private network (see Configuration below).
@@ -223,6 +227,21 @@ it with more than one worker (open vaults are process memory).
 - Changelog: `CHANGELOG.md`
 - Git identity: `LostInTheBugs` (never push real server names / IPs /
   credentials — audit before any push)
+
+## Development cost (LLM)
+
+This project was built entirely through AI-assisted sessions (Hermes Agent).
+Usage so far (tally 2026-09-09, see `TOKENS.md` for the per-session detail):
+
+| Metric | deepseek-v4-flash | gemini-3.6-flash (vision) | **Total** |
+|---|---|---|---|
+| Dev sessions | 5 | (same sessions) | **5** |
+| API calls | 3 831 | 28 | **3 859** |
+| Input tokens | 6 813 675 | 32 892 | **6 848 107** |
+| Output tokens | 3 202 604 | 35 459 | **3 238 079** |
+| **Subtotal (input + output)** | **10 016 279** | **68 351** | **10 086 186** |
+| Cache read (reused at reduced price) | 813 466 752 | 0 | **813 466 752** |
+| **Estimated cost** | **≈ 4.12 USD** | **≈ 0.27 USD** | **≈ 4.39 USD** |
 
 ## License
 
