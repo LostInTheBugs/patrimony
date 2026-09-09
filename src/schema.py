@@ -270,6 +270,33 @@ def schema_data(conn: sqlite3.Connection) -> None:
             usd_value REAL DEFAULT 0
         );
         CREATE INDEX IF NOT EXISTS idx_cws_wallet ON cw_scans(wallet_id);
+        -- module Crédits (v2026.09.056) : passifs suivis par type
+        -- (immo/auto/conso). Le restant dû est DÉCLARÉ (source de vérité du
+        -- passif — taux variables/remboursements anticipés : la réalité
+        -- prime) ; l'échéancier est calculé à la demande (src/loans.py,
+        -- amortissement français, aucune table d'échéances stockée).
+        -- account_id = bien immobilier lié (équité « valeur − restant »).
+        CREATE TABLE IF NOT EXISTS loans (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            owner TEXT NOT NULL,
+            name TEXT NOT NULL,
+            loan_type TEXT NOT NULL DEFAULT 'conso',
+            lender TEXT DEFAULT '',
+            currency TEXT DEFAULT 'EUR',
+            principal_initial REAL NOT NULL DEFAULT 0,
+            principal_remaining REAL NOT NULL DEFAULT 0,
+            rate_annual REAL NOT NULL DEFAULT 0,
+            monthly_payment REAL NOT NULL DEFAULT 0,
+            insurance_monthly REAL NOT NULL DEFAULT 0,
+            start_date TEXT,
+            account_id INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+            notes TEXT DEFAULT '',
+            active INTEGER DEFAULT 1,
+            created_at TEXT DEFAULT (datetime('now')),
+            updated_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_loans_owner ON loans(owner);
+        CREATE INDEX IF NOT EXISTS idx_loans_account ON loans(account_id);
         """
     )
     for col, ddl in (

@@ -2,6 +2,39 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.056] — 2026-09-09
+
+### Added — Loans module backend (💳 Crédits)
+
+First step of the dedicated-pages chantier (design
+`claude/design-credits-2026.md`, validated by Fred): liabilities are now
+tracked per loan instead of living on the real-estate account row.
+
+- New `loans` table (owner-scoped, vault-aware like other data tables):
+  type (`immo`/`auto`/`conso`), lender, currency, declared remaining
+  principal (source of truth), annual rate, monthly payment excluding
+  insurance, optional monthly insurance, start date, optional link to the
+  real-estate account (`account_id` → equity display), soft-delete flag.
+- Boot migration: legacy `accounts.loan_*` columns (v033 linked loan,
+  immo only) are migrated into `loans` rows and neutralized on the
+  account — idempotent, also run when a protected vault is opened. Demo
+  seed now creates the loan as a module row.
+- API: `GET/POST/PUT/DELETE /api/loans` (family/member scoping, soft
+  delete, validation incl. monthly payment covering first-month interest),
+  `GET /api/loans/{id}/schedule` (deterministic French-amortization
+  schedule, computed on demand — no stored table), `POST
+  /api/loans/{id}/recompute` (theoretical remaining vs declared, never
+  applied automatically).
+- `src/loans.py`: single amortization engine (exact port of the former JS
+  curve), shared by list projections, schedule and recompute.
+- `/api/summary`: `total_debt`/`net_worth` now aggregate the active loans
+  (multi-currency via latest ECB rate ≤ today, `fx_missing` listed) +
+  new `debt` block `{total_eur, per_type, part_pct, fx_missing}`.
+- Export/import JSON round-trip carries the loans section; deleting an
+  account unlinks its loan (loan survives, `account_id` nulled).
+- Legacy API compatibility: creating a real-estate account with
+  `loan_principal > 0` materializes the loan into the module.
+
 ## [2026.09.055] — 2026-09-08
 
 ### Added — Investissements UI: « 📈 Actions » & « 🛡️ Assurance vie » pages
@@ -154,7 +187,8 @@ locked, zero double entry).
   accounts). Validated 17/17 against the real prod CWT backup.
 - 18 new tests (`tests/test_crypto.py`) — suite at 182 passing.
 
-> Note: the standalone CWT instance on vm-prod runs an outdated engine (it
+> Note: the standalone CWT instance on the private LAN production server
+> runs an outdated engine (it
 > ignores staked positions such as stETH/eETH and its historical series
 > diverge from on-chain balances); the module reads primary sources
 > (Blockscout/DefiLlama) directly.

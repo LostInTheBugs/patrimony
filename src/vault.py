@@ -30,6 +30,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from src.schema import schema_data
+from src.loans import migrate_legacy
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = Path(os.environ.get("DATA_DIR", BASE_DIR / "data"))
@@ -167,6 +168,11 @@ def mem_from_blob(dek: bytes, blob_b64: str) -> sqlite3.Connection:
     # coffres antérieurs à v2026.09.025 : schéma sans positions/dividend_events
     # ni fees_pct — CREATE/ALTER idempotents après la restauration
     schema_data(conn)
+    # module Crédits (v2026.09.056) : migration des crédits liés legacy du
+    # coffre (accounts.loan_* → loans). Commit immédiat si des lignes ont été
+    # créées : le flush du middleware ne doit pas les annuler (rollback)
+    if migrate_legacy(conn):
+        conn.commit()  # marque le coffre sale → le blob chiffré est réécrit
     conn.execute("PRAGMA foreign_keys = ON")
     return conn
 
@@ -331,6 +337,9 @@ def init_vault(main: sqlite3.Connection, username: str, salt: str, wrapped: str,
     copy_rows(main, mem, "cf_projects", "owner=?", (username,))
     copy_rows(main, mem, "cf_operations", "owner=?", (username,))
     copy_rows(main, mem, "cf_reports", "owner=?", (username,))
+    # module Crédits (v2026.09.056) : crédits liés legacy migrés ici même
+    copy_rows(main, mem, "loans", "owner=?", (username,))
+    migrate_legacy(mem)
     # module Crypto (v2026.09.050) : wallets + transferts + séries + scans
     copy_rows(main, mem, "cw_wallets", "owner=?", (username,))
     copy_rows(main, mem, "cw_transfers", "owner=?", (username,))

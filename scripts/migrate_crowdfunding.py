@@ -6,7 +6,7 @@ a single owner, then materialises the derived auto accounts (refresh).
 
 Usage (run from the repo root, with the venv activated):
     python scripts/migrate_crowdfunding.py --ct /path/to/ct-backup.db \
-        --data /path/to/patrimony-data-dir --owner frederic [--force]
+        --data /path/to/patrimony-data-dir --owner <username> [--force]
 
 Parity checks are printed and enforced: project/operation counts, invested
 totals per platform, LPB capital due vs the legacy DB, auto-account values.

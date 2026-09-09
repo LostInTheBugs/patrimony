@@ -48,6 +48,7 @@ from src.schema import schema_data
 from src import bench
 from src import crowdfund
 from src import crypto
+from src import loans
 
 FX_SUPPORTED = fx.SUPPORTED  # liste canonique des devises (module src/fx.py)
 
@@ -352,6 +353,11 @@ def init_db() -> None:
         "DELETE FROM accounts WHERE owner IN"
         " (SELECT v.username FROM vaults v JOIN users u ON u.username=v.username WHERE u.mode='protected')"
     )
+    # module Crédits (v2026.09.056) : même purge pour les clairs orphelins
+    conn.execute(
+        "DELETE FROM loans WHERE owner IN"
+        " (SELECT v.username FROM vaults v JOIN users u ON u.username=v.username WHERE u.mode='protected')"
+    )
     # journal d'audit : rétention 90 jours (purge au boot)
     conn.execute("DELETE FROM audit_log WHERE ts < datetime('now', '-90 days')")
     # v2026.09.025 : un compte bourse auto « 1 symbole » (modèle historique)
@@ -366,6 +372,9 @@ def init_db() -> None:
             " WHERE asset_class='bourse' AND valuation_mode='auto' AND symbol<>''"
             " AND NOT EXISTS (SELECT 1 FROM positions p WHERE p.account_id=accounts.id)"
         )
+    # module Crédits (v2026.09.056) : les crédits liés legacy (accounts.loan_*,
+    # immo v033) migrent vers la table loans puis sont neutralisés (idempotent)
+    _ = loans.migrate_legacy(conn)
     conn.commit()
     conn.close()
     if SEED_DEMO:
@@ -422,10 +431,15 @@ def _seed_demo() -> None:
         )
         aid = cur.lastrowid
         if name == "Appartement locatif":
-            # crédit lié au bien (démo v2026.09.033) : équité = valeur − restant
+            # crédit du bien (démo v2026.09.056) : le passif vit dans le module
+            # Crédits (table loans liée au compte) — équité = valeur − restant
             conn.execute(
-                "UPDATE accounts SET loan_principal=92000, loan_rate=2.8, loan_monthly=520 WHERE id=?",
-                (aid,),
+                "INSERT INTO loans (owner, name, loan_type, lender, currency,"
+                " principal_initial, principal_remaining, rate_annual,"
+                " monthly_payment, start_date, account_id)"
+                " VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                (owner, "Prêt Appartement locatif", "immo", "—", "EUR",
+                 92000, 92000, 2.8, 520, open_ym + "-01", aid),
             )
         oy, om = int(open_ym[:4]), int(open_ym[5:7])
         start = date(oy, om, 1)
@@ -1340,6 +1354,7 @@ async def family_delete(username: str, request: Request):
     conn.execute("DELETE FROM cf_operations WHERE owner=?", (uname,))
     conn.execute("DELETE FROM cf_projects WHERE owner=?", (uname,))
     conn.execute("DELETE FROM cf_platforms WHERE owner=?", (uname,))
+    conn.execute("DELETE FROM loans WHERE owner=?", (uname,))  # module Crédits v2026.09.056
     conn.execute("DELETE FROM accounts WHERE owner=?", (uname,))  # cascade : valuations/transactions/règles
     conn.commit()
     conn.close()
@@ -1927,6 +1942,23 @@ async def create_account(body: AccountIn, request: Request):
             "INSERT INTO valuations (account_id, val_date, value, source) VALUES (?,?,?, 'manual')",
             (aid, d, round(body.initial_value, 2)),
         )
+    # module Crédits (v2026.09.056) : un crédit saisi sur la fiche d'un bien
+    # (champs legacy loan_*, conservés pour compatibilité) est matérialisé
+    # dans le module Crédits — le compte ne porte plus le passif
+    if body.asset_class == "immobilier" and (body.loan_principal or 0) > 0:
+        d0 = body.open_date or date.today().isoformat()
+        conn.execute(
+            "INSERT INTO loans (owner, name, loan_type, lender, currency,"
+            " principal_initial, principal_remaining, rate_annual,"
+            " monthly_payment, insurance_monthly, start_date, account_id,"
+            " created_at, updated_at)"
+            " VALUES (?,?,?,?,?,?,?,?,?,0,?,?, datetime('now'), datetime('now'))",
+            (u["username"], body.name.strip(), "immo", body.institution.strip(),
+             ccy, round(body.loan_principal, 2), round(body.loan_principal, 2),
+             round(body.loan_rate, 4) if body.loan_rate else 0,
+             round(body.loan_monthly, 2) if body.loan_monthly else 0,
+             d0, aid),
+        )
     conn.commit()
     conn.close()
     _audit(u["username"], "Création d'actif", f"#{aid} {body.name.strip()}")
@@ -2429,14 +2461,15 @@ async def summary(request: Request, family: int = 0, member: str = ""):
             c["cost"] += cost_eur
         total_value += value_eur
         total_cost += cost_eur
-        # crédit lié (v2026.09.033) : passif converti au même taux que la valo
-        if r["asset_class"] == "immobilier" and r["loan_principal"]:
-            debt_eur = r["loan_principal"] / fxr["rate"] if ccy != "EUR" else r["loan_principal"]
-            total_debt += debt_eur
         if fxr.get("date"):
             fx_dates.add(fxr["date"])
         if asof is None or lv["date"] > asof:
             asof = lv["date"]
+    # module Crédits (v2026.09.056) : le passif = somme des restants dus des
+    # crédits actifs (table loans) — les colonnes loan_* legacy ont été
+    # migrées au boot puis neutralisées (le compte immobilier ne déduit plus)
+    debt = _loans_debt(conn, owners)
+    total_debt = debt["total_eur"]
     conn.close()
     classes = []
     for k in CLASS_KEYS:
@@ -2454,7 +2487,13 @@ async def summary(request: Request, family: int = 0, member: str = ""):
     fx_asof = max(fx_dates) if fx_dates else None
     return {
         "total_value": round(total_value, 2),
-        "total_debt": round(total_debt, 2),  # passifs (crédits liés, v2026.09.033)
+        "total_debt": round(total_debt, 2),  # passifs (crédits suivis, v2026.09.056)
+        "debt": {
+            "total_eur": round(debt["total_eur"], 2),
+            "per_type": {k: round(v, 2) for k, v in debt["per_type"].items()},
+            "part_pct": round(total_debt / total_value * 100, 2) if total_value else None,
+            "fx_missing": debt["fx_missing"],
+        },
         "net_worth": net_worth,  # patrimoine net = actifs − passifs
         "total_cost": round(total_cost, 2),
         "gain": gain,
@@ -2467,6 +2506,309 @@ async def summary(request: Request, family: int = 0, member: str = ""):
         "fx_missing": fx_missing,
         "fx_applied": fx_applied,
     }
+
+
+# ---------------------------------------------------------------- module Crédits (v2026.09.056)
+# Passifs suivis par type (🏠 immo / 🚗 auto / 🛒 conso) — table `loans`,
+# moteur pur src/loans.py (amortissement français calculé à la demande).
+# Le restant dû est DÉCLARÉ (source de vérité) ; `recompute` propose la
+# valeur théorique de l'échéancier sans jamais l'appliquer d'office.
+# Les champs legacy accounts.loan_* (v033) sont migrés au boot puis
+# neutralisés ; la création d'un bien avec loan_principal > 0 matérialise
+# un crédit (compatibilité anciens clients).
+
+class LoanIn(BaseModel):
+    name: str
+    loan_type: str = "conso"
+    lender: str = ""
+    currency: str = "EUR"
+    principal_initial: float = 0
+    principal_remaining: float = 0
+    rate_annual: float = 0
+    monthly_payment: float = 0
+    insurance_monthly: float = 0
+    start_date: str | None = None
+    account_id: int | None = None
+    notes: str = ""
+    active: int = 1
+
+
+def _loan_err2(p: dict) -> str | None:
+    """Validation partagée d'un crédit du module (v2026.09.056)."""
+    if not (p.get("name") or "").strip():
+        return "Nom requis"
+    if (p.get("loan_type") or "conso") not in loans.LOAN_TYPES:
+        return "Type de crédit invalide"
+    if (p.get("currency") or "EUR").upper() not in FX_SUPPORTED:
+        return "Devise non supportée"
+    for k, msg in (
+        ("principal_initial", "Capital initial invalide (négatif)"),
+        ("principal_remaining", "Capital restant invalide (négatif)"),
+        ("rate_annual", "Taux invalide (négatif)"),
+        ("monthly_payment", "Mensualité invalide (négative)"),
+        ("insurance_monthly", "Assurance mensuelle invalide (négative)"),
+    ):
+        if (p.get(k) or 0) < 0:
+            return msg
+    if (p.get("rate_annual") or 0) > 100:
+        return "Taux invalide (> 100 %)"
+    rem, M, r = ((p.get("principal_remaining") or 0),
+                 (p.get("monthly_payment") or 0), (p.get("rate_annual") or 0))
+    if rem > 0 and M <= 0:
+        return "Mensualité requise (capital restant > 0)"
+    if rem > 0 and r > 0 and M <= rem * r / 100 / 12:
+        return "La mensualité ne couvre pas les intérêts du premier mois"
+    return None
+
+
+def _loan_link_err(conn: sqlite3.Connection, owner: str,
+                   account_id: int | None) -> str | None:
+    """Le crédit ne peut être lié qu'à un bien immobilier du propriétaire."""
+    if account_id is None:
+        return None
+    row = conn.execute(
+        "SELECT asset_class FROM accounts WHERE id=? AND owner=?",
+        (account_id, owner),
+    ).fetchone()
+    if row is None:
+        return "Bien immobilier introuvable"
+    if row["asset_class"] != "immobilier":
+        return "Le crédit ne peut être lié qu'à un bien immobilier"
+    return None
+
+
+def _loans_debt(conn: sqlite3.Connection, owners: list[str]) -> dict:
+    """Passif agrégé des crédits actifs (EUR, taux BCE ≤ aujourd'hui) :
+    {total_eur, per_type, fx_missing} — utilisé par /api/summary."""
+    wc = "l.owner IN (%s)" % ",".join("?" * len(owners))
+    today = date.today().isoformat()
+    out = {"total_eur": 0.0,
+           "per_type": {t: 0.0 for t in loans.LOAN_TYPES}, "fx_missing": []}
+    rows = conn.execute(
+        "SELECT l.name, l.loan_type, l.currency, l.principal_remaining FROM loans l"
+        f" WHERE l.active=1 AND {wc}", owners).fetchall()
+    for r in rows:
+        ccy = r["currency"] or "EUR"
+        fxr = fx.lookup(conn, ccy, today, None)
+        if fxr is None:
+            out["fx_missing"].append(r["name"])
+            continue
+        rem_eur = (r["principal_remaining"] / fxr["rate"] if ccy != "EUR"
+                   else r["principal_remaining"])
+        out["total_eur"] += rem_eur
+        key = r["loan_type"] if r["loan_type"] in out["per_type"] else "conso"
+        out["per_type"][key] += rem_eur
+    return out
+
+
+def _loan_computed(row: sqlite3.Row) -> dict | None:
+    """Projections d'un crédit (fin estimée, intérêts restants, 12 prochains
+    mois) — calcul unique src/loans.amortize (aucun JS dupliqué)."""
+    rem, M, r = ((row["principal_remaining"] or 0), (row["monthly_payment"] or 0),
+                 (row["rate_annual"] or 0))
+    if not row["active"] or rem <= 0 or M <= 0:
+        return None
+    am = loans.amortize(rem, r, M)
+    if am is None:
+        return {"months_left": None, "end_date": None,
+                "interests_left": None, "next_year_capital": None,
+                "next_year_interests": None, "never": True}
+    n = am["months_left"]
+    y = date.today().year + (date.today().month - 1 + n) // 12
+    mo = (date.today().month - 1 + n) % 12 + 1
+    return {"months_left": n, "end_date": f"{y:04d}-{mo:02d}-01",
+            "interests_left": am["interests_left"],
+            "next_year_capital": am["next_year_capital"],
+            "next_year_interests": am["next_year_interests"], "never": False}
+
+
+@app.get("/api/loans")
+async def list_loans(request: Request, family: int = 0, member: str = ""):
+    """Crédits du propriétaire (scope famille/membre comme /api/accounts) +
+    totaux en EUR par type. Le passif = restants dus DÉCLARÉS, convertis au
+    taux BCE le plus récent ≤ aujourd'hui (fx_missing listé, jamais muet)."""
+    u = _need(request)
+    conn = db()
+    try:
+        owners = _visible_owners(conn, u, bool(family), member or None)
+        wc = "l.owner IN (%s)" % ",".join("?" * len(owners))
+        rows = conn.execute(
+            "SELECT l.*, a.name AS account_name FROM loans l"
+            " LEFT JOIN accounts a ON a.id=l.account_id"
+            f" WHERE l.active=1 AND {wc} ORDER BY l.principal_remaining DESC",
+            owners).fetchall()
+        today = date.today().isoformat()
+        totals = {"total_eur": 0.0,
+                  "per_type": {t: 0.0 for t in loans.LOAN_TYPES}, "fx_missing": []}
+        out = []
+        for r in rows:
+            p = {k: r[k] for k in r.keys()}
+            p["computed"] = _loan_computed(r)
+            fxr = fx.lookup(conn, p["currency"] or "EUR", today, None)
+            if fxr is None:
+                p["eur_remaining"] = None
+                totals["fx_missing"].append(r["name"])
+            else:
+                p["eur_remaining"] = round(
+                    (p["principal_remaining"] / fxr["rate"]
+                     if (p["currency"] or "EUR") != "EUR" else p["principal_remaining"]), 2)
+                if p["active"]:
+                    totals["total_eur"] += p["eur_remaining"]
+                    key = p["loan_type"] if p["loan_type"] in totals["per_type"] else "conso"
+                    totals["per_type"][key] += p["eur_remaining"]
+            out.append(p)
+    finally:
+        conn.close()
+    return {"loans": out, "totals": totals}
+
+
+@app.post("/api/loans")
+async def create_loan(body: LoanIn, request: Request):
+    u = _need(request)
+    lerr = _loan_err2(body.model_dump())
+    if lerr:
+        return JSONResponse({"detail": lerr}, status_code=400)
+    conn = db()
+    try:
+        lerr = _loan_link_err(conn, u["username"], body.account_id)
+        if lerr:
+            return JSONResponse({"detail": lerr}, status_code=400)
+        ccy = (body.currency or "EUR").upper()
+        cur = conn.execute(
+            "INSERT INTO loans (owner, name, loan_type, lender, currency,"
+            " principal_initial, principal_remaining, rate_annual,"
+            " monthly_payment, insurance_monthly, start_date, account_id,"
+            " notes, active, created_at, updated_at)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?, datetime('now'), datetime('now'))",
+            (u["username"], body.name.strip(), body.loan_type, body.lender.strip(),
+             ccy, round(body.principal_initial or 0, 2),
+             round(body.principal_remaining or 0, 2),
+             round(body.rate_annual or 0, 4),
+             round(body.monthly_payment or 0, 2),
+             round(body.insurance_monthly or 0, 2),
+             body.start_date, body.account_id, body.notes.strip(),
+             1 if body.active else 0),
+        )
+        lid = cur.lastrowid
+        conn.commit()
+    finally:
+        conn.close()
+    _audit(u["username"], "Création de crédit", f"#{lid} {body.name.strip()}")
+    return {"id": lid}
+
+
+@app.put("/api/loans/{lid}")
+async def update_loan(lid: int, body: LoanIn, request: Request):
+    u = _need(request)
+    lerr = _loan_err2(body.model_dump())
+    if lerr:
+        return JSONResponse({"detail": lerr}, status_code=400)
+    conn = db()
+    try:
+        row = conn.execute(
+            "SELECT id FROM loans WHERE id=? AND owner=?", (lid, u["username"])
+        ).fetchone()
+        if row is None:
+            return JSONResponse({"detail": "Crédit introuvable"}, status_code=404)
+        lerr = _loan_link_err(conn, u["username"], body.account_id)
+        if lerr:
+            return JSONResponse({"detail": lerr}, status_code=400)
+        ccy = (body.currency or "EUR").upper()
+        conn.execute(
+            "UPDATE loans SET name=?, loan_type=?, lender=?, currency=?,"
+            " principal_initial=?, principal_remaining=?, rate_annual=?,"
+            " monthly_payment=?, insurance_monthly=?, start_date=?,"
+            " account_id=?, notes=?, active=?, updated_at=datetime('now')"
+            " WHERE id=? AND owner=?",
+            (body.name.strip(), body.loan_type, body.lender.strip(), ccy,
+             round(body.principal_initial or 0, 2),
+             round(body.principal_remaining or 0, 2),
+             round(body.rate_annual or 0, 4),
+             round(body.monthly_payment or 0, 2),
+             round(body.insurance_monthly or 0, 2),
+             body.start_date, body.account_id, body.notes.strip(),
+             1 if body.active else 0, lid, u["username"]),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    _audit(u["username"], "Modification de crédit", f"#{lid} {body.name.strip()}")
+    return {"ok": True}
+
+
+@app.delete("/api/loans/{lid}")
+async def delete_loan(lid: int, request: Request):
+    """Suppression douce (active=0) : un crédit migré reste traçable et un
+    compte lié n'est jamais détruit. Simple et sûr (décision design)."""
+    u = _need(request)
+    conn = db()
+    try:
+        cur = conn.execute(
+            "UPDATE loans SET active=0, updated_at=datetime('now')"
+            " WHERE id=? AND owner=?", (lid, u["username"]))
+        if cur.rowcount == 0:
+            return JSONResponse({"detail": "Crédit introuvable"}, status_code=404)
+        conn.commit()
+    finally:
+        conn.close()
+    _audit(u["username"], "Suppression de crédit", f"#{lid}")
+    return {"ok": True}
+
+
+@app.get("/api/loans/{lid}/schedule")
+async def loan_schedule(lid: int, request: Request, months: int = 480):
+    """Échéancier mensuel déterministe (amortissement français) depuis le
+    restant déclaré — la courbe UI (v057) consommera cette route."""
+    if not (12 <= months <= 480):
+        return JSONResponse({"detail": "Horizon invalide (12-480 mois)"}, status_code=400)
+    u = _need(request)
+    conn = db()
+    try:
+        row = conn.execute(
+            "SELECT id, principal_remaining, rate_annual, monthly_payment"
+            " FROM loans WHERE id=? AND owner=?", (lid, u["username"])
+        ).fetchone()
+        if row is None:
+            return JSONResponse({"detail": "Crédit introuvable"}, status_code=404)
+        if (row["principal_remaining"] or 0) <= 0:
+            return {"months_left": 0, "rows": []}
+        am = loans.amortize(row["principal_remaining"], row["rate_annual"] or 0,
+                            row["monthly_payment"] or 0, months)
+        if am is None:
+            return JSONResponse(
+                {"detail": "Mensualité trop faible — le crédit ne s'amortit jamais"},
+                status_code=400)
+    finally:
+        conn.close()
+    return {"months_left": am["months_left"], "rows": am["rows"]}
+
+
+@app.post("/api/loans/{lid}/recompute")
+async def loan_recompute(lid: int, request: Request):
+    """Valeur théorique du restant au jour J (mensualités régulières depuis
+    la date de départ) + écart vs le restant déclaré — l'utilisateur choisit
+    d'appliquer ou non (jamais d'écriture ici)."""
+    u = _need(request)
+    conn = db()
+    try:
+        row = conn.execute(
+            "SELECT id, principal_remaining FROM loans WHERE id=? AND owner=?",
+            (lid, u["username"]),
+        ).fetchone()
+        if row is None:
+            return JSONResponse({"detail": "Crédit introuvable"}, status_code=404)
+        theo = loans.theoretical_remaining(conn, lid)
+        if theo is None:
+            return JSONResponse(
+                {"detail": "Recalcul impossible — vérifiez la date de départ et la mensualité"},
+                status_code=400)
+        declared = row["principal_remaining"] or 0
+    finally:
+        conn.close()
+    _audit(u["username"], "Recalcul de crédit", f"#{lid} théorique {theo} vs {declared}")
+    return {"declared_remaining": round(declared, 2),
+            "theoretical_remaining": theo,
+            "delta": round(theo - declared, 2)}
 
 
 # ---------------------------------------------------------------- investissements (v2026.09.054)

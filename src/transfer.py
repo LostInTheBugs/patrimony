@@ -61,6 +61,8 @@ def export_data(conn, username: str, app_version: str) -> dict:
             "SELECT key, value FROM settings WHERE member=?", (username,)).fetchall()],
         "crowdfunding": _cf_payload(conn, username),
         "crypto": _cw_payload(conn, username),
+        "loans": [dict(r) for r in conn.execute(
+            "SELECT * FROM loans WHERE owner=?", (username,)).fetchall()],
     }
 
 
@@ -85,6 +87,10 @@ def do_import(conn, username: str, body: dict) -> str | None:
         return "Fichier non reconnu"
     try:
         conn.execute("BEGIN")
+        # module Crédits (v2026.09.056) : les crédits sont restaurés avec des
+        # ids explicites (account_id lié conservé) — suppression AVANT les
+        # comptes (le lien FK serait sinon nullifié par le cascade)
+        conn.execute("DELETE FROM loans WHERE owner=?", (username,))
         conn.execute("DELETE FROM accounts WHERE owner=?", (username,))  # cascade enfants
         for a in body["accounts"]:
             conn.execute(
@@ -150,6 +156,20 @@ def do_import(conn, username: str, body: dict) -> str | None:
                 conn.rollback()
                 return err
             crypto.refresh_integration(conn, username)
+        # module Crédits (v2026.09.056) : lignes restaurées APRÈS les comptes
+        # (FK account_id) — les sauvegardes anciennes n'ont pas la section
+        for ln in body.get("loans") or []:
+            conn.execute(
+                "INSERT INTO loans (id, owner, name, loan_type, lender, currency,"
+                " principal_initial, principal_remaining, rate_annual,"
+                " monthly_payment, insurance_monthly, start_date, account_id,"
+                " notes, active, created_at, updated_at)"
+                " VALUES (:id,:owner,:name,:loan_type,:lender,:currency,"
+                " :principal_initial,:principal_remaining,:rate_annual,"
+                " :monthly_payment,:insurance_monthly,:start_date,:account_id,"
+                " :notes,:active,:created_at,:updated_at)",
+                {**ln, "owner": username},
+            )
         conn.commit()
     except Exception as e:
         conn.rollback()

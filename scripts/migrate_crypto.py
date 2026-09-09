@@ -7,7 +7,7 @@ dir), under a single owner, then materialises the derived auto accounts
 
 Usage (run from the repo root, with the venv activated):
     python scripts/migrate_crypto.py --cwt /path/to/wallets.db \\
-        --data /path/to/patrimony-data-dir --owner frederic [--cwt-user frederic]
+        --data /path/to/patrimony-data-dir --owner <username> [--cwt-user <username>]
 
 Parity checks are printed and enforced: wallet/transfer/history counts,
 per-wallet final value and cost to the cent, date bounds, orphan rows,
@@ -44,7 +44,7 @@ def main() -> int:
     ap.add_argument("--cwt", required=True, help="CWT SQLite backup file (wallets.db)")
     ap.add_argument("--data", required=True, help="Patrimony DATA_DIR (created if missing)")
     ap.add_argument("--owner", default="admin", help="Patrimony owner username")
-    ap.add_argument("--cwt-user", default="frederic",
+    ap.add_argument("--cwt-user", default="owner",
                     help="CWT username whose wallets are imported")
     ap.add_argument("--force", action="store_true",
                     help="Import even if the module is not empty")
