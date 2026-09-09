@@ -483,6 +483,29 @@ def test_export_import_roundtrip_loans():
     assert s["total_debt"] == 92000
 
 
+# ---------------------------------------------------------------- payload comptes (v2026.09.057)
+
+def test_account_payload_linked_loan():
+    c = TestClient(app.app)
+    _login(c)
+    _mk_member(c, "lo_pay1")
+    aid = _mk_asset(c)  # bien SANS crédit
+    r = c.get("/api/accounts")
+    acc = [x for x in r.json()["accounts"] if x["id"] == aid][0]
+    assert acc["loan"] is None
+    lid = _mk_loan(c, account_id=aid)
+    r = c.get("/api/accounts")
+    acc = [x for x in r.json()["accounts"] if x["id"] == aid][0]
+    assert acc["loan"] is not None
+    assert acc["loan"]["id"] == lid
+    assert acc["loan"]["principal_remaining"] == 92000
+    assert acc["loan"]["currency"] == "EUR" and acc["loan"]["name"] == "Prêt maison"
+    # suppression douce du crédit → le compte n'expose plus de lien
+    c.delete(f"/api/loans/{lid}")
+    acc = [x for x in c.get("/api/accounts").json()["accounts"] if x["id"] == aid][0]
+    assert acc["loan"] is None
+
+
 # ---------------------------------------------------------------- compatibilité legacy (API comptes)
 
 def test_post_account_legacy_loan_materializes():

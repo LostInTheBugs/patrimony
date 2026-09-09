@@ -280,6 +280,7 @@
       <a href="#" id="navActifs" onclick="switchPage('actifs')"><span class="e">💼</span> <span data-i18n="navActifs">Actifs</span></a>
       <a href="#" id="navAct" onclick="switchPage('act')"><span class="e">📈</span> <span data-i18n="navAct">Actions</span></a>
       <a href="#" id="navAv" onclick="switchPage('av')"><span class="e">🛡️</span> <span data-i18n="navAv">Assurance vie</span></a>
+      <a href="#" id="navLoan" onclick="switchPage('loan')"><span class="e">💳</span> <span data-i18n="navLoan">Crédits</span></a>
       <a href="#" id="navCw" onclick="switchPage('cw')"><span class="e">₿</span> <span data-i18n="navCw">Crypto</span></a>
       <a href="#" id="navCrowd" onclick="switchPage('crowd')"><span class="e">🧱</span> <span data-i18n="navCrowd">Crowdfunding</span></a>
       <a href="#" id="navOps" onclick="switchPage('ops')"><span class="e">📜</span> <span data-i18n="navOps">Opérations</span></a>
@@ -337,6 +338,7 @@
           <h3>🥧 <span data-i18n="doughTitle">Répartition par classe</span> <span class="hint" id="dashScopeHint"></span></h3>
           <div class="chartbox"><canvas id="chDough"></canvas></div>
           <div class="legend" id="doughLeg"></div>
+          <div id="debtBox" class="hidden" style="border-top:1px solid var(--border);padding-top:8px;margin-top:4px"></div>
         </div>
         <div class="panel">
           <h3>📈 <span data-i18n="histTitle">Évolution du patrimoine</span>
@@ -464,6 +466,25 @@
       <div class="cards" id="avCards"></div>
       <div class="tablewrap" style="margin-top:14px" id="avWrap"></div>
       <div class="muted" style="font-size:11.5px;margin-top:10px"><span data-i18n="avNote">Un compte = un contrat. La classe Épargne = fonds €, la classe Bourse = unités de compte. Les versements sont lus dans vos opérations — enregistrez vos dépôts et retraits par contrat pour un coût exact.</span></div>
+    </section>
+
+    <!-- ---------- CRÉDITS (module, v2026.09.057) ---------- -->
+    <section id="pageLoan" class="hidden">
+      <div class="page-title">
+        <h1>💳 <span data-i18n="loanTtl">Crédits suivis</span></h1>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button class="btn primary loan-admin" onclick="loanModal()">➕ <span data-i18n="loanAdd">Nouveau crédit</span></button>
+        </div>
+      </div>
+      <div class="seg" id="loanSeg">
+        <button data-v="" class="on" onclick="loanView('')"><span data-i18n="loanSegAll">Tous</span></button>
+        <button data-v="immo" onclick="loanView('immo')">🏠 <span data-i18n="loanSegImmo">Maison / Appartement</span></button>
+        <button data-v="auto" onclick="loanView('auto')">🚗 <span data-i18n="loanSegAuto">Voiture(s)</span></button>
+        <button data-v="conso" onclick="loanView('conso')">🛒 <span data-i18n="loanSegConso">Consommation</span></button>
+      </div>
+      <div class="cards" id="loanCards"></div>
+      <div class="tablewrap" style="margin-top:12px" id="loanWrap"></div>
+      <div class="muted" style="font-size:11.5px;margin-top:8px" data-i18n="loanNote">Le capital restant dû est déclaré (mettez-le à jour lors d’un remboursement anticipé) ; le bouton ↻ propose la valeur théorique de l’échéancier. Les mensualités se suivent comme dépenses récurrentes — aucune double saisie.</div>
     </section>
 
     <!-- ---------- CROWDFUNDING (module, v2026.09.047) ---------- -->
@@ -818,8 +839,12 @@ avNote:'Un compte = un contrat. La classe Épargne = fonds €, la classe Bourse
   sStep4:'4. Naviguez sur Bricks.co / La Première Brique — chaque page projet visitée est capturée — puis cliquez « Envoyer » dans l’extension.',
   sConform:'Conformité site vs exports (mises)', sSite:'Montant site', sExport:'Montant export', sDiff:'Écart', sUpdated:'Projets enrichis', sDetected:'Projets détectés', sMatched:'Projets matchés', sFields:'Champs complétés', sCap:'Captures reçues', sOk:'✅ Conforme',
   opPrev:'‹ Précédente', opNext:'Suivante ›', opPage:'Page {p}/{n}',
-  lnSection:'Crédit lié au bien', lnPrin:'Capital restant dû', lnRate:'Taux annuel (%)', lnMonthly:'Mensualité (€)',
-  lnNote:'Capital restant à ce jour — à mettre à jour comme la valeur du bien. Pour le cash-flow, suivez la mensualité comme règle de dépense (page Revenus et dépenses).',
+  navLoan:'Crédits', loanTtl:'Crédits suivis', loanAdd:'Nouveau crédit', loanSegAll:'Tous', loanSegImmo:'Maison / Appartement', loanSegAuto:'Voiture(s)', loanSegConso:'Consommation',
+  loanCardRem:'Restant dû', loanCardRemS:'somme des capitaux restants déclarés', loanCardPay:'Mensualités', loanCardPayS:'hors assurance', loanCardIns:'Assurance / mois', loanCardInt:'Intérêts restants', loanCardIntS:'estimés sur l’échéancier', loanCardEnd:'Fin estimée', loanCardEndS:'la plus proche',
+  loanColName:'Crédit', loanColType:'Type', loanColRem:'Restant dû', loanColRate:'Taux', loanColPay:'Mensualité', loanColEnd:'Fin estimée', loanColProp:'Bien',
+  loanTImmo:'Immobilier', loanTAuto:'Voiture', loanTConso:'Conso',
+  loanMTtl:'Nouveau crédit', loanMTtlEdit:'Modifier le crédit', loanMName:'Nom du crédit', loanMType:'Type', loanMLender:'Prêteur', loanMCcy:'Devise', loanMInit:'Capital initial', loanMRem:'Capital restant dû', loanMRate:'Taux annuel (%)', loanMPay:'Mensualité hors assurance', loanMIns:'Assurance mensuelle', loanMStart:'Date de départ', loanMLink:'Bien immobilier lié', loanMLinkNone:'— aucun —', loanMNotes:'Notes',
+  loanErrFill:'Renseignez au moins le nom, le capital restant et la mensualité.', loanDelAsk:'Supprimer ce crédit ?', loanRecTitle:'Recalcul de l’échéancier', loanRecText:'Valeur théorique au {d} : {t} — restant déclaré : {r} · écart {g}. Appliquer la valeur théorique ?', loanRecNone:'À jour — l’échéancier correspond au restant déclaré.', loanApply:'Appliquer', loanEmpty:'Aucun crédit suivi', loanNever:'jamais', loanErrLoad:'Chargement impossible', loanRecomputeTitle:'Recalculer selon l’échéancier', loanNote:'Le capital restant dû est déclaré (mise à jour lors des remboursements anticipés) ; le bouton ↻ propose la valeur théorique de l’échéancier. Les mensualités se suivent comme dépenses récurrentes — aucune double saisie.', dashDebt:'Dettes', dashDebtTip:'somme des restants dus des crédits suivis',
   lnEquity:'équité', lnTip:'Cliquez pour ouvrir la courbe de remboursement (le capital restant dû est soustrait de la valeur)',
   lnDebtFoot:'Passifs (crédits)', lnTotNet:'Total net (après crédits)',
   lnCurveTitle:'Courbe de remboursement', lnCurveSub:'Bien {v} · crédit {p} · équité {q}',
@@ -996,8 +1021,12 @@ avNote:'One account = one contract. Savings class = funds €, Stocks class = un
   sStep4:'4. Browse Bricks.co / La Première Brique — every visited project page is captured — then click “Send” in the extension.',
   sConform:'Site vs exports conformity (invested)', sSite:'Site amount', sExport:'Exported amount', sDiff:'Difference', sUpdated:'Projects enriched', sDetected:'Projects detected', sMatched:'Projects matched', sFields:'Fields filled', sCap:'Captures received', sOk:'✅ OK',
   opPrev:'‹ Previous', opNext:'Next ›', opPage:'Page {p}/{n}',
-  lnSection:'Loan linked to the property', lnPrin:'Principal remaining', lnRate:'Annual rate (%)', lnMonthly:'Monthly payment',
-  lnNote:'Remaining principal as of today — update it like the property value. For cash-flow, track the payment as a recurring expense (Income & expenses page).',
+  navLoan:'Loans', loanTtl:'Tracked loans', loanAdd:'Add a loan', loanSegAll:'All', loanSegImmo:'House / flat', loanSegAuto:'Car(s)', loanSegConso:'Consumer',
+  loanCardRem:'Remaining principal', loanCardRemS:'sum of declared remaining principals', loanCardPay:'Monthly payments', loanCardPayS:'excluding insurance', loanCardIns:'Insurance / month', loanCardInt:'Interest remaining', loanCardIntS:'estimated from the schedule', loanCardEnd:'Estimated end', loanCardEndS:'earliest',
+  loanColName:'Loan', loanColType:'Type', loanColRem:'Remaining', loanColRate:'Rate', loanColPay:'Monthly', loanColEnd:'Estimated end', loanColProp:'Property',
+  loanTImmo:'Real estate', loanTAuto:'Car', loanTConso:'Consumer',
+  loanMTtl:'New loan', loanMTtlEdit:'Edit loan', loanMName:'Loan name', loanMType:'Type', loanMLender:'Lender', loanMCcy:'Currency', loanMInit:'Initial principal', loanMRem:'Remaining principal', loanMRate:'Annual rate (%)', loanMPay:'Monthly payment (excl. insurance)', loanMIns:'Monthly insurance', loanMStart:'Start date', loanMLink:'Linked property', loanMLinkNone:'— none —', loanMNotes:'Notes',
+  loanErrFill:'Fill in the name, the remaining principal and the monthly payment.', loanDelAsk:'Delete this loan?', loanRecTitle:'Schedule recomputation', loanRecText:'Theoretical value on {d}: {t} — declared remaining: {r} · gap {g}. Apply the theoretical value?', loanRecNone:'Up to date — the schedule matches the declared remaining.', loanApply:'Apply', loanEmpty:'No loans tracked yet', loanNever:'never', loanErrLoad:'Failed to load', loanRecomputeTitle:'Recompute from the schedule', loanNote:'The remaining principal is declared (update it after early repayments); the ↻ button proposes the theoretical schedule value. Payments are tracked as recurring expenses — no double entry.', dashDebt:'Debt', dashDebtTip:'sum of the remaining principals of tracked loans',
   lnEquity:'equity', lnTip:'Click to open the repayment curve (remaining principal subtracted from the value)',
   lnDebtFoot:'Liabilities (loans)', lnTotNet:'Net total (after loans)',
   lnCurveTitle:'Repayment curve', lnCurveSub:'Property {v} · loan {p} · equity {q}',
@@ -1174,8 +1203,12 @@ avNote:'Ein Konto = ein Vertrag. Sparklasse = fonds €, Wertpapierklasse = UC. 
   sStep4:'4. Auf Bricks.co / La Première Brique navigieren — jede besuchte Projektseite wird erfasst — dann in der Erweiterung auf „Senden“ klicken.',
   sConform:'Konformität Website vs. Exporte (Investitionen)', sSite:'Betrag auf der Website', sExport:'Betrag Export', sDiff:'Differenz', sUpdated:'Angereicherte Projekte', sDetected:'Erkannte Projekte', sMatched:'Zugeordnete Projekte', sFields:'Ausgefüllte Felder', sCap:'Erhaltene Captures', sOk:'✅ OK',
   opPrev:'‹ Zurück', opNext:'Weiter ›', opPage:'Seite {p}/{n}',
-  lnSection:'Darlehen an die Immobilie gebunden', lnPrin:'Restkapital', lnRate:'Jahreszins (%)', lnMonthly:'Monatsrate (€)',
-  lnNote:'Restkapital heute — wie den Immobilienwert aktuell halten. Für den Cashflow die Rate als Ausgabe-Regel erfassen (Seite Einnahmen und Ausgaben).',
+  navLoan:'Kredite', loanTtl:'Erfasste Kredite', loanAdd:'Neuer Kredit', loanSegAll:'Alle', loanSegImmo:'Haus / Wohnung', loanSegAuto:'Auto(s)', loanSegConso:'Konsum',
+  loanCardRem:'Restkapital', loanCardRemS:'Summe der gemeldeten Restkapitalien', loanCardPay:'Monatsraten', loanCardPayS:'ohne Versicherung', loanCardIns:'Versicherung / Monat', loanCardInt:'Restzinsen', loanCardIntS:'laut Tilgungsplan geschätzt', loanCardEnd:'Voraussichtliches Ende', loanCardEndS:'frühestes',
+  loanColName:'Kredit', loanColType:'Typ', loanColRem:'Restkapital', loanColRate:'Zins', loanColPay:'Monatsrate', loanColEnd:'Ende', loanColProp:'Immobilie',
+  loanTImmo:'Immobilie', loanTAuto:'Auto', loanTConso:'Konsum',
+  loanMTtl:'Neuer Kredit', loanMTtlEdit:'Kredit bearbeiten', loanMName:'Kreditbezeichnung', loanMType:'Typ', loanMLender:'Kreditgeber', loanMCcy:'Währung', loanMInit:'Ursprüngliches Kapital', loanMRem:'Restkapital', loanMRate:'Jahreszins (%)', loanMPay:'Monatsrate ohne Versicherung', loanMIns:'Monatliche Versicherung', loanMStart:'Startdatum', loanMLink:'Gebundene Immobilie', loanMLinkNone:'— keine —', loanMNotes:'Notizen',
+  loanErrFill:'Mindestens Name, Restkapital und Monatsrate ausfüllen.', loanDelAsk:'Diesen Kredit löschen?', loanRecTitle:'Neuberechnung des Tilgungsplans', loanRecText:'Theoretischer Wert am {d}: {t} — gemeldetes Restkapital: {r} · Differenz {g}. Theoretischen Wert übernehmen?', loanRecNone:'Aktuell — der Tilgungsplan entspricht dem gemeldeten Restkapital.', loanApply:'Übernehmen', loanEmpty:'Noch keine Kredite erfasst', loanNever:'nie', loanErrLoad:'Laden fehlgeschlagen', loanRecomputeTitle:'Gemäß Tilgungsplan neu berechnen', loanNote:'Das Restkapital wird gemeldet (nach Sondertilgungen aktualisieren); die ↻-Schaltfläche schlägt den theoretischen Tilgungsplanwert vor. Die Raten werden als wiederkehrende Ausgaben erfasst — keine doppelte Eingabe.', dashDebt:'Verbindlichkeiten', dashDebtTip:'Summe der Restkapitalien der erfassten Kredite',
   lnEquity:'Eigenkapital', lnTip:'Zum Öffnen der Tilgungskurve klicken (Restkapital wird vom Wert abgezogen)',
   lnDebtFoot:'Verbindlichkeiten (Darlehen)', lnTotNet:'Netto gesamt (nach Darlehen)',
   lnCurveTitle:'Tilgungskurve', lnCurveSub:'Immobilie {v} · Darlehen {p} · Eigenkapital {q}',
@@ -1351,9 +1384,13 @@ avNote:'Ee Konto = ee Kontrakt. Spuerklass = fonds €, Bourse-Klass = UC. Erfaa
   sStep4:'4. Op Bricks.co / La Première Brique navigéieren — all besicht Projetssäit gëtt erfaasst — dann an der Erweiderung op „Senden“ klicken.',
   sConform:'Konformitéit Site vs. Exporten (Investitiounen)', sSite:'Betrag op der Säit', sExport:'Betrag Export', sDiff:'Ënnerscheed', sUpdated:'Ugeräichert Projeten', sDetected:'Erkannt Projeten', sMatched:'Zougeuerdent Projeten', sFields:'Ausgefëllt Felder', sCap:'Erhalen Captures', sOk:'✅ OK',
   opPrev:'‹ Vireg', opNext:'Nächst ›', opPage:'Säit {p}/{n}',
-  lnSection:'Kredit un de Bem gebonnen', lnPrin:'Reschtkapital', lnRate:'Joreszénks (%)', lnMonthly:'Monatsquot (€)',
-  lnNote:'Reschtkapital haut — aktuell halen wéi de Wäert vum Bem. Fir de Cashflow d\'Quot als Ausgabereegel erfaassen (Säit Akommes an Ausgaben).',
-  lnEquity:'Eegekapital', lnTip:'Klickt fir d\'Tilgungskurve opzemaachen (Reschtkapital gëtt vum Wäert ofgezunn)',
+  navLoan:'Prêten', loanTtl:'Erfaasste Prêten', loanAdd:'Neie Prêt', loanSegAll:'All', loanSegImmo:'Haus / Appartement', loanSegAuto:'Auto(en)', loanSegConso:'Konsum',
+  loanCardRem:'Reschtkapital', loanCardRemS:'Zomm vun de gemellten Reschtkapitalien', loanCardPay:'Monatsquoten', loanCardPayS:'ouni Versécherung', loanCardIns:'Versécherung / Mount', loanCardInt:'Reschtzënsen', loanCardIntS:'no der Tilgungskurve geschat', loanCardEnd:'Virgesinn Enn', loanCardEndS:'dat fréistes',
+  loanColName:'Prêt', loanColType:'Typ', loanColRem:'Reschtkapital', loanColRate:'Zénks', loanColPay:'Monatsquot', loanColEnd:'Enn', loanColProp:'Bem',
+  loanTImmo:'Immobilien', loanTAuto:'Auto', loanTConso:'Konsum',
+  loanMTtl:'Neie Prêt', loanMTtlEdit:'Prêt änneren', loanMName:'Numm vum Prêt', loanMType:'Typ', loanMLender:'Prêtgeber', loanMCcy:'Währung', loanMInit:'Ursprénglecht Kapital', loanMRem:'Reschtkapital', loanMRate:'Joreszénks (%)', loanMPay:'Monatsquot ouni Versécherung', loanMIns:'Monatlech Versécherung', loanMStart:'Startdatum', loanMLink:'Gebonnen Immobilie', loanMLinkNone:'— keng —', loanMNotes:'Notizen',
+  loanErrFill:'Fëllt op d’mannst Numm, Reschtkapital a Monatsquot aus.', loanDelAsk:'Dëse Prêt läschen?', loanRecTitle:'Neiberechnung vun der Tilgungskurve', loanRecText:'Theoretesche Wäert den {d}: {t} — gemellt Reschtkapital: {r} · Differenz {g}. Theoretesche Wäert iwwerhuelen?', loanRecNone:'Aktuell — d’Kurve entsprécht dem gemellten Reschtkapital.', loanApply:'Iwwerhuelen', loanEmpty:'Nach keng Prêten erfaasst', loanNever:'ni', loanErrLoad:'Lueden feelgeschloen', loanRecomputeTitle:'No der Tilgungskurve nei berechnen', loanNote:'D’Reschtkapital gëtt gemellt (nom Sondertilgung aktualiséieren); de ↻-Knäppche proposéiert den theoretesche Wäert vun der Kurve. D’Quote ginn als widderhuelend Ausgaben erfaasst — keng Duebel-Erfaassung.', dashDebt:'Verbindlechkeeten', dashDebtTip:'Zomm vun de Reschtkapitalien vun den erfaasste Prêten',
+  lnEquity:'Eegekapital', lnTip:'Klickt fir d’Tilgungskurve opzemaachen (Reschtkapital gëtt vum Wäert ofgezunn)',
   lnDebtFoot:'Verbindlechkeeten (Krediten)', lnTotNet:'Netto total (no de Krediten)',
   lnCurveTitle:'Tilgungskurve', lnCurveSub:'Bem {v} · Kredit {p} · Eegekapital {q}',
   lnNeed:'Gitt eng Monatsquot an fir d\'Tilgung ze projizéieren.',
@@ -1557,13 +1594,14 @@ async function api(path, opts={}) {
 function switchPage(p) {
   if (MEMBER && (p === 'fire' || p === 'params')) p = 'dash';  // hors périmètre vue membre
   CUR_PAGE = p;
-  ['dash','ev','actifs','act','av','cw','crowd','ops','rev','fire','params'].forEach(x => $('page'+x[0].toUpperCase()+x.slice(1)).classList.toggle('hidden', x!==p));
+  ['dash','ev','actifs','act','av','loan','cw','crowd','ops','rev','fire','params'].forEach(x => $('page'+x[0].toUpperCase()+x.slice(1)).classList.toggle('hidden', x!==p));
   document.querySelectorAll('nav a').forEach(a => a.classList.toggle('active', a.id === 'nav'+p[0].toUpperCase()+p.slice(1)));
   if (p==='dash') { loadSummary(); loadHistory(); loadBench(); }
   if (p==='ev') { loadEv(); }
   if (p==='actifs') { loadAccounts(); }
   if (p==='act') { actLoad(); }
   if (p==='av') { avLoad(); }
+  if (p==='loan') { loanLoad(); }
   if (p==='cw') { cwLoad(); }
   if (p==='crowd') { cfLoad(); }
   if (p==='ops') { loadOps(); }
@@ -1908,6 +1946,24 @@ async function loadSummary() {
     '<span class="amt">'+mon(c.value)+'</span><span class="muted" style="width:90px;text-align:right">'+c.count+' '+(c.key==='crowdfunding' ? t('actCountPlat') : t('actCountS'))+'</span></div>'
   ).join('');
   $('dashScopeHint').textContent = DISCRET ? t('modeDisc') : '';
+  // module Crédits (v2026.09.057) : encart 💳 Dettes sous le donut — hors
+  // répartition (le donut reste la répartition des ACTIFS), part = dettes/actifs
+  const db = $('debtBox');
+  if (db) {
+    const deb = s.debt && s.debt.total_eur ? s.debt : null;
+    db.classList.toggle('hidden', !deb);
+    if (deb) {
+      const EMO = {immo:'🏠', auto:'🚗', conso:'🛒'};
+      const parts = [];
+      Object.keys(deb.per_type || {}).forEach(k => { if (deb.per_type[k] > 0) parts.push((EMO[k]||'💳')+' '+mon(deb.per_type[k])); });
+      db.innerHTML = '<div class="li" title="'+esc(t('dashDebtTip'))+'">'+
+        '<span class="dot" style="background:#e5484d"></span>💳 <span style="font-weight:700">'+esc(t('dashDebt'))+'</span>'+
+        '<span class="pct">'+(deb.part_pct != null ? deb.part_pct.toLocaleString(locale())+' %' : '')+'</span>'+
+        '<span class="amt neg">−'+mon(deb.total_eur)+'</span>'+
+        '<span class="muted" style="width:90px;text-align:right"></span></div>'+
+        '<div class="muted" style="font-size:11px;margin-top:2px;padding-left:14px">'+parts.join(' · ')+'</div>';
+    } else db.innerHTML = '';
+  }
   // multi-devises : note de conversion sous le résumé (taux BCE / actifs exclus)
   let fxNote = '';
   if (s.fx_missing && s.fx_missing.length) {
@@ -1997,7 +2053,7 @@ function renderAccounts() {
     const ev = a.fx && a.fx.value_eur != null ? a.fx.value_eur : (a.last_value != null ? a.last_value : 0);
     if ((a.fx && a.fx.value_eur != null) || !a.currency || a.currency === 'EUR') tot += ev;
     if ((!a.currency || a.currency === 'EUR') && a.cost_effective) totCost += a.cost_effective;
-    if ((!a.currency || a.currency === 'EUR') && a.loan_principal) debtTot += a.loan_principal;
+    if ((!a.currency || a.currency === 'EUR') && a.loan && (!a.loan.currency || a.loan.currency === 'EUR')) debtTot += a.loan.principal_remaining;
   });
   const head = '<table><thead><tr>'+
     '<th>'+esc(t('actColAsset'))+'</th><th>'+esc(t('actColClass'))+'</th><th class="num">'+esc(t('actColVal'))+'</th><th class="num">'+esc(t('actColLast'))+'</th>'+
@@ -2028,7 +2084,7 @@ function renderAccounts() {
       '<td class="num" style="font-weight:700">'+(a.last_value==null?'<span class="muted">—</span>':mon(a.last_value, a.currency))+
         (a.fx&&a.fx.error? '<div class="smline" style="color:#e6a23c" title="'+esc(t('fxMissingTip'))+'">⚠️ '+esc(t('fxMissing'))+'</div>'
           : (a.fx&&a.fx.value_eur!=null?'<div class="smline">≈ '+mon(a.fx.value_eur)+(a.fx.stale?' <span style="color:#e6a23c" title="'+esc(t('fxStaleTip'))+'">⚠️</span>':'')+'</div>':''))+
-        ((a.loan_principal>0 && a.last_value!=null)?'<div class="smline" title="'+esc(t('lnTip'))+'">− <span style="color:#e6a23c">'+mon(a.loan_principal, a.currency)+'</span> · <span style="cursor:pointer;text-decoration:underline dotted" onclick="loanCurve('+a.id+')">'+esc(t('lnEquity'))+' '+mon(a.last_value-a.loan_principal, a.currency)+'</span> 📉</div>':'')+'</td>'+
+        ((a.loan && a.last_value!=null)?'<div class="smline" title="'+esc(t('lnTip'))+'">− <span style="color:#e6a23c">'+mon(a.loan.principal_remaining, a.currency)+'</span> · <span style="cursor:pointer;text-decoration:underline dotted" onclick="loanCurve('+a.loan.id+')">'+esc(t('lnEquity'))+' '+mon(a.last_value-a.loan.principal_remaining, a.currency)+'</span> 📉</div>':'')+'</td>'+
       '<td class="num muted">'+(a.last_val_date?fmtDate(a.last_val_date):'—')+srcLine+'</td>'+
       '<td class="num">'+(a.cost_effective?mon(a.cost_effective, a.currency):'—')+'</td>'+
       '<td class="num"><span class="'+gCls+'">'+(g==null?'—':mon(g, a.currency))+'</span>'+(gp!=null?' <span class="muted" style="font-size:11px">'+pctTxt(gp)+'</span>':'')+'</td>'+
@@ -2107,15 +2163,6 @@ function openAccountModal(id) {
       '<option value="av"'+(a&&a.wrapper==='av'?' selected':'')+'>'+esc(t('wrpAv'))+'</option>'+
       '<option value="cto"'+(a&&a.wrapper==='cto'?' selected':'')+'>'+esc(t('wrpCto'))+'</option>'+
     '</select></div>'+
-    '<div id="wrapLn" class="hidden" style="border-top:1px solid #1c242f;margin-top:12px;padding-top:10px">'+
-      '<label>🏦 '+esc(t('lnSection'))+'</label>'+
-      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'+
-        '<div><label>'+esc(t('lnPrin'))+'</label><input id="fLoanP" type="number" min="0" step="0.01" value="'+(a&&a.loan_principal?esc(a.loan_principal):'')+'" placeholder="0"></div>'+
-        '<div><label>'+esc(t('lnRate'))+'</label><input id="fLoanR" type="number" min="0" max="100" step="0.01" value="'+(a&&a.loan_rate?esc(a.loan_rate):'')+'" placeholder="0"></div>'+
-      '</div>'+
-      '<label>'+esc(t('lnMonthly'))+'</label><input id="fLoanM" type="number" min="0" step="0.01" value="'+(a&&a.loan_monthly?esc(a.loan_monthly):'')+'" placeholder="0">'+
-      '<p class="note">'+esc(t('lnNote'))+'</p>'+
-    '</div>'+
     (!a?'<label>'+esc(t('mInit'))+' <span class="muted" style="font-weight:400">'+esc(t('mInitHint'))+'</span></label><input id="fInit" type="number" step="0.01" style="width:100%">':'')+
     '<label>'+esc(t('mNotes'))+'</label><input id="fNotes" value="'+(a?esc(a.notes):'')+'" style="width:100%">'+
     '<div class="modal-actions">'+
@@ -2142,8 +2189,6 @@ function modeChanged() {
   // et épargne (assurance-vie, fonds euros)
   const wrpOk = ['bourse','epargne'].includes($('fClass').value);
   const ww = $('wrapWrp'); if (ww) ww.classList.toggle('hidden', !wrpOk);
-  // crédit lié au bien : immobilier uniquement (option ③-a)
-  const wl = $('wrapLn'); if (wl) wl.classList.toggle('hidden', $('fClass').value !== 'immobilier');
   $('symHint').textContent = auto ? (isBourse ? t('posHint') : (isCrypto ? 'ex : BTC, ETH, SOL' : 'ex : IWDA.DE, MC.PA')) : '';
   if (!showSymQty && $('fSym')) { $('fSym').value = ''; }
   if (!showSymQty && $('fQty')) { $('fQty').value = ''; }
@@ -2173,9 +2218,6 @@ async function saveAccount(id) {
     fees_pct: $('fFees') && $('fFees').value!=='' ? parseFloat($('fFees').value) : null,
     wrapper: ['bourse','epargne'].includes($('fClass').value) && $('fWrp') ? ($('fWrp').value || null) : null,
     tax_country: $('fTaxCountry') ? ($('fTaxCountry').value || '') : '',
-    loan_principal: ($('fClass').value==='immobilier' && $('fLoanP') && $('fLoanP').value) ? (parseFloat($('fLoanP').value)||0) : 0,
-    loan_rate: ($('fClass').value==='immobilier' && $('fLoanR') && $('fLoanR').value) ? (parseFloat($('fLoanR').value)||0) : 0,
-    loan_monthly: ($('fClass').value==='immobilier' && $('fLoanM') && $('fLoanM').value) ? (parseFloat($('fLoanM').value)||0) : 0,
     fx_override: (mode==='manual' && $('fCcy').value!=='EUR' && $('fFxOv').value) ? parseFloat($('fFxOv').value) : null
   };
   if (!body.name.trim()) return;
@@ -2192,53 +2234,59 @@ async function saveAccount(id) {
 }
 let LN_CHART = null;  // courbe de remboursement ouverte (destruction avant re-render)
 
-function loanCurve(id) {
-  const a = ACCOUNTS.find(x => x.id===id);
-  if (!a || !a.loan_principal) return;
-  const P0 = a.loan_principal, M = a.loan_monthly || 0, r = (a.loan_rate || 0) / 100 / 12;
-  const ccy = a.currency || 'EUR';
-  const eq = a.last_value != null ? a.last_value - P0 : null;
+async function loanCurve(lid) {
+  // v2026.09.057 : la courbe consomme l'échéancier API (calcul unique Python —
+  // plus aucun JS dupliqué). lid = id du CRÉDIT (table loans), plus du compte.
+  let loan = (typeof LOANS !== 'undefined' && LOANS) ? LOANS.find(x => x.id === lid) : null;
+  if (!loan) {  // page Crédits jamais visitée (appel depuis Actifs)
+    const dl = await api('/api/loans').catch(() => null);
+    loan = (dl && dl.loans || []).find(x => x.id === lid) || null;
+  }
+  if (!ACCOUNTS || !ACCOUNTS.length) {  // sous-titre « bien · équité » complet
+    try { const d = await api('/api/accounts'); ACCOUNTS = d.accounts; } catch (e) {}
+  }
+  const a = loan && loan.account_id ? (ACCOUNTS || []).find(x => x.id === loan.account_id) : null;
+  const sched = await api('/api/loans/' + lid + '/schedule').catch(() => null);
+  if (!sched) return;
+  const rows = sched.rows || [];
   const close = '<div class="modal-actions"><button class="btn primary" onclick="closeModal()">'+esc(t('txClose'))+'</button></div>';
-  if (!(M > 0)) {
+  if (!rows.length) {
     openModal('<h2>📉 '+esc(t('lnCurveTitle'))+'</h2><p>'+esc(t('lnNeed'))+'</p>'+close);
     return;
   }
-  if (M <= P0 * r) {  // la mensualité ne couvre même pas les intérêts
-    openModal('<h2>📉 '+esc(t('lnCurveTitle'))+'</h2><p style="color:#e6a23c">'+esc(t('lnNever'))+'</p>'+close);
-    return;
-  }
-  // amortissement français : nombre de mois restants, puis simulation mensuelle
-  // agrégée par année civile (le capital saisi est la référence « aujourd'hui »)
-  const n = Math.ceil(Math.log(M / (M - P0 * r)) / Math.log(1 + r));
-  let rest = P0, byYear = {};
-  for (let k = 1; k <= n; k++) {
-    const it = rest * r, am = M - it;
-    rest -= am;
-    const d = new Date(); d.setMonth(d.getMonth() + k);
-    const y = d.getFullYear();
+  const ccy = (loan && loan.currency) || 'EUR';
+  const P0 = loan ? loan.principal_remaining : rows[0].remaining + (rows[0].principal || 0);
+  // agrégation par année civile depuis les lignes mensuelles de l'API
+  let cum = 0, byYear = {};
+  rows.forEach(r => {
+    const y = r.month.slice(0, 4);
     if (!byYear[y]) byYear[y] = {a: 0, i: 0};
-    byYear[y].a += am; byYear[y].i += it;
-  }
+    byYear[y].a += r.principal; byYear[y].i += r.interest;
+  });
   const yrs = Object.keys(byYear).sort((x, y2) => x - y2);
-  let cum = 0, pts = [];
-  const rows = yrs.map(y => {
+  const pts = [];
+  const trows = yrs.map(y => {
     cum += byYear[y].a;
     pts.push({y: +y, v: Math.max(0, P0 - cum)});
     return '<tr><td>'+y+'</td><td class="num">'+mon(byYear[y].a, ccy)+'</td>'+
       '<td class="num muted">'+mon(byYear[y].i, ccy)+'</td>'+
       '<td class="num">'+mon(Math.max(0, P0 - cum), ccy)+'</td></tr>';
   }).join('');
-  const end = new Date(); end.setMonth(end.getMonth() + n);
-  const dstr = end.getFullYear()+'-'+String(end.getMonth()+1).padStart(2,'0')+'-01';
-  const totInt = n * M - P0;
-  const fin = '<p class="note">'+esc(tF('lnEnd', {d: fmtDate(dstr), n: (n/12).toFixed(1), i: mon(totInt, ccy)}))+'</p>';
-  openModal('<h2>📉 '+esc(t('lnCurveTitle'))+'</h2>'+
-    '<p class="note" style="margin-top:0">'+esc(tF('lnCurveSub', {
-      v: mon(a.last_value, ccy), p: mon(P0, ccy), q: eq==null?'—':mon(eq, ccy)}))+'</p>'+
+  const endDate = (loan && loan.computed && loan.computed.end_date) || (yrs.length ? yrs[yrs.length-1] + '-12-31' : '');
+  const totInt = (loan && loan.computed && loan.computed.interests_left != null)
+    ? loan.computed.interests_left
+    : rows.reduce((s2, r) => s2 + (r.interest || 0), 0);
+  const fin = '<p class="note">'+esc(tF('lnEnd', {d: fmtDate(endDate), n: (sched.months_left/12).toFixed(1), i: mon(totInt, ccy)}))+'</p>';
+  const sub = (a && a.last_value != null)
+    ? '<p class="note" style="margin-top:0">'+esc(tF('lnCurveSub', {
+        v: mon(a.last_value, a.currency || ccy), p: mon(P0, ccy),
+        q: mon(a.last_value - P0, a.currency || ccy)}))+'</p>'
+    : (loan ? '<p class="note" style="margin-top:0">'+esc(tF('lnCurveSub', {v:'—', p: mon(P0, ccy), q:'—'}))+'</p>' : '');
+  openModal('<h2>📉 '+esc(t('lnCurveTitle'))+'</h2>'+sub+
     '<div style="height:170px"><canvas id="lnCanvas"></canvas></div>'+
     '<div style="max-height:190px;overflow:auto;margin-top:8px"><table style="width:100%"><thead><tr><th>'+esc(t('lnYear'))+'</th>'+
     '<th class="num">'+esc(t('lnAmort'))+'</th><th class="num">'+esc(t('lnInterest'))+'</th><th class="num">'+esc(t('lnLeft'))+'</th></tr></thead>'+
-    '<tbody>'+rows+'</tbody></table></div>'+fin+close, true);
+    '<tbody>'+trows+'</tbody></table></div>'+fin+close, true);
   const cv = document.getElementById('lnCanvas');
   if (cv && window.Chart) {
     if (LN_CHART) LN_CHART.destroy();
@@ -4171,6 +4219,193 @@ async function cwDel(wid) {
   } catch (e) {
     alert(e.message);
   }
+}
+
+/* ---------- 💳 Crédits (module, v2026.09.057) ---------- */
+// Passifs suivis par type : le restant dû est DÉCLARÉ (source de vérité), la
+// courbe/le recalcul appellent l'API (calcul unique Python, zéro JS dupliqué).
+let LOANS = [], LOAN_VW = '', LOAN_CARDS = null;
+
+function loanTypeE(tp) { return {immo:'🏠', auto:'🚗', conso:'🛒'}[tp] || '💳'; }
+function loanTypeL(tp) { return {immo:t('loanTImmo'), auto:t('loanTAuto'), conso:t('loanTConso')}[tp] || tp; }
+
+async function loanLoad() {
+  document.querySelectorAll('.loan-admin').forEach(b => b.classList.toggle('hidden', !!MEMBER));
+  const d = await api('/api/loans' + scopeSuffix()).catch(() => null);
+  if (!d) { $('loanWrap').innerHTML = '<div class="crowd-empty">'+esc(t('loanErrLoad'))+'</div>'; return; }
+  LOANS = d.loans || [];
+  LOAN_CARDS = d.totals || {total_eur: 0, per_type: {}, fx_missing: []};
+  loanRender();
+}
+function loanView(tp) {
+  LOAN_VW = tp || '';
+  document.querySelectorAll('#loanSeg button').forEach(b => b.classList.toggle('on', b.dataset.v === LOAN_VW));
+  loanRender();
+}
+function loanFiltered() { return LOANS.filter(x => !LOAN_VW || x.loan_type === LOAN_VW); }
+function loanRender() {
+  const T = LOAN_CARDS || {};
+  // totaux GLOBAUX (tous types, comme les autres modules) ; les sommes de
+  // mensualités/assurance/intérêts ne sont données que si TOUT est en EUR
+  // (additionner des devises mélangées serait faux — jamais de 0 muet)
+  const allEur = LOANS.every(x => !x.currency || x.currency === 'EUR');
+  const sum = f => LOANS.reduce((s2, x) => s2 + (f(x) || 0), 0);
+  const pay = allEur && LOANS.length ? sum(x => x.monthly_payment) : null;
+  const ins = allEur && LOANS.length ? sum(x => x.insurance_monthly) : null;
+  const int = allEur && LOANS.length ? sum(x => x.computed && x.computed.interests_left != null ? x.computed.interests_left : 0) : null;
+  const ends = LOANS.map(x => x.computed && x.computed.end_date).filter(Boolean).sort();
+  const paySub = t('loanCardPayS') + (ins > 0 ? ' · 🛡️ ' + mon(ins) : '');
+  $('loanCards').innerHTML = [
+    ['💳', t('loanCardRem'), mon(T.total_eur), t('loanCardRemS')],
+    ['📆', t('loanCardPay'), pay == null ? '—' : mon(pay), paySub],
+    ['💸', t('loanCardInt'), int == null ? '—' : mon(int), t('loanCardIntS')],
+    ['🏁', t('loanCardEnd'), ends.length ? fmtDate(ends[0]) : '—', t('loanCardEndS')],
+  ].map(c => '<div class="card"><div class="k">'+c[0]+' '+esc(c[1])+'</div><div class="v">'+c[2]+'</div><div class="s">'+esc(c[3])+'</div></div>').join('');
+  if (!LOANS.length) {
+    $('loanWrap').innerHTML = '<div class="crowd-empty">'+esc(t('loanEmpty'))+
+      (!MEMBER ? ' <button class="btn primary" onclick="loanModal()">➕ '+esc(t('loanAdd'))+'</button>' : '')+'</div>';
+    applyI18n(); return;
+  }
+  const list = loanFiltered();
+  if (!list.length) { $('loanWrap').innerHTML = '<div class="crowd-empty">'+esc(t('loanEmpty'))+'</div>'; applyI18n(); return; }
+  const rows = list.map(x => {
+    const c = x.computed || {};
+    const endCell = c.never ? '<span class="muted" style="color:#e6a23c" title="'+esc(t('lnNever'))+'">'+esc(t('loanNever'))+'</span>'
+      : (c.end_date ? fmtDate(c.end_date) : '—');
+    const fxSub = x.currency && x.currency !== 'EUR'
+      ? '<div class="muted" style="font-size:11px">≈ '+mon(x.eur_remaining)+'</div>' : '';
+    const ow = (FAMILY && !MEMBER) ? '<div class="muted" style="font-size:11px">'+esc(x.owner)+'</div>' : '';
+    return '<tr>'+
+      '<td><span style="font-weight:600">'+esc(x.name)+'</span>'+
+      (x.lender ? '<div class="muted" style="font-size:11px">'+esc(x.lender)+'</div>' : '')+ow+'</td>'+
+      '<td><span class="av-typ">'+loanTypeE(x.loan_type)+' '+esc(loanTypeL(x.loan_type))+'</span></td>'+
+      '<td class="num" style="font-weight:700">'+mon(x.principal_remaining, x.currency)+fxSub+'</td>'+
+      '<td class="num muted">'+(x.rate_annual ? x.rate_annual.toLocaleString(locale(),{maximumFractionDigits:2})+' %' : '—')+'</td>'+
+      '<td class="num">'+mon(x.monthly_payment, x.currency)+
+      (x.insurance_monthly ? '<div class="muted" style="font-size:11px" title="'+esc(t('loanCardIns'))+'">🛡️ '+mon(x.insurance_monthly, x.currency)+'</div>' : '')+'</td>'+
+      '<td class="num muted" style="white-space:nowrap">'+endCell+'</td>'+
+      '<td>'+(x.account_name ? '<span class="badge">🏠 '+esc(x.account_name)+'</span>' : '<span class="muted">—</span>')+'</td>'+
+      (!MEMBER ? '<td class="rowacts">'+
+        '<button class="btn small" title="'+esc(t('lnTip'))+'" onclick="loanCurve('+x.id+')">📉</button>'+
+        '<button class="btn small" title="'+esc(t('loanRecomputeTitle'))+'" onclick="loanRecompute('+x.id+')">↻</button>'+
+        '<button class="btn small" title="'+esc(t('actEditTitle'))+'" onclick="loanModal('+x.id+')">✏️</button>'+
+        '<button class="btn small danger" title="'+esc(t('actDelTitle'))+'" onclick="loanDel('+x.id+')">🗑</button>'+
+        '</td>' : '<td></td>')+
+      '</tr>';
+  }).join('');
+  $('loanWrap').innerHTML = '<table><thead><tr>'+
+    '<th>'+esc(t('loanColName'))+'</th><th>'+esc(t('loanColType'))+'</th><th class="num">'+esc(t('loanColRem'))+'</th>'+
+    '<th class="num">'+esc(t('loanColRate'))+'</th><th class="num">'+esc(t('loanColPay'))+'</th>'+
+    '<th class="num">'+esc(t('loanColEnd'))+'</th><th>'+esc(t('loanColProp'))+'</th><th></th></tr></thead><tbody>'+
+    rows+'</tbody></table>';
+  applyI18n();
+}
+async function loanModal(id) {
+  const l = id ? LOANS.find(x => x.id === id) : null;
+  if (!ACCOUNTS || !ACCOUNTS.length) {
+    try { const d = await api('/api/accounts'); ACCOUNTS = d.accounts; } catch (e) {}
+  }
+  const immos = (ACCOUNTS || []).filter(a => a.asset_class === 'immobilier');
+  const linkOpts = immos.map(a => '<option value="'+a.id+'"'+(l && l.account_id === a.id ? ' selected' : '')+'>'+esc(a.name)+'</option>').join('');
+  const cy = (l && l.currency) || 'EUR';
+  openModal(
+    '<h2>'+(l ? esc(t('loanMTtlEdit')) : esc(t('loanMTtl')))+'</h2>'+
+    '<div class="grid2">'+
+      '<div><label>'+esc(t('loanMName'))+'</label><input id="fLName" value="'+(l ? esc(l.name) : '')+'" style="width:100%"></div>'+
+      '<div><label>'+esc(t('loanMType'))+'</label><select id="fLType" style="width:100%">'+
+        ['immo','auto','conso'].map(k => '<option value="'+k+'"'+(l && l.loan_type === k ? ' selected' : '')+'>'+loanTypeE(k)+' '+esc(loanTypeL(k))+'</option>').join('')+
+      '</select></div>'+
+    '</div>'+
+    '<div class="grid2">'+
+      '<div><label>'+esc(t('loanMLender'))+'</label><input id="fLLender" value="'+(l ? esc(l.lender) : '')+'" style="width:100%"></div>'+
+      '<div><label>'+esc(t('loanMCcy'))+'</label><select id="fLCcy" style="width:100%">'+
+        Object.keys(CCY).map(k => '<option value="'+k+'"'+(cy === k ? ' selected' : '')+'>'+k+' — '+esc(CCY_LBL[k])+'</option>').join('')+
+      '</select></div>'+
+    '</div>'+
+    '<div class="grid2">'+
+      '<div><label>'+esc(t('loanMInit'))+'</label><input id="fLInit" type="number" min="0" step="0.01" value="'+(l ? esc(l.principal_initial) : '')+'" style="width:100%"></div>'+
+      '<div><label>'+esc(t('loanMRem'))+'</label><input id="fLRem" type="number" min="0" step="0.01" value="'+(l ? esc(l.principal_remaining) : '')+'" style="width:100%"></div>'+
+    '</div>'+
+    '<div class="grid2">'+
+      '<div><label>'+esc(t('loanMRate'))+'</label><input id="fLRate" type="number" min="0" max="100" step="0.01" value="'+(l ? esc(l.rate_annual) : '')+'" style="width:100%"></div>'+
+      '<div><label>'+esc(t('loanMPay'))+'</label><input id="fLPay" type="number" min="0" step="0.01" value="'+(l ? esc(l.monthly_payment) : '')+'" style="width:100%"></div>'+
+    '</div>'+
+    '<div class="grid2">'+
+      '<div><label>'+esc(t('loanMIns'))+'</label><input id="fLIns" type="number" min="0" step="0.01" value="'+(l ? esc(l.insurance_monthly) : '')+'" style="width:100%"></div>'+
+      '<div><label>'+esc(t('loanMStart'))+'</label><input id="fLStart" type="date" value="'+(l && l.start_date ? l.start_date.slice(0,10) : '')+'" style="width:100%"></div>'+
+    '</div>'+
+    '<label>'+esc(t('loanMLink'))+'</label><select id="fLLink" style="width:100%"><option value="">'+esc(t('loanMLinkNone'))+'</option>'+linkOpts+'</select>'+
+    '<label>'+esc(t('loanMNotes'))+'</label><input id="fLNotes" value="'+(l ? esc(l.notes) : '')+'" style="width:100%">'+
+    '<div class="modal-actions">'+
+      '<button class="btn ghost" onclick="closeModal()">'+esc(t('cancel'))+'</button>'+
+      '<button class="btn primary" onclick="loanSave('+(id || 'null')+')">'+esc(t('save'))+'</button>'+
+    '</div>'
+  );
+}
+async function loanSave(id) {
+  const name = $('fLName').value.trim();
+  const rem = parseFloat($('fLRem').value) || 0;
+  const pay = parseFloat($('fLPay').value) || 0;
+  if (!name || rem <= 0 || pay <= 0) { alert(t('loanErrFill')); return; }
+  const body = {
+    name, loan_type: $('fLType').value, lender: $('fLLender').value.trim(),
+    currency: $('fLCcy').value,
+    principal_initial: parseFloat($('fLInit').value) || 0,
+    principal_remaining: rem,
+    rate_annual: parseFloat($('fLRate').value) || 0,
+    monthly_payment: pay,
+    insurance_monthly: parseFloat($('fLIns').value) || 0,
+    start_date: $('fLStart').value || null,
+    account_id: $('fLLink').value ? parseInt($('fLLink').value, 10) : null,
+    notes: $('fLNotes').value.trim(), active: 1
+  };
+  try {
+    if (id) await api('/api/loans/' + id, {method: 'PUT', body: JSON.stringify(body)});
+    else await api('/api/loans', {method: 'POST', body: JSON.stringify(body)});
+    closeModal();
+    await loanLoad(); loadSummary(); loadAccounts();
+  } catch (e) { alert(e.message); }
+}
+async function loanDel(id) {
+  const l = LOANS.find(x => x.id === id);
+  if (!l || !confirm(t('loanDelAsk'))) return;
+  try {
+    await api('/api/loans/' + id, {method: 'DELETE'});
+    await loanLoad(); loadSummary(); loadAccounts();
+  } catch (e) { alert(e.message); }
+}
+async function loanRecompute(id) {
+  const l = LOANS.find(x => x.id === id); if (!l) return;
+  let r = null;
+  try { r = await api('/api/loans/' + id + '/recompute', {method: 'POST', body: '{}'}); }
+  catch (e) { alert(e.message); return; }
+  const diff = Math.abs(r.delta || 0) < 0.005;
+  const close = '<div class="modal-actions"><button class="btn ghost" onclick="closeModal()">'+esc(t('cancel'))+'</button>'+
+    (diff ? '' : '<button class="btn primary" onclick="loanApplyRec('+id+','+r.theoretical_remaining+')">'+esc(t('loanApply'))+'</button>')+'</div>';
+  const body = diff
+    ? '<p>'+esc(t('loanRecNone'))+'</p>'
+    : '<p>'+esc(tF('loanRecText', {
+        d: fmtDate(new Date().toISOString().slice(0, 10)),
+        t: mon(r.theoretical_remaining, l.currency),
+        r: mon(r.declared_remaining, l.currency),
+        g: mon(r.delta, l.currency)}))+'</p>';
+  openModal('<h2>↻ '+esc(t('loanRecTitle'))+'</h2>'+body+close);
+}
+async function loanApplyRec(id, theo) {
+  const l = LOANS.find(x => x.id === id); if (!l) return;
+  const body = {
+    name: l.name, loan_type: l.loan_type, lender: l.lender || '',
+    currency: l.currency || 'EUR', principal_initial: l.principal_initial || 0,
+    principal_remaining: theo, rate_annual: l.rate_annual || 0,
+    monthly_payment: l.monthly_payment || 0, insurance_monthly: l.insurance_monthly || 0,
+    start_date: l.start_date || null, account_id: l.account_id || null,
+    notes: l.notes || '', active: 1
+  };
+  try {
+    await api('/api/loans/' + id, {method: 'PUT', body: JSON.stringify(body)});
+    closeModal();
+    await loanLoad(); loadSummary(); loadAccounts();
+  } catch (e) { alert(e.message); }
 }
 
 window.addEventListener('DOMContentLoaded', () => {

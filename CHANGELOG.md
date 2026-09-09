@@ -2,6 +2,38 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.057] — 2026-09-09
+
+### Added — Loans module UI (💳 Crédits page + debts on dashboard)
+
+Second step of the loans chantier (backend v056): the dedicated page and
+dashboard wiring, legacy loan fields removed from the account form.
+
+- New « 💳 Crédits » page (nav after Assurance vie): summary cards
+  (remaining principal, monthly payments excl. insurance + insurance
+  sub-line, interest remaining, earliest estimated end), type tabs
+  (All / House / Car / Consumer), loans table (loan, type chip, remaining
+  (≈ EUR when foreign), rate, monthly + 🛡️ insurance sub-line, estimated
+  end or « never », linked property badge, 📉 curve / ↻ recompute / ✏️ /
+  🗑 actions), add/edit modal (type, lender, currency, initial &
+  remaining principal, rate, monthly excl. insurance, monthly insurance,
+  start date, optional linked property, notes), note explaining the
+  declared-remaining model (no double entry).
+- Repayment curve now consumes the API schedule (`/api/loans/{id}/
+  schedule`) — single amortization engine, the duplicated JS curve is
+  gone (design decision D). Works from the Actifs row and the page.
+- Recompute flow: ↻ proposes the theoretical remaining (modal with gap),
+  Apply writes it back — never applied automatically.
+- Dashboard: liabilities block under the asset donut (outside the
+  breakdown) — 💳 Dettes with part % and per-type detail, tooltip
+  « sum of remaining principals », hidden when no debt.
+- Assets: the « − remaining · equity 📉 » line of a real-estate account
+  now reads its linked loan (`/api/accounts` payload exposes `loan`).
+- Account form: legacy loan_* fields (v033) removed — loans are managed
+  in the dedicated page only.
+- i18n ×4 for all new keys; member scope: page readable, writes are
+  admin-gated as elsewhere.
+
 ## [2026.09.056] — 2026-09-09
 
 ### Added — Loans module backend (💳 Crédits)

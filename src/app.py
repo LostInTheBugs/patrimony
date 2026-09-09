@@ -438,7 +438,7 @@ def _seed_demo() -> None:
                 " principal_initial, principal_remaining, rate_annual,"
                 " monthly_payment, start_date, account_id)"
                 " VALUES (?,?,?,?,?,?,?,?,?,?,?)",
-                (owner, "Prêt Appartement locatif", "immo", "—", "EUR",
+                (owner, "Prêt Appartement locatif", "immo", "", "EUR",
                  92000, 92000, 2.8, 520, open_ym + "-01", aid),
             )
         oy, om = int(open_ym[:4]), int(open_ym[5:7])
@@ -1455,6 +1455,17 @@ def _account_payload(row: sqlite3.Row, latest: dict | None, txn: dict | None = N
                 "value_eur": round(latest["value"] / fxr["rate"], 2),
                 "stale": fx.warn(fxr, latest["date"]),
             }
+    # module Crédits (v2026.09.057) : crédit lié au bien (équité « valeur −
+    # restant » + courbe dans la ligne Actifs) — le passif vit dans loans
+    p["loan"] = None
+    if conn and row["asset_class"] == "immobilier":
+        loan = conn.execute(
+            "SELECT id, name, currency, principal_remaining, rate_annual,"
+            " monthly_payment FROM loans WHERE account_id=? AND active=1"
+            " ORDER BY id LIMIT 1", (row["id"],)
+        ).fetchone()
+        if loan:
+            p["loan"] = dict(loan)
     return p
 
 
