@@ -456,6 +456,17 @@
         </div>
       </div>
       <div class="cards" id="actCards"></div>
+      <div class="chart-row" style="margin-top:8px">
+        <div class="panel">
+          <h3>📈 <span data-i18n="actChTtl">Évolution du portefeuille</span> <span class="hint" data-i18n="actChHint">fin de mois — enveloppes PEA &amp; CTO</span></h3>
+          <div class="chartbox"><canvas id="chActLine"></canvas></div>
+        </div>
+        <div class="panel">
+          <h3>🥧 <span data-i18n="actDoughTtl">Répartition par titre</span></h3>
+          <div class="chartbox"><canvas id="chActDough"></canvas></div>
+          <div class="legend" id="actLeg"></div>
+        </div>
+      </div>
       <div id="actWrap" style="margin-top:6px"></div>
       <div class="muted" style="font-size:11.5px;margin-top:10px"><span data-i18n="actNote">Les enveloppes PEA/CTO alimentent automatiquement la classe Bourse &amp; assurances-vie du tableau de bord (zéro double saisie) : la valeur affichée est celle de la dernière valorisation du compte, les lignes titres sont informatives (cours du cache).</span></div>
     </section>
@@ -465,6 +476,17 @@
         <h1>🛡️ <span data-i18n="avTtl">Assurance vie</span></h1>
       </div>
       <div class="cards" id="avCards"></div>
+      <div class="chart-row" style="margin-top:8px">
+        <div class="panel">
+          <h3>📈 <span data-i18n="avChTtl">Évolution des contrats</span> <span class="hint" data-i18n="avChHint">fonds € + unités de compte — fin de mois</span></h3>
+          <div class="chartbox"><canvas id="chAvLine"></canvas></div>
+        </div>
+        <div class="panel">
+          <h3>🥧 <span data-i18n="avDoughTtl">Fonds € vs unités de compte</span></h3>
+          <div class="chartbox"><canvas id="chAvDough"></canvas></div>
+          <div class="legend" id="avLeg"></div>
+        </div>
+      </div>
       <div class="tablewrap" style="margin-top:14px" id="avWrap"></div>
       <div class="muted" style="font-size:11.5px;margin-top:10px"><span data-i18n="avNote">Un compte = un contrat. La classe Épargne = fonds €, la classe Bourse = unités de compte. Les versements sont lus dans vos opérations — enregistrez vos dépôts et retraits par contrat pour un coût exact.</span></div>
     </section>
@@ -814,6 +836,7 @@ let FAMILY_LIST = [];
 /* ---------------- i18n FR / DE / LU / EN ---------------- */
 const I18N = {
 fr: {
+  actChTtl:'Évolution du portefeuille', actChHint:'fin de mois — enveloppes PEA & CTO', actDoughTtl:'Répartition par titre', actDoughOther:'Autres / espèces', avChTtl:'Évolution des contrats', avChHint:'fonds € + unités de compte — fin de mois', avDoughTtl:'Fonds € vs unités de compte', mArea:'Surface (m²)', mPriceM2:'Prix de référence (€/m²)', mImmoHint:'Estimation indicative = surface × prix de référence — proposée, jamais appliquée automatiquement', estResale:'Valeur résiduelle (argus)', estResaleHint:'une estimation par an suffit — mise à jour suggérée au-delà de 12 mois', estResaleDate:'Estimé le', estNetTtl:'Coût net à date', estNetSub:'cash-out {b} − argus {r}', estStale:'⚠️ argus vieux de {n} mois — à réactualiser', estEstTtl:'Estimation indicative', estEstSub:'{a} m² × {p} €/m² de référence', estApply:'Appliquer à la valorisation', estApplyHint:'crée une valorisation manuelle datée du jour',
   estImmoSplit:'crédit {i} · dépenses {u}',
   estOccupSub:'{c} mois couverts sur {m}',
   navEst:'Immo & TCO', estTtl:'Immo & coûts de possession', estSegLoc:'Locations', estSegTco:'Coûts (TCO)',
@@ -1020,6 +1043,7 @@ avNote:'Un compte = un contrat. La classe Épargne = fonds €, la classe Bourse
   clsImmo:'Immobilier', clsCrowd:'Crowdfunding', clsCrypto:'Cryptomonnaies', clsMetaux:'Métaux précieux', clsDivers:'Divers'
 },
 en: {
+  actChTtl:'Portfolio value over time', actChHint:'month-end — PEA & CTO wrappers', actDoughTtl:'Allocation by holding', actDoughOther:'Other / cash', avChTtl:'Contracts value over time', avChHint:'euro funds + unit-linked — month-end', avDoughTtl:'Euro funds vs unit-linked', mArea:'Area (m²)', mPriceM2:'Reference price (€/m²)', mImmoHint:'Indicative estimate = area × reference price — proposed, never applied automatically', estResale:'Residual value (argus)', estResaleHint:'once a year is enough — a gentle reminder suggests a refresh after 12 months', estResaleDate:'Estimated on', estNetTtl:'Net cost to date', estNetSub:'cash out {b} − resale {r}', estStale:'⚠️ resale estimate {n} months old — refresh due', estEstTtl:'Indicative estimate', estEstSub:'{a} m² × {p} €/m² reference', estApply:'Apply to valuation', estApplyHint:'creates a manual valuation dated today',
   estImmoSplit:'loan {i} · expenses {u}',
   estOccupSub:'{c} months covered out of {m}',
   navEst:'Real estate & TCO', estTtl:'Real estate & cost of ownership', estSegLoc:'Rentals', estSegTco:'Costs (TCO)',
@@ -1226,6 +1250,7 @@ avNote:'One account = one contract. Savings class = funds €, Stocks class = un
   clsImmo:'Real estate', clsCrowd:'Crowdfunding', clsCrypto:'Cryptocurrencies', clsMetaux:'Precious metals', clsDivers:'Other'
 },
 de: {
+  actChTtl:'Entwicklung des Portfolios', actChHint:'Monatsende — PEA- & CTO-Hüllen', actDoughTtl:'Verteilung nach Position', actDoughOther:'Sonstiges / Cash', avChTtl:'Entwicklung der Verträge', avChHint:'Euro-Fonds + Unités de compte — Monatsende', avDoughTtl:'Euro-Fonds vs. Unités de compte', mArea:'Fläche (m²)', mPriceM2:'Referenzpreis (€/m²)', mImmoHint:'Indikative Schätzung = Fläche × Referenzpreis — wird nie automatisch übernommen', estResale:'Restwert (Argus)', estResaleHint:'einmal pro Jahr genügt — nach 12 Monaten wird eine Aktualisierung angeregt', estResaleDate:'Geschätzt am', estNetTtl:'Netto-Gesamtkosten', estNetSub:'Auszahlung {b} − Restwert {r}', estStale:'⚠️ Restwert {n} Monate alt — aktualisieren', estEstTtl:'Indikative Schätzung', estEstSub:'{a} m² × {p} €/m² Referenz', estApply:'Als Bewertung übernehmen', estApplyHint:'erstellt eine manuelle Bewertung von heute',
   estImmoSplit:'Kredit {i} · Ausgaben {u}',
   estOccupSub:'{c} von {m} Monaten belegt',
   navEst:'Immo & TCO', estTtl:'Immobilien & Gesamtkosten', estSegLoc:'Vermietungen', estSegTco:'Kosten (TCO)',
@@ -1431,6 +1456,7 @@ avNote:'Ein Konto = ein Vertrag. Sparklasse = fonds €, Wertpapierklasse = UC. 
   clsImmo:'Immobilien', clsCrowd:'Crowdfunding', clsCrypto:'Kryptowährungen', clsMetaux:'Edelmetalle', clsDivers:'Sonstiges'
 },
 lu: {
+  actChTtl:'Entwécklung vum Portefeuille', actChHint:'Enn vum Mount — PEA- & CTO-Ëmhüllen', actDoughTtl:'Opdeelung no Positioun', actDoughOther:'Aneres / Cash', avChTtl:'Entwécklung vun de Kontrakter', avChHint:'Euro-Fongen + Unité de compte — Enn vum Mount', avDoughTtl:'Euro-Fongen vs Unité de compte', mArea:'Fläch (m²)', mPriceM2:'Referenzpräis (€/m²)', mImmoHint:'Indikativ Schätzung = Fläch × Referenzpräis — ni ni je automatesch iwwerholl', estResale:'Reschterwäert (Argus)', estResaleHint:'eng Schätzung pro Joer duer — sanft Erënnerung no 12 Méint', estResaleDate:'Geschätzt den', estNetTtl:'Netto-Käschten bis haut', estNetSub:'Cash-Out {b} − Reschterwäert {r}', estStale:'⚠️ Reschterwäert {n} Méint al — aktualiséieren', estEstTtl:'Indikativ Schätzung', estEstSub:'{a} m² × {p} €/m² Referenz', estApply:'Op d’Bewäertung uwenden', estApplyHint:'erstellt eng manuell Bewäertung vun haut',
   estImmoSplit:'Kredit {i} · Ausgaben {u}',
   estOccupSub:'{c} Méint ofgedeckt vu {m}',
   navEst:'Immo & TCO', estTtl:'Immobilien & Käschte vum Besëtz', estSegLoc:'Lokatiounen', estSegTco:'Käschten (TCO)',
@@ -2275,6 +2301,11 @@ function openAccountModal(id) {
       '<option value="av"'+(a&&a.wrapper==='av'?' selected':'')+'>'+esc(t('wrpAv'))+'</option>'+
       '<option value="cto"'+(a&&a.wrapper==='cto'?' selected':'')+'>'+esc(t('wrpCto'))+'</option>'+
     '</select></div>'+
+    '<div class="grid2">'+
+      '<div id="wrapImmoEst" class="hidden"><label>'+esc(t('mArea'))+'</label><input id="fArea" type="number" step="0.1" min="0" value="'+(a&&a.area_m2!=null?a.area_m2:'')+'" style="width:100%"></div>'+
+      '<div id="wrapImmoPx" class="hidden"><label>'+esc(t('mPriceM2'))+'</label><input id="fPriceM2" type="number" step="1" min="0" value="'+(a&&a.price_m2!=null?a.price_m2:'')+'" style="width:100%"></div>'+
+    '</div>'+
+    '<div id="immoEstHint" class="hidden muted" style="font-size:11.5px;margin:-2px 0 8px">'+esc(t('mImmoHint'))+'</div>'+
     (!a?'<label>'+esc(t('mInit'))+' <span class="muted" style="font-weight:400">'+esc(t('mInitHint'))+'</span></label><input id="fInit" type="number" step="0.01" style="width:100%">':'')+
     '<label>'+esc(t('mNotes'))+'</label><input id="fNotes" value="'+(a?esc(a.notes):'')+'" style="width:100%">'+
     '<div class="modal-actions">'+
@@ -2301,6 +2332,12 @@ function modeChanged() {
   // et épargne (assurance-vie, fonds euros)
   const wrpOk = ['bourse','epargne'].includes($('fClass').value);
   const ww = $('wrapWrp'); if (ww) ww.classList.toggle('hidden', !wrpOk);
+  // estimation immo (v2026.09.061) : surface & prix au m² pour la classe
+  // immobilier uniquement
+  const isImmo = $('fClass').value === 'immobilier';
+  const wi = $('wrapImmoEst'); if (wi) wi.classList.toggle('hidden', !isImmo);
+  const wp = $('wrapImmoPx'); if (wp) wp.classList.toggle('hidden', !isImmo);
+  const wh = $('immoEstHint'); if (wh) wh.classList.toggle('hidden', !isImmo);
   $('symHint').textContent = auto ? (isBourse ? t('posHint') : (isCrypto ? 'ex : BTC, ETH, SOL' : 'ex : IWDA.DE, MC.PA')) : '';
   if (!showSymQty && $('fSym')) { $('fSym').value = ''; }
   if (!showSymQty && $('fQty')) { $('fQty').value = ''; }
@@ -2330,7 +2367,9 @@ async function saveAccount(id) {
     fees_pct: $('fFees') && $('fFees').value!=='' ? parseFloat($('fFees').value) : null,
     wrapper: ['bourse','epargne'].includes($('fClass').value) && $('fWrp') ? ($('fWrp').value || null) : null,
     tax_country: $('fTaxCountry') ? ($('fTaxCountry').value || '') : '',
-    fx_override: (mode==='manual' && $('fCcy').value!=='EUR' && $('fFxOv').value) ? parseFloat($('fFxOv').value) : null
+    fx_override: (mode==='manual' && $('fCcy').value!=='EUR' && $('fFxOv').value) ? parseFloat($('fFxOv').value) : null,
+    area_m2: $('fArea') && $('fArea').value!=='' ? parseFloat($('fArea').value) : null,
+    price_m2: $('fPriceM2') && $('fPriceM2').value!=='' ? parseFloat($('fPriceM2').value) : null
   };
   if (!body.name.trim()) return;
   if (mode==='auto' && !isBourseAuto && (!body.symbol || body.quantity<=0)) { alert(t('mAutoAlert')); return; }
@@ -4078,12 +4117,101 @@ function invValDate(d, stale) {
   if (stale) return base + ' <span class="warn" style="font-size:11px" title="'+esc(t('invStale'))+'">⚠</span>';
   return base;
 }
+/* ---------- graphiques des pages Actions / AV (v2026.09.061) ---------- */
+const CH_PAL = ['#3fb950','#58a6ff','#d29922','#bc8cff','#f778ba','#39c5cf','#f0883e','#7ee787','#a5d6ff','#ffa657','#e3b341','#8b949e'];
+function chFmtMonth(ym) {
+  try { return new Date(String(ym)+'-01T12:00').toLocaleDateString(locale(), {month:'short', year:'2-digit'}); }
+  catch (e) { return String(ym); }
+}
+function chBlank(canvasId) {
+  const cv = $(canvasId); if (!cv) return;
+  const box = cv.parentNode;
+  box.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#8b949e;font-size:13px">—</div>';
+}
+function chLineDraw(canvasId, holder, labels, values) {
+  if (window[holder]) { window[holder].destroy(); window[holder] = null; }
+  const cv = $(canvasId); if (!cv) return;
+  if (!values || values.length < 2 || values.every(v => !v)) { chBlank(canvasId); return; }
+  const ctx = cv.getContext('2d');
+  window[holder] = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets: [{ data: values, label: '',
+      borderColor: '#58a6ff', backgroundColor: 'rgba(88,166,255,.12)',
+      fill: true, tension: .25, pointRadius: 0, borderWidth: 2 }]},
+    options: { responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: c => ' ' + (DISCRET ? '•••' : fmt(c.parsed.y)) } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#8b949e', font: { size: 10 }, maxTicksLimit: 10 } },
+        y: { grid: { color: '#1c242f' }, ticks: { color: '#8b949e', font: { size: 9 }, callback: v => DISCRET ? '•••' : fmt(v) } }
+      } }
+  });
+}
+function chDoughDraw(canvasId, holder, legId, items) {
+  if (window[holder]) { window[holder].destroy(); window[holder] = null; }
+  const cv = $(canvasId); const leg = $(legId);
+  const total = (items || []).reduce((s, x) => s + (x.value || 0), 0);
+  if (!total) { chBlank(canvasId); if (leg) leg.innerHTML = ''; return; }
+  items = items.slice().sort((a, b) => b.value - a.value);
+  const labels = items.map(x => x.label);
+  const vals = items.map(x => x.value);
+  const colors = items.map((x, i) => CH_PAL[i % CH_PAL.length]);
+  const ctx = cv.getContext('2d');
+  window[holder] = new Chart(ctx, { type: 'doughnut',
+    data: { labels, datasets: [{ data: vals, backgroundColor: colors, borderWidth: 0 }] },
+    options: { responsive: true, maintainAspectRatio: false, cutout: '68%',
+      plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: c => ' ' + c.label + ' : ' + (DISCRET ? '•••' : fmt(c.parsed)) } } } } });
+  if (leg) leg.innerHTML = items.map((x, i) =>
+    '<span class="li"><span class="dot" style="background:'+colors[i]+'"></span>'+esc(x.label)+' — '+(DISCRET ? '•••' : mon(x.value))+'</span>').join('');
+}
+async function chPageLine(canvasId, holder, ids) {
+  const d = await api('/api/history?ids=' + ids.join(',') + '&months=120'
+    + scopeSuffix().replace('?', '&')).catch(() => null);
+  if (!d || !(d.values || []).length) { chBlank(canvasId); return; }
+  const v = d.values || [];
+  let start = v.findIndex(x => x > 0);
+  if (start < 0) { chBlank(canvasId); return; }
+  start = Math.max(0, start - 1);  // garde un zéro avant pour la rampe
+  chLineDraw(canvasId, holder, d.labels.slice(start), v.slice(start));
+}
+async function actCharts(d) {
+  if (!window.Chart) return;
+  const accs = (d.wrappers || []).flatMap(w => (w.accounts || []).filter(a => a.active !== false));
+  if (!accs.length) { chBlank('chActLine'); chBlank('chActDough'); return; }
+  // donut par titre : positions agrégées + résidu espèces/autres
+  const seg = [];
+  let posSum = 0;
+  accs.forEach(a => (a.positions || []).forEach(p => {
+    if (p.active === false || p.value_eur == null || p.value_eur <= 0) return;
+    posSum += p.value_eur;
+    const lbl = (p.symbol || p.label || '—');
+    const ex = seg.find(x => x.label === lbl);
+    if (ex) ex.value += p.value_eur; else seg.push({ label: lbl, value: p.value_eur });
+  }));
+  const rest = accs.reduce((s, a) => s + (a.value || 0), 0) - posSum;
+  if (rest > 1) seg.push({ label: t('actDoughOther'), value: rest });
+  chDoughDraw('chActDough', 'ACT_DOUGH', 'actLeg', seg);
+  await chPageLine('chActLine', 'ACT_LINE', accs.map(a => a.id));
+}
+async function avCharts(d) {
+  if (!window.Chart) return;
+  const cs = (d.contracts || []).filter(x => x.active !== false);
+  if (!cs.length) { chBlank('chAvLine'); chBlank('chAvDough'); return; }
+  const tot = x => cs.filter(c => c.kind_funds === x).reduce((s, c) => s + (c.value || 0), 0);
+  chDoughDraw('chAvDough', 'AV_DOUGH', 'avLeg', [
+    { label: t('avTypeEuro'), value: tot('euro') },
+    { label: t('avTypeUC'), value: tot('uc') }].filter(x => x.value > 0));
+  await chPageLine('chAvLine', 'AV_LINE', cs.map(c => c.id));
+}
 async function actLoad() {
   try {
     const d = await api('/api/actions/overview' + scopeSuffix());
     actRender(d);
+    actCharts(d);
   } catch (e) {
     $('actWrap').innerHTML = '<div class="crowd-empty">'+esc(t('actErrLoad'))+'</div>';
+    chBlank('chActLine'); chBlank('chActDough');
   }
 }
 async function actRender(d) {
@@ -4174,6 +4302,7 @@ async function avLoad() {
   const d = await api('/api/av/overview' + scopeSuffix()).catch(() => null);
   if (!d) { $('avWrap').innerHTML = '<div class="crowd-empty">'+esc(t('actErrLoad'))+'</div>'; return; }
   avRender(d);
+  avCharts(d);
 }
 async function avRender(d) {
   invAdminMask();
@@ -4633,7 +4762,19 @@ function estLocRender() {
         '<th>' + esc(t('estMonth')) + '</th><th>' + esc(t('estOpDate')) + '</th><th class="num">' + esc(t('estColAmount')) + '</th>' +
         '<th>' + esc(t('estTenant')) + '</th>' + (!MEMBER ? '<th></th>' : '') + '</tr></thead><tbody>' + payRows + '</tbody></table></div>'
         : '<div class="muted" style="font-size:12px">' + esc(t('estNoPay')) + '</div>') + '</div>';
-    return '<div class="panel" style="margin-top:14px">' + hd + ctl +
+    // estimation indicative immo (v2026.09.061) : proposée, jamais appliquée
+    let estB = '';
+    if (p.estimated != null) {
+      estB = '<div style="margin:-2px 0 10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+        '<span style="font-size:12px">✨ ' + esc(t('estEstTtl')) + ' : <b>' + mon(p.estimated) + '</b>' +
+        (p.area_m2 && p.price_m2 ? ' <span class="muted" style="font-weight:400">(' + esc(tF('estEstSub', {a: p.area_m2, p: p.price_m2})) + ')</span>' : '') +
+        '</span>' +
+        (!MEMBER
+          ? '<button class="btn small ghost est-admin" title="' + esc(t('estApplyHint')) + '" onclick="estApplyEst(' + p.id + ')">' + esc(t('estApply')) + '</button>'
+          : '') +
+        '</div>';
+    }
+    return '<div class="panel" style="margin-top:14px">' + hd + ctl + estB +
       '<div class="cards">' + kpis.map(k => '<div class="card"><div class="k">' + k[0] + ' ' + esc(k[1]) + '</div>' +
         '<div class="v">' + k[2] + '</div><div class="s">' + k[3] + '</div>' + (k[4] || '') + '</div>').join('') + '</div>' +
       acts + paySec + '</div>';
@@ -4672,16 +4813,33 @@ function estTcoRender() {
     }
     let kpis;
     if (it.kind === 'vehicle') {
-      kpis = [
-        ['💶', t('estCardTotal'), cs.total_to_date == null ? '—' : mon(cs.total_to_date),
-         tF('estCardTotalSub', {a: cs.acquisition_to_date == null ? '—' : mon(cs.acquisition_to_date),
-                               u: cs.usage_to_date == null ? '—' : mon(cs.usage_to_date)}) + credNote],
+      // carte 1 : coût NET quand l'argus est renseigné (v2026.09.061) —
+      // cash-out − valeur résiduelle + rappel doux si estimation > 12 mois
+      let sub1 = tF('estCardTotalSub', {a: cs.acquisition_to_date == null ? '—' : mon(cs.acquisition_to_date),
+                                        u: cs.usage_to_date == null ? '—' : mon(cs.usage_to_date)}) + credNote;
+      kpis = [['💶', t('estCardTotal'), cs.total_to_date == null ? '—' : mon(cs.total_to_date), sub1]];
+      if (it.resale_value != null) {
+        kpis[0][1] = t('estNetTtl');
+        kpis[0][2] = it.net_to_date == null ? '—' : mon(it.net_to_date);
+        sub1 = tF('estNetSub', {b: cs.total_to_date == null ? '—' : mon(cs.total_to_date),
+                                r: mon(it.resale_value)});
+        if (it.resale_date) {
+          sub1 += '<div class="muted" style="font-size:11px">' + esc(t('estResaleDate')) + ' ' +
+            esc(fmtDate(String(it.resale_date).slice(0, 10))) + '</div>';
+        }
+        if (it.resale_stale) {
+          sub1 += '<div style="font-size:11px;color:#d29922">' +
+            esc(tF('estStale', {n: it.resale_months != null ? it.resale_months : '?'})) + '</div>';
+        }
+        kpis[0][3] = sub1;
+      }
+      kpis = kpis.concat([
         ['📆', t('estCardMonth'), cs.per_month == null ? '—' : mon(cs.per_month),
          tF('estCardMonthSub', {n: cs.months_owned || 0}), ''],
         ['📅', t('estCardYear'), cs.per_year == null ? '—' : mon(cs.per_year), '', ''],
         ['🏁', t('estCardTerm'), cs.total_at_term == null ? '—' : mon(cs.total_at_term),
          loan && loan.months_left != null ? tF('estCardTermSub', {d: loan.months_left + ' ' + t('estMonth')}) : '', '']
-      ];
+      ]);
       if (catChips && cs.usage_to_date) {
         kpis[0][3] += '<div class="muted" style="font-size:11px">' + catChips + '</div>';
       }
@@ -4845,6 +5003,11 @@ async function estItemModal(kind, accId, iid) {
       '<div><label>' + esc(t('estItemPrice')) + '</label><input id="fIPrice" type="number" min="0" step="0.01" value="' + ((item && item.purchase_price) || '') + '" style="width:100%"></div>' +
       '<div><label>' + esc(t('estItemDate')) + '</label><input id="fIDate" type="date" value="' + ((item && item.purchase_date) || '') + '" style="width:100%"></div>' +
     '</div>' : '') +
+    (isV ? '<div class="grid2" style="margin-top:4px">' +
+      '<div><label>' + esc(t('estResale')) + '</label><input id="fIResale" type="number" min="0" step="0.01" value="' + ((item && item.resale_value != null) ? item.resale_value : '') + '" style="width:100%"></div>' +
+      '<div><label>' + esc(t('estResaleDate')) + '</label><input id="fIResaleD" type="date" value="' + ((item && item.resale_date) || '') + '" style="width:100%"></div>' +
+    '</div>' +
+    '<div class="muted" style="font-size:11.5px;margin:-2px 0 8px">' + esc(t('estResaleHint')) + '</div>' : '') +
     '<label>' + esc(t('estItemLoan')) + '</label><select id="fILoan" style="width:100%">' +
       '<option value="">' + esc(t('estItemLoanNone')) + '</option>' + loanOpts + '</select>' +
     '<label>' + esc(t('estItemNotes')) + '</label><input id="fINotes" value="' + ((item && item.notes) || '') + '" style="width:100%">' +
@@ -4863,6 +5026,8 @@ async function estItemSave(kind, accId, iid) {
     loan_id: $('fILoan').value ? parseInt($('fILoan').value, 10) : null,
     purchase_price: kind === 'vehicle' && $('fIPrice').value ? parseFloat($('fIPrice').value) : null,
     purchase_date: kind === 'vehicle' && $('fIDate').value ? $('fIDate').value : null,
+    resale_value: kind === 'vehicle' && $('fIResale') && $('fIResale').value !== '' ? parseFloat($('fIResale').value) : null,
+    resale_date: kind === 'vehicle' && $('fIResaleD') && $('fIResaleD').value ? $('fIResaleD').value : null,
     notes: $('fINotes').value.trim(), active: 1
   };
   try {
@@ -4878,6 +5043,17 @@ async function estEnsureFiche(accId) {
                 purchase_price: null, purchase_date: null, notes: '', active: 1};
   try {
     await api('/api/tco/items', {method: 'POST', body: JSON.stringify(body)});
+    await estLoad();
+  } catch (e) { alert(e.message); }
+}
+async function estApplyEst(accId) {
+  const p = estP(accId);
+  if (!p || p.estimated == null) return;
+  try {
+    await api('/api/accounts/' + accId + '/valuation', {
+      method: 'POST',
+      body: JSON.stringify({value: p.estimated, note: t('estEstTtl') + ' (' + tF('estEstSub', {a: p.area_m2, p: p.price_m2}) + ')'})
+    });
     await estLoad();
   } catch (e) { alert(e.message); }
 }

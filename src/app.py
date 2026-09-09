@@ -3006,6 +3006,10 @@ def _loc_account_summary(conn, latest: dict | None, acc_row) -> dict:
     p = {k: acc_row[k] for k in acc_row.keys()}
     p["last_value"] = latest["value"] if latest else None
     p["last_val_date"] = latest["date"] if latest else None
+    # estimation indicative immo (v2026.09.060) — proposée, jamais appliquée
+    p["estimated"] = None
+    if p.get("area_m2") and p.get("price_m2"):
+        p["estimated"] = round(p["area_m2"] * p["price_m2"], 2)
     if latest and (acc_row["currency"] or "EUR") != "EUR":
         fxr = fx.lookup(conn, acc_row["currency"], latest["date"], None)
         p["value_eur"] = round(latest["value"] / fxr["rate"], 2) if fxr else None

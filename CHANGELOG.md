@@ -2,6 +2,43 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.061] — 2026-09-09
+
+### Added — Charts on Actions / Life-insurance pages, argus & estimates UI
+(step ④ UI of the dedicated pages chantier — backend v2026.09.060)
+
+Design `claude/design-charts-residual-2026.md` (never pushed).
+
+- Actions page: portfolio value curve (month-end, PEA & CTO accounts via
+  `/api/history?ids=`, trailing months with 0 before the first valuation —
+  no misleading flat start) + holdings doughnut (positions aggregated by
+  symbol with an « Other / cash » slice when account value exceeds the sum
+  of positions) + color-coded legend with amounts.
+- Life-insurance page: contracts value curve (euro funds + unit-linked) +
+  doughnut euro funds vs unit-linked + legend.
+- Vehicle cost sheet: residual value (argus) + estimation date fields in
+  the edit modal (annual input, gentle reminder text). When a residual value
+  is set, the first KPI becomes « Net cost to date » = cash-out − resale
+  (gross cash-out and argus as the sub-line, estimation date + ⚠ « N months
+  old — refresh due » badge when stale > 12 months). Monthly/annual/term
+  cards unchanged (gross figures remain visible).
+- Real-estate estimate UI: area (m²) + reference €/m² fields in the asset
+  modal (class immobilier only, with hint that it is never applied
+  automatically); the Rentals sheet shows « Indicative estimate : X (a m² ×
+  p €/m² reference) » with an « Apply to valuation » button (creates a
+  manual valuation dated today through the existing endpoint, then
+  re-renders). Loc overview now exposes `estimated`.
+- Demo seed unchanged (65 m² × 2 800 €/m² → 182 000 € estimate; Tesla argus
+  28 000 € from 2025-06 → net-to-date 9 340 € with the stale badge).
+- Reuses the existing panel/card/chart-row CSS and Chart.js; legends use
+  the house `.legend .li/.dot` classes. Full i18n ×4 parity.
+- Fix in the est module: `let kpis` was declared twice (function scope +
+  inner block scope) so the vehicle branch reassigned only the block
+  variable and the render crashed with « kpis.map is undefined » — single
+  declaration, branch assigns the function variable.
+- Tests: suite 220/220 green (no python behaviour change beyond the
+  `estimated` loc payload field).
+
 ## [2026.09.060] — 2026-09-09
 
 ### Added — Charts data + residual values backend (page-curves, vehicle
