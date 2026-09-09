@@ -5375,10 +5375,10 @@ async def cw_refresh_status(request: Request):
 @app.get("/api/cw/curve")
 async def cw_curve(request: Request, family: int = 0, member: str = ""):
     """Évolution mensuelle de la valeur des wallets, par compte — charts
-    Crypto (v2026.09.062). Point du mois = dernier snapshot cw_history du
-    mois (somme de tous les jetons du wallet), converti en EUR au taux BCE
-    ≤ date du snapshot (None si taux indisponible). Les wallets sans
-    historique ne tracent rien."""
+    Crypto (v2026.09.062, affichage en USD — devise de la page Wallets crypto ;
+    le bilan EUR reste calculé à l'agrégation). Point du mois = dernier
+    snapshot cw_history du mois (somme de tous les jetons du wallet). Les
+    wallets sans historique ne tracent rien."""
     u = _need(request)
     conn = db()
     try:
@@ -5398,15 +5398,24 @@ async def cw_curve(request: Request, family: int = 0, member: str = ""):
             " FROM cw_history WHERE wallet_id IN (" + wq + ")"
             " GROUP BY wallet_id, substr(date,1,7)", wids).fetchall()
         pts = {(r["wallet_id"], r["ym"]): r["md"] for r in sm}
-        # sommes par (wallet, date de snapshot)
+        # sommes par (wallet, date de snapshot) : la ligne globale (token NULL)
+        # agrége déjà tout — sinon la somme des lignes par token
         md_dates = sorted({d for d in pts.values()})
         vals: dict[tuple, float] = {}
+        glob: dict[tuple, float] = {}
         for d in md_dates:
             for r in conn.execute(
                     "SELECT wallet_id, SUM(value_usd) v FROM cw_history"
-                    " WHERE date=? AND wallet_id IN (" + wq + ")"
-                    " GROUP BY wallet_id", [d] + wids).fetchall():
+                    " WHERE date=? AND token_symbol IS NOT NULL"
+                    " AND wallet_id IN (" + wq + ") GROUP BY wallet_id",
+                    [d] + wids).fetchall():
                 vals[(r["wallet_id"], d)] = r["v"] or 0.0
+            for r in conn.execute(
+                    "SELECT wallet_id, value_usd v FROM cw_history"
+                    " WHERE date=? AND token_symbol IS NULL"
+                    " AND wallet_id IN (" + wq + ") GROUP BY wallet_id",
+                    [d] + wids).fetchall():
+                glob[(r["wallet_id"], d)] = r["v"] or 0.0
         labels = sorted({ym for _, ym in pts})
         byacc: dict[int, dict] = {}
         for w in wrows:
@@ -5419,20 +5428,17 @@ async def cw_curve(request: Request, family: int = 0, member: str = ""):
             for ym in labels:
                 tot = 0.0
                 ok = False
-                md = None
                 for wid in e["wallets"]:
                     d0 = pts.get((wid, ym))
                     if not d0:
                         continue
-                    md = d0 if md is None else max(md, d0)
-                    if (wid, d0) in vals:
-                        tot += vals[(wid, d0)]
+                    v = glob.get((wid, d0))
+                    if v is None:
+                        v = vals.get((wid, d0))
+                    if v is not None:
+                        tot += v
                         ok = True
-                if not ok:
-                    values.append(None)
-                    continue
-                eur = crypto._usd_to_eur(conn, tot, md)
-                values.append(round(eur, 2) if eur is not None else None)
+                values.append(round(tot, 2) if ok else None)
             series.append({"key": str(aid), "name": e["name"],
                            "values": values})
         return {"labels": labels, "series": series}

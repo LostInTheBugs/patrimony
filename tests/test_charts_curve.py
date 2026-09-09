@@ -181,28 +181,28 @@ def test_tco_curve_retrospective_monthly():
 
 # ------------------------------------------------------------- crypto
 
-def test_cw_curve_monthly_snapshots_eur():
+def test_cw_curve_monthly_snapshots_usd():
     c = TestClient(app.app)
     _login(c)
     tag = _mk_member(c, "cv_cw")
-    aid = _mk_asset(c, "Ledger", cls="crypto", value=0, odate="2024-01-01",
-                    cost=0, initial_value=None, valuation_mode="manual")
     conn = _raw_conn()
-    # taux BCE de référence (1 EUR = 0.92 USD)
-    conn.execute("INSERT OR IGNORE INTO fx_rates (ccy, rate_date, rate, source)"
-                 " VALUES ('USD', '2026-01-01', 0.92, 'ecb')")
-    cur = conn.execute(
-        "INSERT INTO cw_wallets (owner, label, address, chain, watch_only,"
-        " account_id) VALUES (?, 'Ledger main', '0xabc', 'eth', 1, ?)",
-        (tag, aid))
-    wid = cur.lastrowid
-    for d0, v in (("2026-08-28", 1000.0), ("2026-08-30", 1200.0),
-                  ("2026-09-05", 1300.0)):
-        conn.execute(
-            "INSERT INTO cw_history (wallet_id, owner, date, value_usd,"
-            " cost_usd) VALUES (?, ?, ?, ?, ?)", (wid, tag, d0, v, v))
-    conn.commit()
-    conn.close()
+    try:
+        aid = conn.execute(
+            "INSERT INTO accounts (owner, name, asset_class, currency)"
+            " VALUES (?, 'Ledger', 'crypto', 'EUR')", (tag,)).lastrowid
+        cur = conn.execute(
+            "INSERT INTO cw_wallets (owner, label, address, chain, watch_only,"
+            " account_id) VALUES (?, 'Ledger main', '0xabc', 'eth', 1, ?)",
+            (tag, aid))
+        wid = cur.lastrowid
+        for d0, v in (("2026-08-28", 1000.0), ("2026-08-30", 1200.0),
+                      ("2026-09-05", 1300.0)):
+            conn.execute(
+                "INSERT INTO cw_history (wallet_id, owner, date, value_usd,"
+                " cost_usd) VALUES (?, ?, ?, ?, ?)", (wid, tag, d0, v, v))
+        conn.commit()
+    finally:
+        conn.close()
     r = c.get("/api/cw/curve")
     assert r.status_code == 200
     d = r.json()
@@ -210,14 +210,9 @@ def test_cw_curve_monthly_snapshots_eur():
     assert len(d["series"]) == 1
     s = d["series"][0]
     assert s["key"] == str(aid)
-    # dernier snapshot du mois (le 30, pas le 28), converti EUR = USD / 0.92
-    assert s["values"][0] == round(1200.0 / 0.92, 2)
-    assert s["values"][1] == round(1300.0 / 0.92, 2)
-    # le taux de test est retiré (base partagée par toute la suite)
-    conn = _raw_conn()
-    conn.execute("DELETE FROM fx_rates WHERE ccy='USD' AND rate_date='2026-01-01'")
-    conn.commit()
-    conn.close()
+    # dernier snapshot du mois (le 30, pas le 28) — USD, devise de la page
+    assert s["values"][0] == 1200.0
+    assert s["values"][1] == 1300.0
 
 
 # ------------------------------------------------------------- crowdfunding

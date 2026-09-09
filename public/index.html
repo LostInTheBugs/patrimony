@@ -126,6 +126,7 @@
   .panel h3 select{font-size:12px;padding:4px 6px;background:#0d1420}
   .panel h3 .hint{font-size:11px;color:var(--muted);font-weight:400}
   .chartbox{position:relative;height:300px}
+  .chart-row .chartbox{height:270px}
   .legend{margin-top:10px;display:flex;flex-direction:column;gap:5px;font-size:12.5px}
   .legend .li{display:flex;align-items:center;gap:8px}
   .legend .dot{width:10px;height:10px;border-radius:3px;flex:none}
@@ -433,6 +434,18 @@
         </div>
       </div>
       <div class="cards" id="cwCards"></div>
+      <div class="chart-row" style="margin-top:8px">
+        <div class="panel">
+          <h3>📈 <span data-i18n="cwChTtl">Évolution de la valeur</span> <span class="hint" data-i18n="cwChHint">snapshots mensuels (USD)</span></h3>
+          <div class="chartbox"><canvas id="chCwLine"></canvas></div>
+          <div class="legend" id="cwLeg"></div>
+        </div>
+        <div class="panel">
+          <h3>🥧 <span data-i18n="cwDoughTtl">Répartition par wallet</span> <span class="hint" data-i18n="cwDoughHint">dernière valeur</span></h3>
+          <div class="chartbox"><canvas id="chCwDough"></canvas></div>
+          <div class="legend" id="cwDLeg"></div>
+        </div>
+      </div>
       <div id="cwAddBox" class="panel hidden cw-form" style="margin-top:14px">
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
           <input id="cwLabel" data-i18n-ph="cwLabelPh" placeholder="Libellé (ex. Ledger)" style="flex:1;min-width:150px" maxlength="60">
@@ -506,6 +519,18 @@
         <button data-v="conso" onclick="loanView('conso')">🛒 <span data-i18n="loanSegConso">Consommation</span></button>
       </div>
       <div class="cards" id="loanCards"></div>
+      <div class="chart-row" style="margin-top:8px">
+        <div class="panel">
+          <h3>📉 <span data-i18n="lnChTtl">Capital restant dû</span> <span class="hint" data-i18n="lnChHint">échéancier théorique — trait clair = total du filtre</span></h3>
+          <div class="chartbox"><canvas id="chLoanLine"></canvas></div>
+          <div class="legend" id="lnLeg"></div>
+        </div>
+        <div class="panel">
+          <h3>🥧 <span data-i18n="lnDoughTtl">Répartition du restant dû</span> <span class="hint" data-i18n="lnDoughHint">restants déclarés</span></h3>
+          <div class="chartbox"><canvas id="chLoanDough"></canvas></div>
+          <div class="legend" id="lnDLeg"></div>
+        </div>
+      </div>
       <div class="tablewrap" style="margin-top:12px" id="loanWrap"></div>
       <div class="muted" style="font-size:11.5px;margin-top:8px" data-i18n="loanNote">Le capital restant dû est déclaré (mettez-le à jour lors d’un remboursement anticipé) ; le bouton ↻ propose la valeur théorique de l’échéancier. Les mensualités se suivent comme dépenses récurrentes — aucune double saisie.</div>
     </section>
@@ -518,6 +543,29 @@
       <div class="seg" id="estSeg">
         <button data-v="loc" class="on" onclick="estView('loc')">🏘 <span data-i18n="estSegLoc">Locations</span></button>
         <button data-v="tco" onclick="estView('tco')">🚗 <span data-i18n="estSegTco">Coûts (TCO)</span></button>
+      </div>
+      <div class="chart-row hidden" id="estChartsLoc" style="margin-top:8px">
+        <div class="panel">
+          <h3>📈 <span data-i18n="estLocChTtl">Valeur des biens</span> <span class="hint" data-i18n="estLocChHint">fin de mois — dernières valorisations</span></h3>
+          <div class="chartbox"><canvas id="chEstLocLine"></canvas></div>
+        </div>
+        <div class="panel">
+          <h3>🥧 <span data-i18n="estLocDoughTtl">Répartition par bien</span></h3>
+          <div class="chartbox"><canvas id="chEstLocDough"></canvas></div>
+          <div class="legend" id="estLocDLeg"></div>
+        </div>
+      </div>
+      <div class="chart-row hidden" id="estChartsTco" style="margin-top:8px">
+        <div class="panel">
+          <h3>📈 <span data-i18n="estTcoChTtl">Coût cumulé par objet</span> <span class="hint" data-i18n="estTcoChHint">imputations + crédit versé — cohérent avec les cartes</span></h3>
+          <div class="chartbox"><canvas id="chEstTcoLine"></canvas></div>
+          <div class="legend" id="estTcoLeg"></div>
+        </div>
+        <div class="panel">
+          <h3>🥧 <span data-i18n="estTcoDoughTtl">Part du coût à date</span></h3>
+          <div class="chartbox"><canvas id="chEstTcoDough"></canvas></div>
+          <div class="legend" id="estTcoDLeg"></div>
+        </div>
       </div>
       <div id="estLocWrap"></div>
       <div id="estTcoWrap" class="hidden"></div>
@@ -552,6 +600,11 @@
             <div class="chartbox"><canvas id="chCrowdDough2"></canvas></div>
             <div class="legend" id="crowdLeg2"></div>
           </div>
+        </div>
+        <div class="panel" style="margin-top:14px">
+          <h3>📈 <span data-i18n="cfChTtl">Évolution de l'encours</span> <span class="hint" data-i18n="cfChHint">capital encore dû — reconstruit des opérations (trait clair = total)</span></h3>
+          <div class="chartbox"><canvas id="chCfLine"></canvas></div>
+          <div class="legend" id="cfLeg"></div>
         </div>
         <div class="panel" style="margin-top:14px">
           <h3>👁 <span data-i18n="crowdSeamTitle">Patrimoine global</span> <span class="hint" data-i18n="crowdSeamHint">la valeur des plateformes alimente automatiquement la classe Crowdfunding du tableau de bord (aucune saisie en double)</span></h3>
@@ -836,6 +889,7 @@ let FAMILY_LIST = [];
 /* ---------------- i18n FR / DE / LU / EN ---------------- */
 const I18N = {
 fr: {
+  chartTotal:'Total', lnChTtl:'Capital restant dû', lnChHint:'échéancier théorique — trait clair = total du filtre', lnDoughTtl:'Répartition du restant dû', lnDoughHint:'restants déclarés', estLocChTtl:'Valeur des biens', estLocChHint:'fin de mois — dernières valorisations', estLocDoughTtl:'Répartition par bien', estTcoChTtl:'Coût cumulé par objet', estTcoChHint:'imputations + crédit versé — cohérent avec les cartes', estTcoDoughTtl:'Part du coût à date', cwChTtl:'Évolution de la valeur', cwChHint:'snapshots mensuels (USD)', cwDoughTtl:'Répartition par wallet', cwDoughHint:'dernière valeur', cfChTtl:'Évolution de l’encours', cfChHint:'capital encore dû — reconstruit des opérations (trait clair = total)',
   actChTtl:'Évolution du portefeuille', actChHint:'fin de mois — enveloppes PEA & CTO', actDoughTtl:'Répartition par titre', actDoughOther:'Autres / espèces', avChTtl:'Évolution des contrats', avChHint:'fonds € + unités de compte — fin de mois', avDoughTtl:'Fonds € vs unités de compte', mArea:'Surface (m²)', mPriceM2:'Prix de référence (€/m²)', mImmoHint:'Estimation indicative = surface × prix de référence — proposée, jamais appliquée automatiquement', estResale:'Valeur résiduelle (argus)', estResaleHint:'une estimation par an suffit — mise à jour suggérée au-delà de 12 mois', estResaleDate:'Estimé le', estNetTtl:'Coût net à date', estNetSub:'cash-out {b} − argus {r}', estStale:'⚠️ argus vieux de {n} mois — à réactualiser', estEstTtl:'Estimation indicative', estEstSub:'{a} m² × {p} €/m² de référence', estApply:'Appliquer à la valorisation', estApplyHint:'crée une valorisation manuelle datée du jour',
   estImmoSplit:'crédit {i} · dépenses {u}',
   estOccupSub:'{c} mois couverts sur {m}',
@@ -1043,6 +1097,7 @@ avNote:'Un compte = un contrat. La classe Épargne = fonds €, la classe Bourse
   clsImmo:'Immobilier', clsCrowd:'Crowdfunding', clsCrypto:'Cryptomonnaies', clsMetaux:'Métaux précieux', clsDivers:'Divers'
 },
 en: {
+  chartTotal:'Total', lnChTtl:'Remaining principal', lnChHint:'theoretical schedule — bold line = filtered total', lnDoughTtl:'Remaining split', lnDoughHint:'declared remaining', estLocChTtl:'Property value', estLocChHint:'month-end — latest valuations', estLocDoughTtl:'Split by property', estTcoChTtl:'Cumulated cost per item', estTcoChHint:'imputed + paid credit — consistent with the cards', estTcoDoughTtl:'Share of cost to date', cwChTtl:'Value over time', cwChHint:'monthly snapshots (USD)', cwDoughTtl:'Split by wallet', cwDoughHint:'latest value', cfChTtl:'Outstanding evolution', cfChHint:'capital still due — rebuilt from operations (bold line = total)',
   actChTtl:'Portfolio value over time', actChHint:'month-end — PEA & CTO wrappers', actDoughTtl:'Allocation by holding', actDoughOther:'Other / cash', avChTtl:'Contracts value over time', avChHint:'euro funds + unit-linked — month-end', avDoughTtl:'Euro funds vs unit-linked', mArea:'Area (m²)', mPriceM2:'Reference price (€/m²)', mImmoHint:'Indicative estimate = area × reference price — proposed, never applied automatically', estResale:'Residual value (argus)', estResaleHint:'once a year is enough — a gentle reminder suggests a refresh after 12 months', estResaleDate:'Estimated on', estNetTtl:'Net cost to date', estNetSub:'cash out {b} − resale {r}', estStale:'⚠️ resale estimate {n} months old — refresh due', estEstTtl:'Indicative estimate', estEstSub:'{a} m² × {p} €/m² reference', estApply:'Apply to valuation', estApplyHint:'creates a manual valuation dated today',
   estImmoSplit:'loan {i} · expenses {u}',
   estOccupSub:'{c} months covered out of {m}',
@@ -1250,6 +1305,7 @@ avNote:'One account = one contract. Savings class = funds €, Stocks class = un
   clsImmo:'Real estate', clsCrowd:'Crowdfunding', clsCrypto:'Cryptocurrencies', clsMetaux:'Precious metals', clsDivers:'Other'
 },
 de: {
+  chartTotal:'Gesamt', lnChTtl:'Ausstehendes Kapital', lnChHint:'theoretischer Plan — helle Linie = Summe der Auswahl', lnDoughTtl:'Verteilung des Restkapitals', lnDoughHint:'deklarierte Restbeträge', estLocChTtl:'Immobilienwert', estLocChHint:'Monatsende — letzte Bewertungen', estLocDoughTtl:'Verteilung nach Objekt', estTcoChTtl:'Kumulierte Kosten je Objekt', estTcoChHint:'Imputationen + gezahltes Darlehen — konsistent mit den Karten', estTcoDoughTtl:'Anteil der Kosten bis heute', cwChTtl:'Wertentwicklung', cwChHint:'monatliche Snapshots (USD)', cwDoughTtl:'Verteilung nach Wallet', cwDoughHint:'letzter Wert', cfChTtl:'Entwicklung des ausstehenden Kapitals', cfChHint:'noch geschuldetes Kapital — aus den Buchungen rekonstruiert (helle Linie = Gesamt)',
   actChTtl:'Entwicklung des Portfolios', actChHint:'Monatsende — PEA- & CTO-Hüllen', actDoughTtl:'Verteilung nach Position', actDoughOther:'Sonstiges / Cash', avChTtl:'Entwicklung der Verträge', avChHint:'Euro-Fonds + Unités de compte — Monatsende', avDoughTtl:'Euro-Fonds vs. Unités de compte', mArea:'Fläche (m²)', mPriceM2:'Referenzpreis (€/m²)', mImmoHint:'Indikative Schätzung = Fläche × Referenzpreis — wird nie automatisch übernommen', estResale:'Restwert (Argus)', estResaleHint:'einmal pro Jahr genügt — nach 12 Monaten wird eine Aktualisierung angeregt', estResaleDate:'Geschätzt am', estNetTtl:'Netto-Gesamtkosten', estNetSub:'Auszahlung {b} − Restwert {r}', estStale:'⚠️ Restwert {n} Monate alt — aktualisieren', estEstTtl:'Indikative Schätzung', estEstSub:'{a} m² × {p} €/m² Referenz', estApply:'Als Bewertung übernehmen', estApplyHint:'erstellt eine manuelle Bewertung von heute',
   estImmoSplit:'Kredit {i} · Ausgaben {u}',
   estOccupSub:'{c} von {m} Monaten belegt',
@@ -1456,6 +1512,7 @@ avNote:'Ein Konto = ein Vertrag. Sparklasse = fonds €, Wertpapierklasse = UC. 
   clsImmo:'Immobilien', clsCrowd:'Crowdfunding', clsCrypto:'Kryptowährungen', clsMetaux:'Edelmetalle', clsDivers:'Sonstiges'
 },
 lu: {
+  chartTotal:'Total', lnChTtl:'Ausstehend Kapital', lnChHint:'theoretesche Plang — hell Stréch = Total vun der Auswiel', lnDoughTtl:'Opdeelung vum Restkapital', lnDoughHint:'deklaréiert Reschter', estLocChTtl:'Wäert vun den Objeten', estLocChHint:'Enn vum Mount — lescht Bewäertungen', estLocDoughTtl:'Opdeelung no Objet', estTcoChTtl:'Kumuléiert Käschten pro Objet', estTcoChHint:'Imputatiounen + bezuelt Kredit — konsequent mat de Kaarten', estTcoDoughTtl:'Deel vun de Käschten bis haut', cwChTtl:'Entwécklung vum Wäert', cwChHint:'monatlech Snapshots (USD)', cwDoughTtl:'Opdeelung no Wallet', cwDoughHint:'leschte Wäert', cfChTtl:'Entwécklung vum Encours', cfChHint:'Kapital nach ze bezuelen — aus den Operatiounen rekonstituéiert (hell Stréch = Total)',
   actChTtl:'Entwécklung vum Portefeuille', actChHint:'Enn vum Mount — PEA- & CTO-Ëmhüllen', actDoughTtl:'Opdeelung no Positioun', actDoughOther:'Aneres / Cash', avChTtl:'Entwécklung vun de Kontrakter', avChHint:'Euro-Fongen + Unité de compte — Enn vum Mount', avDoughTtl:'Euro-Fongen vs Unité de compte', mArea:'Fläch (m²)', mPriceM2:'Referenzpräis (€/m²)', mImmoHint:'Indikativ Schätzung = Fläch × Referenzpräis — ni ni je automatesch iwwerholl', estResale:'Reschterwäert (Argus)', estResaleHint:'eng Schätzung pro Joer duer — sanft Erënnerung no 12 Méint', estResaleDate:'Geschätzt den', estNetTtl:'Netto-Käschten bis haut', estNetSub:'Cash-Out {b} − Reschterwäert {r}', estStale:'⚠️ Reschterwäert {n} Méint al — aktualiséieren', estEstTtl:'Indikativ Schätzung', estEstSub:'{a} m² × {p} €/m² Referenz', estApply:'Op d’Bewäertung uwenden', estApplyHint:'erstellt eng manuell Bewäertung vun haut',
   estImmoSplit:'Kredit {i} · Ausgaben {u}',
   estOccupSub:'{c} Méint ofgedeckt vu {m}',
@@ -3729,6 +3786,27 @@ async function cfLoadApercu() {
   $('crowdSeamNote').innerHTML = plats.length
     ? plats.map(p => esc(cfPlat(p.platform))+' : '+mon(p.patrimoine)+' <span class="cf-est">('+esc(t('cStMise'))+' '+mon(p.deposited)+' · solde '+mon(p.balance)+')</span>').join('<br>')
     : t('crowdEmpty');
+  cfCharts();
+}
+/* --- graphique Crowdfunding (v2026.09.063) : encours de la créance par
+   plateforme (reconstruit des opérations datées) + total --- */
+let CF_CURVE = null;
+async function cfCharts() {
+  if (!window.Chart || !$('chCfLine')) return;
+  if (CF_CURVE === null) CF_CURVE = await api('/api/cf/curve' + scopeSuffix()).catch(() => null);
+  const d = CF_CURVE;
+  if (!d || !(d.series || []).length) {
+    chBlank('chCfLine');
+    if ($('cfLeg')) $('cfLeg').innerHTML = '';
+    return;
+  }
+  const st = chFirstIdx(d.series);
+  if (st == null) { chBlank('chCfLine'); return; }
+  const specs = d.series.map((s, i) => ({ label: s.name,
+    values: s.values.slice(st), color: CH_PAL[i % CH_PAL.length], width: 1.6 }));
+  specs.unshift({ label: t('chartTotal'), values: chSumVals(d.series, st),
+    color: '#e8e6e3', width: 2.6 });
+  chLineMulti('chCfLine', 'CF_LINE', 'cfLeg', d.labels.slice(st), specs);
 }
 function cfDoughV(canvasId, holder, labels, vals, colors) {
   const cv = $(canvasId); if (!cv) return;
@@ -4124,14 +4202,29 @@ function chFmtMonth(ym) {
   catch (e) { return String(ym); }
 }
 function chBlank(canvasId) {
+  // masque le canvas sans le détruire (un redraw ultérieur doit retrouver
+  // l'élément — v2026.09.063 : les charts se (re)dessinent à chaque vue)
   const cv = $(canvasId); if (!cv) return;
+  cv.style.display = 'none';
   const box = cv.parentNode;
-  box.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#8b949e;font-size:13px">—</div>';
+  if (!box || box.querySelector('.ch-empty')) return;
+  const d = document.createElement('div');
+  d.className = 'ch-empty';
+  d.style.cssText = 'display:flex;align-items:center;justify-content:center;height:100%;color:#8b949e;font-size:13px';
+  d.textContent = '—';
+  box.appendChild(d);
+}
+function chUnblank(canvasId) {
+  const cv = $(canvasId); if (!cv) return;
+  cv.style.display = '';
+  const box = cv.parentNode;
+  if (box) { const e = box.querySelector('.ch-empty'); if (e) e.remove(); }
 }
 function chLineDraw(canvasId, holder, labels, values) {
   if (window[holder]) { window[holder].destroy(); window[holder] = null; }
   const cv = $(canvasId); if (!cv) return;
   if (!values || values.length < 2 || values.every(v => !v)) { chBlank(canvasId); return; }
+  chUnblank(canvasId);
   const ctx = cv.getContext('2d');
   window[holder] = new Chart(ctx, {
     type: 'line',
@@ -4147,7 +4240,8 @@ function chLineDraw(canvasId, holder, labels, values) {
       } }
   });
 }
-function chDoughDraw(canvasId, holder, legId, items) {
+function chDoughDraw(canvasId, holder, legId, items, toolF, legF) {
+  toolF = toolF || fmt; legF = legF || mon;
   if (window[holder]) { window[holder].destroy(); window[holder] = null; }
   const cv = $(canvasId); const leg = $(legId);
   const total = (items || []).reduce((s, x) => s + (x.value || 0), 0);
@@ -4157,13 +4251,14 @@ function chDoughDraw(canvasId, holder, legId, items) {
   const vals = items.map(x => x.value);
   const colors = items.map((x, i) => CH_PAL[i % CH_PAL.length]);
   const ctx = cv.getContext('2d');
+  chUnblank(canvasId);
   window[holder] = new Chart(ctx, { type: 'doughnut',
     data: { labels, datasets: [{ data: vals, backgroundColor: colors, borderWidth: 0 }] },
     options: { responsive: true, maintainAspectRatio: false, cutout: '68%',
       plugins: { legend: { display: false },
-        tooltip: { callbacks: { label: c => ' ' + c.label + ' : ' + (DISCRET ? '•••' : fmt(c.parsed)) } } } } });
+        tooltip: { callbacks: { label: c => ' ' + c.label + ' : ' + (DISCRET ? '•••' : toolF(c.parsed)) } } } } });
   if (leg) leg.innerHTML = items.map((x, i) =>
-    '<span class="li"><span class="dot" style="background:'+colors[i]+'"></span>'+esc(x.label)+' — '+(DISCRET ? '•••' : mon(x.value))+'</span>').join('');
+    '<span class="li"><span class="dot" style="background:'+colors[i]+'"></span>'+esc(x.label)+' — '+(DISCRET ? '•••' : legF(x.value))+'</span>').join('');
 }
 async function chPageLine(canvasId, holder, ids) {
   const d = await api('/api/history?ids=' + ids.join(',') + '&months=120'
@@ -4174,6 +4269,57 @@ async function chPageLine(canvasId, holder, ids) {
   if (start < 0) { chBlank(canvasId); return; }
   start = Math.max(0, start - 1);  // garde un zéro avant pour la rampe
   chLineDraw(canvasId, holder, d.labels.slice(start), v.slice(start));
+}
+/* ---------- graphiques multi-séries (v2026.09.063) : Crédits, Immo & TCO,
+   Crypto, Crowdfunding — les routes curve renvoient {labels, series} et
+   l'UI ne fait que tracer (somme « total » = simple agrégation d'affichage)
+   ---------- */
+function chFirstIdx(series) {
+  // premier index où une valeur > 0 existe (coupe les plages vides)
+  let start = Infinity;
+  (series || []).forEach(s => {
+    const i = (s.values || []).findIndex(v => v > 0);
+    if (i >= 0 && i < start) start = i;
+  });
+  return start === Infinity ? null : Math.max(0, start - 1);
+}
+function chSumVals(series, from) {
+  const n = Math.max(0, ...(series.map(s => (s.values || []).length)));
+  const out = [];
+  for (let i = (from || 0); i < n; i++) out.push(series.reduce((a, s) => a + ((s.values || [])[i] || 0), 0));
+  return out;
+}
+function chLineMulti(canvasId, holder, legId, labels, specs, fmtr) {
+  // specs : [{label, values, color, width}] — fmtr : formateur des montants
+  fmtr = fmtr || fmt;
+  if (window[holder]) { window[holder].destroy(); window[holder] = null; }
+  const leg = $(legId);
+  const any = (labels && labels.length >= 2) && specs.some(s => (s.values || []).some(v => v > 0));
+  if (!any) { chBlank(canvasId); if (leg) leg.innerHTML = ''; return; }
+  const cv = $(canvasId); if (!cv) return;
+  chUnblank(canvasId);
+  const ctx = cv.getContext('2d');
+  window[holder] = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets: specs.map(s => ({
+      label: s.label || '', data: s.values,
+      borderColor: s.color || '#8b949e', borderWidth: s.width || 1.6,
+      backgroundColor: 'transparent', fill: false, tension: .25, pointRadius: 0 })) },
+    options: { responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { display: false },
+        tooltip: { callbacks: { label: c => ' ' + (c.dataset.label || '') + ' : '
+          + (DISCRET ? '•••' : fmtr(c.parsed.y)) } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#8b949e', font: { size: 10 }, maxTicksLimit: 10 } },
+        y: { grid: { color: '#1c242f' }, ticks: { color: '#8b949e', font: { size: 9 }, callback: v => DISCRET ? '•••' : fmtr(v) } }
+      } }
+  });
+  if (leg) leg.innerHTML = specs.map(s => {
+    const last = [...(s.values || [])].reverse().find(v => v != null) || 0;
+    return '<span class="li"><span class="dot" style="background:' + (s.color || '#8b949e') + '"></span>'
+      + esc(s.label) + ' — ' + (DISCRET ? '•••' : fmtr(last)) + '</span>';
+  }).join('');
 }
 async function actCharts(d) {
   if (!window.Chart) return;
@@ -4349,10 +4495,35 @@ function cwUSD(v) {
   if (v == null) return '—';
   return v.toLocaleString(locale(), {style:'currency', currency:'USD', currencyDisplay:'narrowSymbol', maximumFractionDigits: Math.abs(v) >= 100000 ? 0 : 2});
 }
+/* --- graphique Crypto (v2026.09.063) : snapshots mensuels par compte (USD,
+   devise de la page) + répartition par wallet (dernière valeur) --- */
+let CW_OV = null;
+async function cwCharts() {
+  if (!window.Chart || !$('chCwLine')) return;
+  const ws = (CW_OV && CW_OV.wallets) || [];
+  const d = await api('/api/cw/curve' + scopeSuffix()).catch(() => null);
+  if (!d || !(d.series || []).length || !ws.length) {
+    chBlank('chCwLine'); chBlank('chCwDough');
+    if ($('cwLeg')) $('cwLeg').innerHTML = '';
+    if ($('cwDLeg')) $('cwDLeg').innerHTML = '';
+    return;
+  }
+  const st = chFirstIdx(d.series);
+  if (st == null) { chBlank('chCwLine'); chBlank('chCwDough'); return; }
+  const specs = d.series.map((s, i) => ({ label: s.name,
+    values: s.values.slice(st), color: CH_PAL[i % CH_PAL.length], width: 1.6 }));
+  if (d.series.length > 1) specs.unshift({ label: t('chartTotal'),
+    values: chSumVals(d.series, st), color: '#e8e6e3', width: 2.6 });
+  chLineMulti('chCwLine', 'CW_LINE', 'cwLeg', d.labels.slice(st), specs, cwUSD);
+  const items = ws.filter(x => x.value_usd > 0)
+    .map(x => ({ label: x.label, value: x.value_usd }));
+  if (items.length < 2) chBlank('chCwDough'); else chDoughDraw('chCwDough', 'CW_DOUGH', 'cwDLeg', items, cwUSD, cwUSD);
+}
 async function cwRender() {
   document.querySelectorAll('.cw-admin').forEach(b => b.classList.toggle('hidden', !!MEMBER));
   const ov = await api('/api/cw/overview' + scopeSuffix()).catch(() => null);
-  if (!ov) { $('cwWrap').innerHTML = '<div class="crowd-empty">'+esc(t('cwErrLoad'))+'</div>'; return; }
+  CW_OV = ov;
+  if (!ov) { $('cwWrap').innerHTML = '<div class="crowd-empty">'+esc(t('cwErrLoad'))+'</div>'; cwCharts(); return; }
   const ws = ov.wallets || [];
   $('cwCards').innerHTML = [
     ['💰', t('cwStVal'), cwUSD(ov.total_usd), t('cwStValS')],
@@ -4365,7 +4536,13 @@ async function cwRender() {
     const last = ws.map(w => w.last_refresh || '').filter(Boolean).sort().pop();
     st.textContent = last ? tF('cwSyncDone', {d: cwFmtDT(last)}) : '';
   }
-  if (!ws.length) { $('cwWrap').innerHTML = '<div class="crowd-empty">'+esc(t('cwEmpty'))+'</div>'; return; }
+  if (!ws.length) {
+    $('cwWrap').innerHTML = '<div class="crowd-empty">'+esc(t('cwEmpty'))+'</div>';
+    chBlank('chCwLine'); chBlank('chCwDough');
+    if ($('cwLeg')) $('cwLeg').innerHTML = '';
+    if ($('cwDLeg')) $('cwDLeg').innerHTML = '';
+    return;
+  }
   const rows = ws.map(x => {
     const ch = Object.keys(x.chains || {});
     const chips = ch.slice(0, 3).map(c => '<span class="cw-chn" title="'+esc(c)+' : '+cwUSD(x.chains[c])+'">'+esc(c)+'</span>').join('');
@@ -4391,6 +4568,7 @@ async function cwRender() {
     '<th class="num">'+esc(t('cwColCost'))+'</th><th class="num">'+esc(t('cwColGain'))+'</th><th>'+esc(t('cwColChains'))+'</th>'+
     '<th>'+esc(t('cwColLast'))+'</th><th></th></tr></thead><tbody>'+rows+'</tbody></table>';
   applyI18n();
+  cwCharts();
 }
 async function cwTgl(wid) {
   const row = $('cwTokRow'+wid);
@@ -4477,6 +4655,7 @@ async function loanLoad() {
   LOANS = d.loans || [];
   LOAN_CARDS = d.totals || {total_eur: 0, per_type: {}, fx_missing: []};
   loanRender();
+  loanCurveLoad();
 }
 function loanView(tp) {
   LOAN_VW = tp || '';
@@ -4540,6 +4719,45 @@ function loanRender() {
     '<th class="num">'+esc(t('loanColEnd'))+'</th><th>'+esc(t('loanColProp'))+'</th><th></th></tr></thead><tbody>'+
     rows+'</tbody></table>';
   applyI18n();
+  loanDrawCharts();
+}
+/* --- graphique Crédits (v2026.09.063) : courbe théorique multi-prêts
+   filtrée par segment + donut du restant DÉCLARÉ (source de vérité) --- */
+let LOAN_CURVE = null;
+async function loanCurveLoad() {
+  LOAN_CURVE = await api('/api/loans/curve' + scopeSuffix()).catch(() => null);
+  loanDrawCharts();
+}
+function loanDrawCharts() {
+  if (!window.Chart || !$('chLoanLine')) return;
+  if (!LOAN_CURVE || !(LOAN_CURVE.series || []).length) {
+    chBlank('chLoanLine'); chBlank('chLoanDough');
+    if ($('lnLeg')) $('lnLeg').innerHTML = '';
+    if ($('lnDLeg')) $('lnDLeg').innerHTML = '';
+    return;
+  }
+  const series = (LOAN_CURVE.series || []).filter(s => !LOAN_VW || s.loan_type === LOAN_VW);
+  if (!series.length) { chBlank('chLoanLine'); chBlank('chLoanDough'); return; }
+  // la courbe s'arrête au mois courant : la légende montre le restant
+  // théorique AUJOURD'HUI (la projection au terme reste dans le tableau)
+  const labels = LOAN_CURVE.labels;
+  const dN = new Date();
+  const ymN = dN.getFullYear() + '-' + String(dN.getMonth() + 1).padStart(2, '0');
+  let cut = labels.indexOf(ymN);
+  if (cut < 0) cut = labels.length - 1;
+  const lab = labels.slice(0, cut + 1);
+  const series2 = series.map(s => ({ name: s.name, values: s.values.slice(0, cut + 1) }));
+  const specs = series2.map((s, i) => ({ label: s.name, values: s.values,
+    color: CH_PAL[i % CH_PAL.length], width: 1.6 }));
+  const totLbl = LOAN_VW ? loanTypeL(LOAN_VW) : t('loanSegAll');
+  specs.unshift({ label: totLbl, values: chSumVals(series2), color: '#e8e6e3', width: 2.6 });
+  chLineMulti('chLoanLine', 'LOAN_LINE', 'lnLeg', lab, specs);
+  // donut : restants déclarés (les prêts convertibles seulement — jamais de
+  // devise mélangée dans un donut)
+  const items = loanFiltered()
+    .filter(x => x.eur_remaining != null && x.eur_remaining > 0)
+    .map(x => ({ label: x.name, value: x.eur_remaining }));
+  if (items.length < 2) chBlank('chLoanDough'); else chDoughDraw('chLoanDough', 'LOAN_DOUGH', 'lnDLeg', items);
 }
 async function loanModal(id) {
   const l = id ? LOANS.find(x => x.id === id) : null;
@@ -4669,13 +4887,71 @@ async function estLoad() {
   EST_LOC = l.properties || [];
   EST_TCO = c.items || [];
   estLocRender(); estTcoRender();
+  const iv = EST_VW || 'loc';  // synchronise la vue (les rendus sont déjà faits)
+  $('estChartsLoc').classList.toggle('hidden', iv !== 'loc');
+  $('estChartsTco').classList.toggle('hidden', iv !== 'tco');
+  estCharts(iv);
+}
+/* --- graphiques Immo & TCO (v2026.09.063) : valeur des biens (history ids)
+   et coût cumulé par fiche (route curve) — les donuts réutilisent les
+   payloads déjà chargés (jamais de double fetch) --- */
+let EST_CURVE_LOC = null, EST_CURVE_TCO = null;
+async function estCharts(v) {
+  if (!window.Chart) return;
+  if (v === 'loc') {
+    if (EST_CURVE_LOC === null) {
+      const ids = (EST_LOC || []).map(p => p.id).filter(Boolean);
+      EST_CURVE_LOC = ids.length
+        ? await api('/api/history?ids=' + ids.join(',') + '&months=120'
+          + scopeSuffix().replace('?', '&')).catch(() => [])
+        : [];
+    }
+    const d = EST_CURVE_LOC;
+    if (!d || !(d.labels || []).length || !(d.values || []).length) {
+      chBlank('chEstLocLine'); chBlank('chEstLocDough');
+      if ($('estLocDLeg')) $('estLocDLeg').innerHTML = '';
+      return;
+    }
+    let st = d.values.findIndex(x => x > 0);
+    if (st < 0) { chBlank('chEstLocLine'); return; }
+    st = Math.max(0, st - 1);
+    chLineDraw('chEstLocLine', 'EST_LOC_LINE', d.labels.slice(st), d.values.slice(st));
+    const items = (EST_LOC || [])
+      .filter(p => p.last_value != null && p.last_value > 0)
+      .map(p => ({ label: p.name, value: p.last_value }));
+    if (items.length < 2) chBlank('chEstLocDough'); else chDoughDraw('chEstLocDough', 'EST_LOC_DOUGH', 'estLocDLeg', items);
+  } else {
+    if (EST_CURVE_TCO === null && (EST_TCO || []).length) {
+      EST_CURVE_TCO = await api('/api/tco/curve?months=120'
+        + scopeSuffix().replace('?', '&')).catch(() => null);
+    }
+    const d = EST_CURVE_TCO;
+    if (!d || !(d.series || []).length) {
+      chBlank('chEstTcoLine'); chBlank('chEstTcoDough');
+      if ($('estTcoLeg')) $('estTcoLeg').innerHTML = '';
+      if ($('estTcoDLeg')) $('estTcoDLeg').innerHTML = '';
+      return;
+    }
+    const st = chFirstIdx(d.series);
+    if (st == null) { chBlank('chEstTcoLine'); chBlank('chEstTcoDough'); return; }
+    const specs = d.series.map((s, i) => ({ label: s.name,
+      values: s.values.slice(st), color: CH_PAL[i % CH_PAL.length], width: 1.6 }));
+    chLineMulti('chEstTcoLine', 'EST_TCO_LINE', 'estTcoLeg', d.labels.slice(st), specs);
+    const items = (EST_TCO || [])
+      .filter(x => x.costs && x.costs.total_to_date != null && x.costs.total_to_date > 0)
+      .map(x => ({ label: x.label, value: x.costs.total_to_date }));
+    if (items.length < 2) chBlank('chEstTcoDough'); else chDoughDraw('chEstTcoDough', 'EST_TCO_DOUGH', 'estTcoDLeg', items);
+  }
 }
 function estView(v) {
   EST_VW = v;
   document.querySelectorAll('#estSeg button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
   $('estLocWrap').classList.toggle('hidden', v !== 'loc');
   $('estTcoWrap').classList.toggle('hidden', v !== 'tco');
+  $('estChartsLoc').classList.toggle('hidden', v !== 'loc');
+  $('estChartsTco').classList.toggle('hidden', v !== 'tco');
   if (v === 'loc') estLocRender(); else estTcoRender();
+  estCharts(v);
 }
 function estActContract(p) {
   const cs = (p.contracts || []).filter(c => c.active === 1);

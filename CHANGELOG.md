@@ -2,6 +2,39 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.063] — 2026-09-09
+
+### Added — Charts everywhere: UI (loans / Immo & TCO / Crypto / Crowdfunding)
+(step ② UI of the charts chantier — backend v2026.09.062)
+
+Demande Fred « les mêmes graphiques » sur les 4 pages. Rendu par les mêmes
+helpers Chart.js que v061 (palette, légendes `.legend .li/.dot`), zéro calcul
+côté front (les routes curve font tout).
+
+- Crédits (page loan) : panel « Capital restant dû » — courbe multi-lignes
+  (une par crédit + le total du filtre en trait clair épais), arrêtée au mois
+  courant (la légende montre le restant théorique AUJOURD'HUI ; la projection
+  au terme reste dans le tableau) ; le segment Tous/🏠/🚗/🛒 filtre la courbe ;
+  donut « Répartition du restant dû » = restants DÉCLARÉS (source de vérité,
+  jamais de devise mélangée : prêts non convertibles exclus).
+- Immo & TCO : vue Locations — courbe de la valeur totale des biens (history
+  ids, fin de mois) + donut par bien (dernière valorisation) ; vue Coûts —
+  courbe du coût cumulé par fiche (route tco/curve, chaque point = le même
+  calcul métier que les cartes) + donut de la part du coût à date.
+- Crypto : courbe mensuelle de la valeur par compte (snapshots, USD — devise
+  de la page) + donut par wallet (dernière valeur). Les panels accompagnent
+  la liste (refresh compris).
+- Crowdfunding (aperçu) : « Évolution de l'encours » — courbe par plateforme
+  + total (le donut par plateforme existait déjà : pas de doublon).
+- Robustesse du rendu : `chBlank` masque le canvas au lieu de le détruire
+  (un redraw après un état vide retrouve l'élément — bugs de re-rendu des
+  vues corrigés) ; `chDoughDraw` accepte des formatteurs (USD pour la page
+  crypto) ; `cw/curve` évite de doubler la valeur quand un snapshot porte
+  une ligne globale (token NULL) + des lignes par token (cas du seed démo :
+  3 763,67 $ au lieu de 7 527,34 $ — cohérent avec la page).
+- i18n ×4 (18 clés nouvelles), audit visuel : légende des lignes entièrement
+  visible (chartbox 270 px dans les chart-rows). Tests 225/225.
+
 ## [2026.09.062] — 2026-09-09
 
 ### Added — Charts everywhere: backend curves (loans / TCO / crypto / crowdfunding)
@@ -27,10 +60,10 @@ values}]}` — zéro calcul côté UI (helpers v061 réutilisés).
   partir du mois d'achat (les appels existants, asof = aujourd'hui, sont
   inchangés — une opération future n'était de toute façon jamais payée).
 - `GET /api/cw/curve` — valeur mensuelle des wallets par compte : dernier
-  snapshot cw_history du mois (tous jetons sommés), converti en EUR au taux
-  BCE ≤ la date du snapshot (None si taux indisponible). En prod la courbe
-  démarre au premier refresh/scan (les prix historiques ne sont jamais
-  rachetés) — la démo (wallet seedé depuis 2024-01) l'illustre.
+  snapshot cw_history du mois (tous jetons sommés), en USD — la devise de la
+  page Wallets crypto (le bilan EUR reste calculé à l'agrégation). En prod
+  la courbe démarre au premier refresh/scan (les prix historiques ne sont
+  jamais rachetés) — la démo (wallet seedé depuis 2024-01) l'illustre.
 - `GET /api/cf/curve` — encours de la créance (capital encore dû) par
   plateforme, reconstruit des cf_operations datées : souscription (montant
   < 0) → encours + ; opération positive de type revenu (règle LIKE du
