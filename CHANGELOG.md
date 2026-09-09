@@ -2,6 +2,29 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.067] — 2026-09-09
+
+### Changed — Mobile navigation overhaul (Fred: « revoir l'interface sur
+téléphone — pas terrible le menu »)
+
+- Bottom bar rebuilt: 5 tabs only — Tableau de bord · Actifs · Opérations ·
+  Revenus · Plus (⋯). The dedicated asset pages (Actions, Assurance vie,
+  Crédits, Immo & TCO, Crypto, Crowdfunding) no longer scroll in the bar:
+  tapping Actifs opens a **bottom sheet** (handle, dimmed backdrop) listing
+  the overview + the six dedicated pages; Évolution / Simulateurs /
+  Paramètres / Déconnexion live in the Plus sheet (separator before the
+  logout action). The Discreet toggle stays one tap away in the bar.
+- Active-tab logic updated: the dedicated asset pages light up « Actifs »,
+  Évolution/Simulateurs/Paramètres light up « ⋯ Plus » on mobile (desktop
+  highlighting unchanged, and the dormant Simulateurs highlight — navFire
+  renamed navSim in v065 — now works on both).
+- New global bottom-sheet component (`.sheet` / backdrop / slide-up) reused
+  by both sheets; safe-area padding for notched phones; bar items stretch
+  evenly (flex 1) with bigger touch targets.
+- Desktop navigation untouched. i18n ×4 (one new key: `navMore`). Tested in
+  an emulated 390×844 viewport: bar shows 5+Discreet, both sheets open and
+  navigate, highlights follow. Tests: 233/233 (UI only).
+
 ## [2026.09.065] — 2026-09-09
 
 ### Added — Simulators page + hierarchical menu (UI, step ② of the Fred

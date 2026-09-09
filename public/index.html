@@ -61,6 +61,17 @@
   nav a{display:flex;align-items:center;gap:10px;color:var(--muted);text-decoration:none;padding:10px 12px;border-radius:9px;font-weight:600;font-size:13.5px}
   nav a.nav-sub{padding-left:34px;font-weight:500;font-size:13px}
   nav a.nav-sub .e{opacity:.85}
+  nav a.m-more{display:none}
+  /* bottom sheets de navigation mobile (v2026.09.066) */
+  .sheet{position:fixed;inset:0;z-index:60}
+  .sheet.hidden{display:none}
+  .sheet-backdrop{position:absolute;inset:0;background:rgba(3,8,16,.62)}
+  .sheet-card{position:absolute;left:0;right:0;bottom:0;background:#12161f;border-top:1px solid #1c242f;border-radius:18px 18px 0 0;padding:8px 10px calc(14px + env(safe-area-inset-bottom));box-shadow:0 -10px 34px rgba(0,0,0,.5);animation:sheetUp .16s ease-out;display:flex;flex-direction:column;gap:2px;max-height:74vh;overflow-y:auto}
+  @keyframes sheetUp{from{transform:translateY(36px);opacity:.4}to{transform:none;opacity:1}}
+  .sheet-handle{width:38px;height:4px;border-radius:4px;background:#2a3442;margin:2px auto 8px;flex:none}
+  .sheet-card button{display:flex;align-items:center;gap:12px;background:none;border:0;color:var(--text);font-size:15px;font-weight:600;padding:13px 12px;border-radius:12px;text-align:left;cursor:pointer;font-family:inherit}
+  .sheet-card button:hover,.sheet-card button:active{background:#1a2230}
+  .sheet-card button .e{font-size:18px;width:26px;text-align:center;flex:none}
   nav a:hover{background:#1a2230;color:var(--text)}
   nav a.active{background:#1d2942;color:var(--gold2)}
   #sideFoot{padding:10px 8px;border-top:1px solid var(--border)}
@@ -196,11 +207,17 @@
   @media (max-width:900px){
     #sidebar{width:auto;right:0;flex-direction:row;align-items:center;top:auto;bottom:0;border-top:1px solid var(--border);border-right:none;padding:4px 6px env(safe-area-inset-bottom);z-index:30}
     .side-brand{display:none}
-    nav{flex:1 1 auto;flex-direction:row;overflow-x:auto;overflow-y:hidden;justify-content:flex-start;padding:0 2px;scrollbar-width:thin;min-width:0}
-    nav a{flex:0 0 auto;flex-direction:column;gap:2px;font-size:9.5px;padding:6px 10px}
-    nav a.nav-sub{padding-left:10px;font-size:9.5px}
-    nav a span.e{font-size:15px}
+    nav{flex:1 1 auto;flex-direction:row;overflow-x:auto;overflow-y:hidden;justify-content:space-around;padding:0 2px;scrollbar-width:thin;min-width:0}
+    nav a{flex:1 1 0;flex-direction:column;gap:2px;font-size:9.5px;padding:7px 2px;min-width:0}
+    nav a.nav-sub{padding-left:2px;font-size:9.5px}
+    nav a span.e{font-size:17px}
+    nav a.m-hide{display:none!important}
+    nav a.m-more{display:flex}
+    nav a.active{background:transparent}
+    nav a.active .e{filter:none}
+    nav a.active span{color:var(--gold2)}
     #sideFoot{display:flex;border-top:none;padding:0;flex:0 0 auto}
+    #sideFoot #btnLogout{display:none!important}
     #sideFoot button{flex-direction:column;gap:2px;justify-content:center;padding:6px 8px;font-size:9px;width:auto}
     #main{margin-left:0;padding:14px 12px 84px}
     .chart-row{grid-template-columns:1fr}
@@ -280,22 +297,47 @@
     </div>
     <nav>
       <a href="#" id="navDash" onclick="switchPage('dash')"><span class="e">📊</span> <span data-i18n="navDash">Tableau de bord</span></a>
-      <a href="#" id="navEv" onclick="switchPage('ev')"><span class="e">📈</span> <span data-i18n="navEv">Évolution</span></a>
-      <a href="#" id="navActifs" onclick="switchPage('actifs')"><span class="e">💼</span> <span data-i18n="navActifs">Actifs</span></a>
-      <a href="#" id="navAct" class="nav-sub" onclick="switchPage('act')"><span class="e">📈</span> <span data-i18n="navAct">Actions</span></a>
-      <a href="#" id="navAv" class="nav-sub" onclick="switchPage('av')"><span class="e">🛡️</span> <span data-i18n="navAv">Assurance vie</span></a>
-      <a href="#" id="navLoan" class="nav-sub" onclick="switchPage('loan')"><span class="e">💳</span> <span data-i18n="navLoan">Crédits</span></a>
-      <a href="#" id="navEst" class="nav-sub" onclick="switchPage('est')"><span class="e">🏠</span> <span data-i18n="navEst">Immo & TCO</span></a>
-      <a href="#" id="navCw" class="nav-sub" onclick="switchPage('cw')"><span class="e">₿</span> <span data-i18n="navCw">Crypto</span></a>
-      <a href="#" id="navCrowd" class="nav-sub" onclick="switchPage('crowd')"><span class="e">🧱</span> <span data-i18n="navCrowd">Crowdfunding</span></a>
+      <a href="#" id="navEv" class="m-hide" onclick="switchPage('ev')"><span class="e">📈</span> <span data-i18n="navEv">Évolution</span></a>
+      <a href="#" id="navActifs" onclick="navActifsTap()"><span class="e">💼</span> <span data-i18n="navActifs">Actifs</span></a>
+      <a href="#" id="navAct" class="nav-sub m-hide" onclick="switchPage('act')"><span class="e">📈</span> <span data-i18n="navAct">Actions</span></a>
+      <a href="#" id="navAv" class="nav-sub m-hide" onclick="switchPage('av')"><span class="e">🛡️</span> <span data-i18n="navAv">Assurance vie</span></a>
+      <a href="#" id="navLoan" class="nav-sub m-hide" onclick="switchPage('loan')"><span class="e">💳</span> <span data-i18n="navLoan">Crédits</span></a>
+      <a href="#" id="navEst" class="nav-sub m-hide" onclick="switchPage('est')"><span class="e">🏠</span> <span data-i18n="navEst">Immo & TCO</span></a>
+      <a href="#" id="navCw" class="nav-sub m-hide" onclick="switchPage('cw')"><span class="e">₿</span> <span data-i18n="navCw">Crypto</span></a>
+      <a href="#" id="navCrowd" class="nav-sub m-hide" onclick="switchPage('crowd')"><span class="e">🧱</span> <span data-i18n="navCrowd">Crowdfunding</span></a>
       <a href="#" id="navOps" onclick="switchPage('ops')"><span class="e">📜</span> <span data-i18n="navOps">Opérations</span></a>
       <a href="#" id="navRev" onclick="switchPage('rev')"><span class="e">📅</span> <span data-i18n="navRev">Revenus</span></a>
-      <a href="#" id="navSim" onclick="switchPage('fire')"><span class="e">🔮</span> <span data-i18n="navSim">Simulateurs</span></a>
-      <a href="#" id="navParams" onclick="switchPage('params')"><span class="e">⚙️</span> <span data-i18n="navParams">Paramètres</span></a>
+      <a href="#" id="navSim" class="m-hide" onclick="switchPage('fire')"><span class="e">🔮</span> <span data-i18n="navSim">Simulateurs</span></a>
+      <a href="#" id="navParams" class="m-hide" onclick="switchPage('params')"><span class="e">⚙️</span> <span data-i18n="navParams">Paramètres</span></a>
+      <a href="#" id="navMore" class="m-more" onclick="navMoreTap()"><span class="e">⋯</span> <span data-i18n="navMore">Plus</span></a>
     </nav>
+    <div id="actSheet" class="sheet hidden">
+      <div class="sheet-backdrop" onclick="closeSheets()"></div>
+      <div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <button onclick="goPage('actifs')"><span class="e">💼</span> <span data-i18n="navActifs">Actifs — vue d'ensemble</span></button>
+        <button onclick="goPage('act')"><span class="e">📈</span> <span data-i18n="navAct">Actions</span></button>
+        <button onclick="goPage('av')"><span class="e">🛡️</span> <span data-i18n="navAv">Assurance vie</span></button>
+        <button onclick="goPage('loan')"><span class="e">💳</span> <span data-i18n="navLoan">Crédits</span></button>
+        <button onclick="goPage('est')"><span class="e">🏠</span> <span data-i18n="navEst">Immo &amp; TCO</span></button>
+        <button onclick="goPage('cw')"><span class="e">₿</span> <span data-i18n="navCw">Crypto</span></button>
+        <button onclick="goPage('crowd')"><span class="e">🧱</span> <span data-i18n="navCrowd">Crowdfunding</span></button>
+      </div>
+    </div>
+    <div id="moreSheet" class="sheet hidden">
+      <div class="sheet-backdrop" onclick="closeSheets()"></div>
+      <div class="sheet-card">
+        <div class="sheet-handle"></div>
+        <button onclick="goPage('ev')"><span class="e">📈</span> <span data-i18n="navEv">Évolution</span></button>
+        <button onclick="goPage('fire')"><span class="e">🔮</span> <span data-i18n="navSim">Simulateurs</span></button>
+        <button onclick="goPage('params')"><span class="e">⚙️</span> <span data-i18n="navParams">Paramètres</span></button>
+        <div style="height:1px;background:#1c242f;margin:6px 8px"></div>
+        <button onclick="logoutTap()"><span class="e">🚪</span> <span data-i18n="footLogout">Déconnexion</span></button>
+      </div>
+    </div>
     <div id="sideFoot">
       <button id="btnDiscret" onclick="toggleDiscret()"><span class="e">🔒</span> <span id="btnDiscretTxt">Discret</span></button>
-      <button onclick="logout()"><span class="e">🚪</span> <span data-i18n="footLogout">Déconnexion</span></button>
+      <button onclick="logout()" id="btnLogout"><span class="e">🚪</span> <span data-i18n="footLogout">Déconnexion</span></button>
     </div>
   </aside>
 
@@ -1046,7 +1088,7 @@ avNote:'Un compte = un contrat. La classe Épargne = fonds €, la classe Bourse
   lnYear:'Année', lnAmort:'Amorti', lnInterest:'Intérêts', lnLeft:'Restant dû',
   lnEnd:'Fin estimée : {d} (dans {n} ans) · intérêts restants : {i}',
   lnHeroDebt:'Actifs {a} − passifs {d}',
-  navSim:'Simulateurs', simSegProj:'Projection', simSegFire:'FIRE', simSegRente:'Rente', simProjTtl:'Projection — intérêts composés', projPrinc:'Capital de départ', projPmt:'Versement mensuel', projYears:'Horizon (années)', projGo:'Projeter', projFinSub:'≈ {r} en euros actuels (inflation déduite)', projInv:'Total versé', projInt:'Intérêts cumulés', projHint:'nominal · réel (inflation déduite) · versé', projLNom:'capital nominal', projLReel:'réel (€ actuels)', projLInv:'versements cumulés', projNote:'Capitalisation mensuelle, versements en fin de mois (euros courants). La ligne réelle déflate l’inflation : elle montre le pouvoir d’achat.', simRenteTtl:'Rente potentielle', renteCap:'Capital disponible', renteMode:'Type de rente', renteMy:'Rente certaine — le capital s’épuise au terme', renteMl:'À vie — taux de retrait soutenable (règle des 4 %)', renteMp:'Perpétuelle — intérêts seuls, capital intact', renteYears:'Durée de la rente (années)', renteGo:'Calculer la rente', renteMSub:'{y} par an', renteReel:'pouvoir d’achat au terme (€ actuels)', renteCapEnd:'capital restant au terme', rentePay:'rentes cumulées versées', simRenteChart:'Capital restant', renteNote:'Retraits mensuels en fin de mois, euros nominaux. Rente certaine : le capital s’épuise au terme. À vie : taux de retrait fixe — capital non garanti (règle pensée pour ~30 ans). Perpétuelle : seuls les intérêts sont versés, le capital reste intact.', fireHyp:'Hypothèses', firePrinc:'Patrimoine actuel',
+  navSim:'Simulateurs', navMore:'Plus', simSegProj:'Projection', simSegFire:'FIRE', simSegRente:'Rente', simProjTtl:'Projection — intérêts composés', projPrinc:'Capital de départ', projPmt:'Versement mensuel', projYears:'Horizon (années)', projGo:'Projeter', projFinSub:'≈ {r} en euros actuels (inflation déduite)', projInv:'Total versé', projInt:'Intérêts cumulés', projHint:'nominal · réel (inflation déduite) · versé', projLNom:'capital nominal', projLReel:'réel (€ actuels)', projLInv:'versements cumulés', projNote:'Capitalisation mensuelle, versements en fin de mois (euros courants). La ligne réelle déflate l’inflation : elle montre le pouvoir d’achat.', simRenteTtl:'Rente potentielle', renteCap:'Capital disponible', renteMode:'Type de rente', renteMy:'Rente certaine — le capital s’épuise au terme', renteMl:'À vie — taux de retrait soutenable (règle des 4 %)', renteMp:'Perpétuelle — intérêts seuls, capital intact', renteYears:'Durée de la rente (années)', renteGo:'Calculer la rente', renteMSub:'{y} par an', renteReel:'pouvoir d’achat au terme (€ actuels)', renteCapEnd:'capital restant au terme', rentePay:'rentes cumulées versées', simRenteChart:'Capital restant', renteNote:'Retraits mensuels en fin de mois, euros nominaux. Rente certaine : le capital s’épuise au terme. À vie : taux de retrait fixe — capital non garanti (règle pensée pour ~30 ans). Perpétuelle : seuls les intérêts sont versés, le capital reste intact.', fireHyp:'Hypothèses', firePrinc:'Patrimoine actuel',
   fireSave:'Épargne mensuelle', fireExp:'Dépenses mensuelles', fireRent:'Rentes / pensions mensuelles',
   fireBirth:'Année de naissance', fireRet:'Rendement annuel (%)', fireInfl:'Inflation annuelle (%)',
   fireSwr:'Taux de retrait (%)', fireGo:'Simuler', fireSaveH:'Enregistrer les hypothèses', fireRes:'Résultat',
@@ -1254,7 +1296,7 @@ avNote:'One account = one contract. Savings class = funds €, Stocks class = un
   lnYear:'Year', lnAmort:'Principal paid', lnInterest:'Interest', lnLeft:'Remaining',
   lnEnd:'Estimated end: {d} (in {n} years) · remaining interest: {i}',
   lnHeroDebt:'Assets {a} − liabilities {d}',
-  navSim:'Simulators', simSegProj:'Projection', simSegFire:'FIRE', simSegRente:'Annuity', simProjTtl:'Projection — compound interest', projPrinc:'Starting capital', projPmt:'Monthly contribution', projYears:'Horizon (years)', projGo:'Project', projFinSub:'≈ {r} in today’s euros (inflation-adjusted)', projInv:'Total contributed', projInt:'Compound interest earned', projHint:'nominal · real (inflation-adjusted) · contributed', projLNom:'nominal capital', projLReel:'real (today’s euros)', projLInv:'cumulated contributions', projNote:'Monthly compounding, contributions at month end (current euros). The real line is inflation-deflated: it shows purchasing power.', simRenteTtl:'Potential annuity', renteCap:'Available capital', renteMode:'Annuity type', renteMy:'Term annuity — capital is exhausted at term', renteMl:'For life — sustainable withdrawal rate (4 % rule)', renteMp:'Perpetual — interest only, capital untouched', renteYears:'Annuity term (years)', renteGo:'Compute the annuity', renteMSub:'{y} per year', renteReel:'purchasing power at term (today’s euros)', renteCapEnd:'capital left at term', rentePay:'cumulated annuity paid out', simRenteChart:'Remaining capital', renteNote:'Monthly withdrawals at month end, nominal euros. Term annuity: capital exhausted at term. For life: fixed withdrawal rate — capital not guaranteed (rule designed for ~30 years). Perpetual: interest only, capital stays intact.', fireHyp:'Assumptions', firePrinc:'Current net worth',
+  navSim:'Simulators', navMore:'More', simSegProj:'Projection', simSegFire:'FIRE', simSegRente:'Annuity', simProjTtl:'Projection — compound interest', projPrinc:'Starting capital', projPmt:'Monthly contribution', projYears:'Horizon (years)', projGo:'Project', projFinSub:'≈ {r} in today’s euros (inflation-adjusted)', projInv:'Total contributed', projInt:'Compound interest earned', projHint:'nominal · real (inflation-adjusted) · contributed', projLNom:'nominal capital', projLReel:'real (today’s euros)', projLInv:'cumulated contributions', projNote:'Monthly compounding, contributions at month end (current euros). The real line is inflation-deflated: it shows purchasing power.', simRenteTtl:'Potential annuity', renteCap:'Available capital', renteMode:'Annuity type', renteMy:'Term annuity — capital is exhausted at term', renteMl:'For life — sustainable withdrawal rate (4 % rule)', renteMp:'Perpetual — interest only, capital untouched', renteYears:'Annuity term (years)', renteGo:'Compute the annuity', renteMSub:'{y} per year', renteReel:'purchasing power at term (today’s euros)', renteCapEnd:'capital left at term', rentePay:'cumulated annuity paid out', simRenteChart:'Remaining capital', renteNote:'Monthly withdrawals at month end, nominal euros. Term annuity: capital exhausted at term. For life: fixed withdrawal rate — capital not guaranteed (rule designed for ~30 years). Perpetual: interest only, capital stays intact.', fireHyp:'Assumptions', firePrinc:'Current net worth',
   fireSave:'Monthly savings', fireExp:'Monthly expenses', fireRent:'Monthly annuities / pensions',
   fireBirth:'Birth year', fireRet:'Annual return (%)', fireInfl:'Annual inflation (%)',
   fireSwr:'Withdrawal rate (%)', fireGo:'Simulate', fireSaveH:'Save assumptions', fireRes:'Result',
@@ -1462,7 +1504,7 @@ avNote:'Ein Konto = ein Vertrag. Sparklasse = fonds €, Wertpapierklasse = UC. 
   lnYear:'Jahr', lnAmort:'Getilgt', lnInterest:'Zinsen', lnLeft:'Restbetrag',
   lnEnd:'Voraussichtliches Ende: {d} (in {n} Jahren) · Restzinsen: {i}',
   lnHeroDebt:'Vermögen {a} − Verbindlichkeiten {d}',
-  navSim:'Simulatoren', simSegProj:'Projektion', simSegFire:'FIRE', simSegRente:'Rente', simProjTtl:'Projektion — Zinseszins', projPrinc:'Startkapital', projPmt:'Monatlicher Beitrag', projYears:'Horizont (Jahre)', projGo:'Projizieren', projFinSub:'≈ {r} in heutigen Euro (nach Inflation)', projInv:'Gesamteinzahlungen', projInt:'Kumulierte Zinsen', projHint:'nominal · real (nach Inflation) · eingezahlt', projLNom:'Kapital nominal', projLReel:'real (heutige Euro)', projLInv:'kumulierte Einzahlungen', projNote:'Monatliche Verzinsung, Einzahlungen am Monatsende (laufende Euro). Die reale Linie ist um die Inflation bereinigt: sie zeigt die Kaufkraft.', simRenteTtl:'Potenzielle Rente', renteCap:'Verfügbares Kapital', renteMode:'Rentenart', renteMy:'Zeitrente — das Kapital ist am Laufzeitende aufgebraucht', renteMl:'Auf Lebenszeit — nachhaltige Entnahmerate (4-%-Regel)', renteMp:'Ewige Rente — nur Zinsen, Kapital bleibt unangetastet', renteYears:'Laufzeit der Rente (Jahre)', renteGo:'Rente berechnen', renteMSub:'{y} pro Jahr', renteReel:'Kaufkraft am Laufzeitende (heutige Euro)', renteCapEnd:'Kapital am Laufzeitende', rentePay:'kumulierte Rentenzahlungen', simRenteChart:'Verbleibendes Kapital', renteNote:'Monatliche Entnahmen am Monatsende, laufende Euro. Zeitrente: Kapital am Laufzeitende aufgebraucht. Auf Lebenszeit: fester Entnahmesatz — Kapital nicht garantiert (Regel für ~30 Jahre gedacht). Ewige Rente: nur Zinsen werden ausgezahlt, Kapital bleibt unangetastet.', fireHyp:'Annahmen', firePrinc:'Aktuelles Vermögen',
+  navSim:'Simulatoren', navMore:'Mehr', simSegProj:'Projektion', simSegFire:'FIRE', simSegRente:'Rente', simProjTtl:'Projektion — Zinseszins', projPrinc:'Startkapital', projPmt:'Monatlicher Beitrag', projYears:'Horizont (Jahre)', projGo:'Projizieren', projFinSub:'≈ {r} in heutigen Euro (nach Inflation)', projInv:'Gesamteinzahlungen', projInt:'Kumulierte Zinsen', projHint:'nominal · real (nach Inflation) · eingezahlt', projLNom:'Kapital nominal', projLReel:'real (heutige Euro)', projLInv:'kumulierte Einzahlungen', projNote:'Monatliche Verzinsung, Einzahlungen am Monatsende (laufende Euro). Die reale Linie ist um die Inflation bereinigt: sie zeigt die Kaufkraft.', simRenteTtl:'Potenzielle Rente', renteCap:'Verfügbares Kapital', renteMode:'Rentenart', renteMy:'Zeitrente — das Kapital ist am Laufzeitende aufgebraucht', renteMl:'Auf Lebenszeit — nachhaltige Entnahmerate (4-%-Regel)', renteMp:'Ewige Rente — nur Zinsen, Kapital bleibt unangetastet', renteYears:'Laufzeit der Rente (Jahre)', renteGo:'Rente berechnen', renteMSub:'{y} pro Jahr', renteReel:'Kaufkraft am Laufzeitende (heutige Euro)', renteCapEnd:'Kapital am Laufzeitende', rentePay:'kumulierte Rentenzahlungen', simRenteChart:'Verbleibendes Kapital', renteNote:'Monatliche Entnahmen am Monatsende, laufende Euro. Zeitrente: Kapital am Laufzeitende aufgebraucht. Auf Lebenszeit: fester Entnahmesatz — Kapital nicht garantiert (Regel für ~30 Jahre gedacht). Ewige Rente: nur Zinsen werden ausgezahlt, Kapital bleibt unangetastet.', fireHyp:'Annahmen', firePrinc:'Aktuelles Vermögen',
   fireSave:'Monatliche Sparrate', fireExp:'Monatliche Ausgaben', fireRent:'Monatliche Renten / Pensionen',
   fireBirth:'Geburtsjahr', fireRet:'Jährliche Rendite (%)', fireInfl:'Jährliche Inflation (%)',
   fireSwr:'Entnahmerate (%)', fireGo:'Simulieren', fireSaveH:'Annahmen speichern', fireRes:'Ergebnis',
@@ -1669,7 +1711,7 @@ avNote:'Ee Konto = ee Kontrakt. Spuerklass = fonds €, Bourse-Klass = UC. Erfaa
   lnYear:'Joer', lnAmort:'Getilgt', lnInterest:'Zënssen', lnLeft:'Rescht',
   lnEnd:'Geschate Enn: {d} (an {n} Joer) · Reschtzënssen: {i}',
   lnHeroDebt:'Aktiva {a} − Verbindlechkeeten {d}',
-  navSim:'Simulatoren', simSegProj:'Projektioun', simSegFire:'FIRE', simSegRente:'Rent', simProjTtl:'Projektioun — Zënseszëns', projPrinc:'Startkapital', projPmt:'Monatleche Bäitrag', projYears:'Horizont (Joer)', projGo:'Projizéieren', projFinSub:'≈ {r} an hautdesdaagegen Euro (Inflatioun ofgezunn)', projInv:'Total ageluegt', projInt:'Zënsen total', projHint:'nominal · real (Inflatioun ofgezunn) · ageluegt', projLNom:'Kapital nominal', projLReel:'real (hautdesdaags Euro)', projLInv:'kumuléiert Agëtt', projNote:'Monatlech Kapitaliséierung, Agëtt um Enn vum Mount (aktuell Euro). Déi real Linn ass ëm d’Inflatioun bereinegt: si weist d’Kafkraaft.', simRenteTtl:'Potentiell Rent', renteCap:'Disponibel Kapital', renteMode:'Zort Rent', renteMy:'Zäitrent — d’Kapital ass um Enn vun der Laufzäit opgebraucht', renteMl:'Op Liewenszäit — nohaltege Réckzuchssaz (4-%-Regel)', renteMp:'Éiweg Rent — nëmmen Zënsen, d’Kapital bleift onugetaascht', renteYears:'Dauer vun der Rent (Joer)', renteGo:'Rent berechnen', renteMSub:'{y} pro Joer', renteReel:'Kafkraaft um Enn vun der Laufzäit (hautdesdaags Euro)', renteCapEnd:'Kapital um Enn vun der Laufzäit', rentePay:'kumuléiert Rentzuelungen', simRenteChart:'Verbleiwend Kapital', renteNote:'Monatlech Réckzuch um Enn vum Mount, aktuell Euro. Zäitrent: d’Kapital um Enn vun der Laufzäit opgebraucht. Op Liewenszäit: festen Entnahmesaz — Kapital net garantéiert (Regel fir ~30 Joer geduecht). Éiweg Rent: nëmmen d’Zënse ginn ausbezuelt, d’Kapital bleift onugetaascht.', fireHyp:'Unnerstellungen', firePrinc:'Aktuell Verméigen',
+  navSim:'Simulatoren', navMore:'Méi', simSegProj:'Projektioun', simSegFire:'FIRE', simSegRente:'Rent', simProjTtl:'Projektioun — Zënseszëns', projPrinc:'Startkapital', projPmt:'Monatleche Bäitrag', projYears:'Horizont (Joer)', projGo:'Projizéieren', projFinSub:'≈ {r} an hautdesdaagegen Euro (Inflatioun ofgezunn)', projInv:'Total ageluegt', projInt:'Zënsen total', projHint:'nominal · real (Inflatioun ofgezunn) · ageluegt', projLNom:'Kapital nominal', projLReel:'real (hautdesdaags Euro)', projLInv:'kumuléiert Agëtt', projNote:'Monatlech Kapitaliséierung, Agëtt um Enn vum Mount (aktuell Euro). Déi real Linn ass ëm d’Inflatioun bereinegt: si weist d’Kafkraaft.', simRenteTtl:'Potentiell Rent', renteCap:'Disponibel Kapital', renteMode:'Zort Rent', renteMy:'Zäitrent — d’Kapital ass um Enn vun der Laufzäit opgebraucht', renteMl:'Op Liewenszäit — nohaltege Réckzuchssaz (4-%-Regel)', renteMp:'Éiweg Rent — nëmmen Zënsen, d’Kapital bleift onugetaascht', renteYears:'Dauer vun der Rent (Joer)', renteGo:'Rent berechnen', renteMSub:'{y} pro Joer', renteReel:'Kafkraaft um Enn vun der Laufzäit (hautdesdaags Euro)', renteCapEnd:'Kapital um Enn vun der Laufzäit', rentePay:'kumuléiert Rentzuelungen', simRenteChart:'Verbleiwend Kapital', renteNote:'Monatlech Réckzuch um Enn vum Mount, aktuell Euro. Zäitrent: d’Kapital um Enn vun der Laufzäit opgebraucht. Op Liewenszäit: festen Entnahmesaz — Kapital net garantéiert (Regel fir ~30 Joer geduecht). Éiweg Rent: nëmmen d’Zënse ginn ausbezuelt, d’Kapital bleift onugetaascht.', fireHyp:'Unnerstellungen', firePrinc:'Aktuell Verméigen',
   fireSave:'Monatlecht Spueren', fireExp:'Monatlech Ausgaben', fireRent:'Monatlech Renten / Pensiounen',
   fireBirth:'Gebuertsjoer', fireRet:'Jährlech Rendit (%)', fireInfl:'Jährlech Inflatioun (%)',
   fireSwr:'Entnarate (%)', fireGo:'Simuléieren', fireSaveH:'Unnerstellungen späicheren', fireRes:'Resultat',
@@ -1862,11 +1904,36 @@ async function api(path, opts={}) {
 }
 
 /* ---------- pages ---------- */
+/* --- navigation mobile : bottom sheets (v2026.09.066) --- */
+function navActifsTap() {
+  if (window.matchMedia('(max-width:900px)').matches) openSheet('actSheet');
+  else switchPage('actifs');
+}
+function navMoreTap() { openSheet('moreSheet'); }
+function openSheet(id) { closeSheets(); $(id).classList.remove('hidden'); }
+function closeSheets() {
+  ['actSheet', 'moreSheet'].forEach(x => { const el = $(x); if (el) el.classList.add('hidden'); });
+}
+function goPage(p) { closeSheets(); switchPage(p); }
+function logoutTap() { closeSheets(); logout(); }
+
 function switchPage(p) {
   if (MEMBER && (p === 'fire' || p === 'params')) p = 'dash';  // hors périmètre vue membre
   CUR_PAGE = p;
+  closeSheets();
   ['dash','ev','actifs','act','av','loan','est','cw','crowd','ops','rev','fire','params'].forEach(x => $('page'+x[0].toUpperCase()+x.slice(1)).classList.toggle('hidden', x!==p));
-  document.querySelectorAll('nav a').forEach(a => a.classList.toggle('active', a.id === 'nav'+p[0].toUpperCase()+p.slice(1)));
+  // highlight : les pages dédiées d'actifs éclairent Actifs ; sur mobile,
+  // Évolution/Simulateurs/Paramètres vivent sous « ⋯ Plus »
+  const parent = ({act:'actifs', av:'actifs', loan:'actifs', est:'actifs', cw:'actifs', crowd:'actifs', fire:'sim'})[p] || p;
+  const cap = parent[0].toUpperCase() + parent.slice(1);
+  const morePages = {ev:1, sim:1, params:1};
+  const isMobile = window.matchMedia('(max-width:900px)').matches;
+  document.querySelectorAll('nav a').forEach(a => {
+    let on = a.id === 'nav' + cap;
+    if (isMobile && a.id === 'navMore' && morePages[parent]) on = true;
+    if (a.id === 'navMore' && !isMobile) on = false;
+    a.classList.toggle('active', on);
+  });
   if (p==='dash') { loadSummary(); loadHistory(); loadBench(); }
   if (p==='ev') { loadEv(); }
   if (p==='actifs') { loadAccounts(); }
