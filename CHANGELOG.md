@@ -2,6 +2,39 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.064] — 2026-09-09
+
+### Added — Simulators backend (v2026.09.064, step ① of the Fred chantier
+« page plus large qui parle de simulateurs » — UI in v2026.09.065:
+Independance page becomes « Simulators », menu sub-levels under Assets)
+
+Demande Fred 2026-09-09 : élargir la page Indépendance (FIRE) en page de
+simulateurs — projection classique / intérêts composés, Monte-Carlo (déjà
+dans FIRE), inflation, revenus/dépenses (déjà dans FIRE), rente potentielle.
+Nouveau moteur pur `src/sim.py` (zéro I/O — même discipline que fire.py),
+routes GET /api/sim/project et /api/sim/rente.
+
+- `src/sim.py` :
+  - `project(principal, pmt_month, r_pct, i_pct, years)` — intérêts composés
+    MENSUELS (taux mensuel équivalent), versements constants en fin de mois,
+    euros nominaux ; sorties : séries annuelles capital nominal / réel
+    (déflaté de l'inflation) / cumul des versements, capital final nominal
+    et réel, total versé, intérêts cumulés.
+  - `rente(principal, mode, r_pct, i_pct, years, swr_pct)` — rente mensuelle
+    potentielle : `years` = rente certaine (PMT = P·r_m/(1−(1+r_m)^−n), le
+    capital s'épuise au terme), `life` = retrait du taux soutenable
+    (P·swr/12, règle des 4 %), `perp` = intérêts seuls (capital intact) ;
+    sorties : rente mensuelle/annuelle, pouvoir d'achat de la rente au terme
+    (inflation), série du capital, cumul versé.
+- Routes : GET /api/sim/project, GET /api/sim/rente — mêmes conventions que
+  fire (membre requis, défauts rendement/inflation/swr = settings fire_*,
+  validation des plages, années civiles à partir de l'année courante).
+- Tests : `tests/test_sim.py` (8 tests — formules vérifiées indépendamment :
+  composé annuel vs mensuel, PMT certaine, capital épuisé/stable, déflation).
+  Suite complète 233/233.
+- Le moteur FIRE existant (src/fire.py, Monte-Carlo inclus) est inchangé —
+  il devient l'un des simulateurs de la page (UI v2026.09.065).
+
 ## [2026.09.063] — 2026-09-09
 
 ### Added — Charts everywhere: UI (loans / Immo & TCO / Crypto / Crowdfunding)

@@ -50,6 +50,7 @@ from src import crowdfund
 from src import crypto
 from src import estate
 from src import loans
+from src import sim
 
 FX_SUPPORTED = fx.SUPPORTED  # liste canonique des devises (module src/fx.py)
 
@@ -1595,6 +1596,69 @@ def _fire_num(q: dict, name: str, default: float) -> float:
         return float(v)
     except (TypeError, ValueError):
         return default
+
+
+@app.get("/api/sim/project")
+async def sim_project(request: Request,
+                      principal: float = -1, pmt_month: float = 0,
+                      return_pct: float = -1, inflation_pct: float = -1,
+                      years: int = 20):
+    """Projection classique — intérêts composés mensuels + versement constant
+    (v2026.09.064, moteur pur src/sim). Défauts rendement/inflation = settings
+    fire_*. Réponse en années civiles (year0 = année courante)."""
+    u = _need(request)
+    conn = db()
+    try:
+        st = _get_settings(conn, u["username"])
+    finally:
+        conn.close()
+    r_pct = return_pct if return_pct >= 0 else st["fire_return"]
+    i_pct = inflation_pct if inflation_pct >= 0 else st["fire_inflation"]
+    if principal < 0 or pmt_month < 0:
+        return JSONResponse({"detail": "Montants invalides (>= 0 attendus)"}, status_code=400)
+    if not (-5 <= r_pct <= 25 and 0 <= i_pct <= 15):
+        return JSONResponse({"detail": "Paramètres hors plage (rendement -5..25, inflation 0..15)"}, status_code=400)
+    if not (1 <= years <= 60):
+        return JSONResponse({"detail": "Horizon invalide (1-60 ans)"}, status_code=400)
+    out = sim.project(principal, pmt_month, r_pct, i_pct, years)
+    year0 = datetime.now().year
+    out["labels"] = [year0 + t for t in out["labels"]]
+    out["year0"] = year0
+    return out
+
+
+@app.get("/api/sim/rente")
+async def sim_rente(request: Request,
+                    principal: float = -1, mode: str = "years",
+                    return_pct: float = -1, inflation_pct: float = -1,
+                    years: int = 0, swr_pct: float = -1):
+    """Rente mensuelle potentielle d'un capital (v2026.09.064, src/sim).
+    mode = years (rente certaine : capital épuisé au terme) | life (retrait du
+    taux soutenable) | perp (intérêts seuls, capital intact). Années civiles."""
+    u = _need(request)
+    conn = db()
+    try:
+        st = _get_settings(conn, u["username"])
+    finally:
+        conn.close()
+    r_pct = return_pct if return_pct >= 0 else st["fire_return"]
+    i_pct = inflation_pct if inflation_pct >= 0 else st["fire_inflation"]
+    s_pct = swr_pct if swr_pct > 0 else st["fire_swr"]
+    if principal < 0:
+        return JSONResponse({"detail": "Montants invalides (>= 0 attendus)"}, status_code=400)
+    if mode not in ("years", "life", "perp"):
+        return JSONResponse({"detail": "Mode invalide (years|life|perp)"}, status_code=400)
+    if not (-5 <= r_pct <= 25 and 0 <= i_pct <= 15 and 0 < s_pct <= 25):
+        return JSONResponse({"detail": "Paramètres hors plage (rendement -5..25, inflation 0..15, retrait 0..25)"}, status_code=400)
+    if years == 0:
+        years = 25 if mode == "years" else 30
+    if not (1 <= years <= 60):
+        return JSONResponse({"detail": "Horizon invalide (1-60 ans)"}, status_code=400)
+    out = sim.rente(principal, mode, r_pct, i_pct, years, s_pct)
+    year0 = datetime.now().year
+    out["labels"] = [year0 + t for t in range(len(out["capital"]))]
+    out["year0"] = year0
+    return out
 
 
 @app.get("/api/fire/simulate")
