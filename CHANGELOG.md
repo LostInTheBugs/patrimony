@@ -2,6 +2,39 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.060] — 2026-09-09
+
+### Added — Charts data + residual values backend (page-curves, vehicle
+resale & real-estate estimate — step ④ of the dedicated pages chantier)
+
+Design `claude/design-charts-residual-2026.md` (never pushed), decided on
+2026-09-09 (« graphs for actions/life-insurance/credits… argus once a year
+for the car… estimate for real estate ») with recommended options
+(no answer within the timeout).
+
+- `GET /api/history?ids=1,2,3`: series = SUM of the requested accounts
+  (same month-end conventions as the class aggregation — last valuation ≤
+  month end, FX → EUR via ECB or manual override). Response contract
+  `{labels, values, current}` for the page-level curves; without `ids` the
+  historical class-aggregated contract is strictly unchanged.
+- Vehicle residual value (argus): `tco_items.resale_value` + `resale_date`
+  (manual annual input — no paid external API, no credentials). Guards:
+  value ≥ 0, real ISO date. Overview exposes `resale_value`, `resale_date`,
+  `resale_months`, `resale_stale` (> 12 months soft reminder) and
+  `net_to_date` = total_to_date − resale value — the « what it really cost
+  me » figure. PUT only touches resale when the client sends it
+  (`exclude_unset`) so older UIs never wipe it.
+- Real-estate indicative estimate: `accounts.area_m2` + `accounts.price_m2`
+  (reference €/m², immo class only — 400 otherwise) exposed as `estimated`
+  (= area × price) in account payloads. Never a valuation: applying it is a
+  manual act through the existing `POST /api/accounts/{aid}/valuation`.
+- Demo seed: Appartement 65 m² × 2 800 €/m² (estimate ≈ 182 000 €); Tesla
+  argus 28 000 € dated 2025-06-30 (> 12 months — stale badge visible,
+  net-to-date ≈ 9 340 €).
+- Tests: 8 new (test_charts_residual.py — estimate store/preserve/guards,
+  history ids filter + legacy contract, resale net/stale/preserve/guards,
+  apply-estimate flow, ghost overview shapes). Suite 220/220 green.
+
 ## [2026.09.059] — 2026-09-09
 
 ### Added — Locations & TCO module UI (🏠 Immo & TCO page — step ③ UI)

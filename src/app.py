@@ -450,6 +450,11 @@ def _seed_demo() -> None:
                 (owner, "Prêt Appartement locatif", "immo", "", "EUR",
                  92000, 92000, 2.8, 520, open_ym + "-01", aid),
             )
+            # estimation indicative (v2026.09.060) : 65 m² × 2 800 €/m²
+            conn.execute(
+                "UPDATE accounts SET area_m2=?, price_m2=? WHERE id=?",
+                (65, 2800, aid),
+            )
         oy, om = int(open_ym[:4]), int(open_ym[5:7])
         start = date(oy, om, 1)
         months = (today.year - start.year) * 12 + (today.month - start.month) + 1
@@ -540,10 +545,13 @@ def _seed_demo() -> None:
              884, 0, "2024-03-01", None)).lastrowid
         conn.execute(
             "INSERT INTO tco_items (owner, kind, label, account_id, loan_id,"
-            " purchase_date, purchase_price, notes)"
-            " VALUES (?,?,?,?,?,?,?,?)",
+            " purchase_date, purchase_price, resale_value, resale_date, notes)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?)",
             (owner, "vehicle", "Tesla Model 3", None, tl, "2024-02-15",
-             39990, "Achetée 39 990 € — apport 9 990 € + crédit 30 000 €"))
+             39990, 28000, "2025-06-30",
+             "Achetée 39 990 € — apport 9 990 € + crédit 30 000 €"))
+        # estimation argus 28 000 € au 2025-06-30 (> 12 mois au 2026-09 :
+        # le badge « à réactualiser » est visible en démo)
         # dépenses imputées (ops expense sur le compte courant — sans impact
         # sur le coût/gain, le modèle ne compte que deposit/income/withdrawal)
         for d, note, amount, item_kind, cat in (
@@ -1490,6 +1498,12 @@ def _account_payload(row: sqlite3.Row, latest: dict | None, txn: dict | None = N
     p = {k: row[k] for k in row.keys()}
     cls = CLASS_META.get(row["asset_class"], {})
     p["class_emoji"] = cls.get("emoji", "📦")
+    # estimation indicative immo (v2026.09.060) : surface × prix/m² de
+    # référence — JAMAIS une valuation : proposée, appliquée à la main
+    p["estimated"] = None
+    if (row["asset_class"] == "immobilier" and p.get("area_m2")
+            and p.get("price_m2")):
+        p["estimated"] = round(p["area_m2"] * p["price_m2"], 2)
     p["last_value"] = latest["value"] if latest else None
     p["last_val_date"] = latest["date"] if latest else None
     cost = row["cost_basis"] or 0.0
@@ -1942,12 +1956,29 @@ class AccountIn(BaseModel):
     loan_principal: float = 0  # capital restant dû du crédit lié (immo, v2026.09.033)
     loan_rate: float = 0  # taux nominal annuel % du crédit lié (v2026.09.033)
     loan_monthly: float = 0  # mensualité hors assurance du crédit lié (v2026.09.033)
+    area_m2: float | None = None  # surface du bien (immo, v2026.09.060)
+    price_m2: float | None = None  # prix de référence €/m² du secteur (v2026.09.060)
 
 
 # enveloppe fiscale d'un actif : elle détermine la PV nette (règles FR/LU à
 # venir — v026 roadmap). Classes autorisées par enveloppe : PEA/CTO = titres
 # (bourse), AV = contrats d'assurance (bourse ou épargne fonds euros).
 _WRAPPER_ALLOW = {"pea": ("bourse",), "cto": ("bourse",), "av": ("bourse", "epargne")}
+
+
+def _estate_meta_err(area_m2: float | None, price_m2: float | None,
+                     asset_class: str) -> str | None:
+    """Garde v2026.09.060 : surface / prix au m² réservés aux biens immo."""
+    for v, what in ((area_m2, "Surface"), (price_m2, "Prix au m²")):
+        if v is not None:
+            if asset_class != "immobilier":
+                return "La surface / le prix au m² est réservé aux biens immobiliers"
+            try:
+                if float(v) <= 0:
+                    return f"{what} invalide"
+            except (TypeError, ValueError):
+                return f"{what} invalide"
+    return None
 
 
 def _wrapper_err(wrapper: str | None, asset_class: str) -> str | None:
@@ -2006,10 +2037,13 @@ async def create_account(body: AccountIn, request: Request):
                     body.asset_class)
     if lerr:
         return JSONResponse({"detail": lerr}, status_code=400)
+    emerr = _estate_meta_err(body.area_m2, body.price_m2, body.asset_class)
+    if emerr:
+        return JSONResponse({"detail": emerr}, status_code=400)
     conn = db()
     cur = conn.execute(
         "INSERT INTO accounts (owner, name, asset_class, institution, currency, fx_override, cost_basis, fees_pct, wrapper, tax_country, loan_principal, loan_rate, loan_monthly, open_date, notes, active,"
-        " valuation_mode, symbol, quantity) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        " valuation_mode, symbol, quantity, area_m2, price_m2) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
         (u["username"], body.name.strip(), body.asset_class, body.institution.strip(), ccy,
          round(body.fx_override, 6) if body.fx_override else None, body.cost_basis or 0,
          round(body.fees_pct, 4) if body.fees_pct is not None else None,
@@ -2019,7 +2053,9 @@ async def create_account(body: AccountIn, request: Request):
          round(body.loan_monthly, 2) if body.loan_monthly else 0,
          body.open_date, body.notes.strip(), body.active,
          mode,
-         body.symbol.strip().upper(), body.quantity or 0),
+         body.symbol.strip().upper(), body.quantity or 0,
+         round(body.area_m2, 2) if body.area_m2 is not None else None,
+         round(body.price_m2, 2) if body.price_m2 is not None else None),
     )
     aid = cur.lastrowid
     # v2026.09.025 — un compte bourse auto créé avec un symbole (ancien modèle
@@ -2086,6 +2122,10 @@ async def update_account(aid: int, body: AccountIn, request: Request):
     if lerr:
         conn.close()
         return JSONResponse({"detail": lerr}, status_code=400)
+    emerr = _estate_meta_err(body.area_m2, body.price_m2, body.asset_class)
+    if emerr:
+        conn.close()
+        return JSONResponse({"detail": emerr}, status_code=400)
     conn.execute(
         "UPDATE accounts SET name=?, asset_class=?, institution=?, currency=?, fx_override=?, cost_basis=?, fees_pct=?, wrapper=?, tax_country=?, loan_principal=?, loan_rate=?, loan_monthly=?, open_date=?, notes=?,"
         " active=?, valuation_mode=?, symbol=?, quantity=?, updated_at=datetime('now') WHERE id=?",
@@ -2100,6 +2140,17 @@ async def update_account(aid: int, body: AccountIn, request: Request):
          mode,
          body.symbol.strip().upper(), body.quantity or 0, aid),
     )
+    # v2026.09.060 — surface / prix au m² : mis à jour SEULEMENT si le client
+    # les envoie (l'UI antérieure n'a pas ces champs → ne jamais les effacer)
+    b_u = body.model_dump(exclude_unset=True)
+    if "area_m2" in b_u or "price_m2" in b_u:
+        conn.execute(
+            "UPDATE accounts SET area_m2=?, price_m2=?, updated_at=datetime('now')"
+            " WHERE id=?",
+            (round(b_u["area_m2"], 2) if b_u.get("area_m2") is not None else None,
+             round(b_u["price_m2"], 2) if b_u.get("price_m2") is not None else None,
+             aid),
+        )
     # v2026.09.025 — passage d'un compte bourse existant en auto avec symbole
     # (sans ligne déjà gérée) : on matérialise la position #1
     if body.asset_class == "bourse" and mode == "auto" and (body.symbol or "").strip():
@@ -2937,6 +2988,8 @@ class TcoItemIn(BaseModel):
     loan_id: int | None = None
     purchase_date: str | None = None
     purchase_price: float | None = None
+    resale_value: float | None = None  # valeur résiduelle (argus, v2026.09.060)
+    resale_date: str | None = None
     active: int = 1
     notes: str = ""
 
@@ -3243,11 +3296,13 @@ async def create_tco_item(body: TcoItemIn, request: Request):
             return JSONResponse({"detail": err}, status_code=400)
         cur = conn.execute(
             "INSERT INTO tco_items (owner, kind, label, account_id, loan_id,"
-            " purchase_date, purchase_price, active, notes)"
-            " VALUES (?,?,?,?,?,?,?,?,?)",
+            " purchase_date, purchase_price, resale_value, resale_date, active, notes)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?)",
             (u["username"], b["kind"], b["label"].strip(), b.get("account_id"),
              b.get("loan_id"), b.get("purchase_date"),
              round(b["purchase_price"], 2) if b.get("purchase_price") is not None else None,
+             round(b["resale_value"], 2) if b.get("resale_value") is not None else None,
+             b.get("resale_date"),
              1 if b["active"] else 0, b.get("notes", "").strip()),
         )
         iid = cur.lastrowid
@@ -3280,6 +3335,16 @@ async def update_tco_item(iid: int, body: TcoItemIn, request: Request):
              round(b["purchase_price"], 2) if b.get("purchase_price") is not None else None,
              1 if b["active"] else 0, b.get("notes", "").strip(), iid),
         )
+        # v2026.09.060 — valeur résiduelle (argus) : mise à jour seulement si
+        # le client l'envoie (les UIs antérieures n'ont pas ces champs)
+        b_u = body.model_dump(exclude_unset=True)
+        if "resale_value" in b_u or "resale_date" in b_u:
+            conn.execute(
+                "UPDATE tco_items SET resale_value=?, resale_date=? WHERE id=?",
+                (round(b_u["resale_value"], 2)
+                 if b_u.get("resale_value") is not None else None,
+                 b_u.get("resale_date"), iid),
+            )
         conn.commit()
     finally:
         conn.close()
@@ -3338,6 +3403,16 @@ async def tco_overview(request: Request, family: int = 0, member: str = ""):
             p["account_name"] = acc["name"] if acc else None
             costs = estate.item_costs(conn, it)
             p["costs"] = costs
+            rv = it["resale_value"] if "resale_value" in it.keys() else None
+            rd = it["resale_date"] if "resale_date" in it.keys() else None
+            p["resale_value"] = rv
+            p["resale_date"] = rd
+            rmonths, rstale = estate.resale_meta(rd)
+            p["resale_months"] = rmonths
+            p["resale_stale"] = rstale
+            p["net_to_date"] = (round(costs["total_to_date"] - rv, 2)
+                                if rv is not None and costs.get("total_to_date") is not None
+                                else None)
             out.append(p)
         # biens immo sans fiche : crédit seul (coûts imputés = aucun)
         for a in accs:
@@ -3351,7 +3426,10 @@ async def tco_overview(request: Request, family: int = 0, member: str = ""):
             out.append({
                 "id": None, "kind": "immo", "label": a["name"], "owner": a["owner"],
                 "account_id": a["id"], "account_name": a["name"], "loan_id": None,
-                "purchase_date": None, "purchase_price": None, "notes": "",
+                "purchase_date": None, "purchase_price": None,
+                "resale_value": None, "resale_date": None,
+                "resale_months": None, "resale_stale": False, "net_to_date": None,
+                "notes": "",
                 "value": latest.get(a["id"], {}).get("value"),
                 "costs": costs,
             })
@@ -3632,12 +3710,22 @@ async def actions_refresh(request: Request):
 
 
 @app.get("/api/history")
-async def history(request: Request, months: int = 60, family: int = 0, member: str = ""):
+async def history(request: Request, months: int = 60, family: int = 0, member: str = "",
+                  ids: str = ""):
     u = _need(request)
     months = max(6, min(months, 240))
     conn = db()
     owners = _visible_owners(conn, u, bool(family), member or None)
     wc, args = _owner_clause(owners)
+    # v2026.09.060 — ?ids=1,2,3 : série SOMME des comptes demandés (courbes
+    # des pages dédiées) ; sans ids = agrégation par classe (comportement
+    # historique strictement inchangé)
+    id_set: set[int] | None = None
+    if ids.strip():
+        try:
+            id_set = {int(x) for x in ids.split(",") if x.strip()}
+        except ValueError:
+            id_set = set()
     rows = conn.execute(
         f"SELECT id, name, asset_class, currency, fx_override, open_date, close_date, active"
         f" FROM accounts WHERE {wc}", args
@@ -3658,13 +3746,17 @@ async def history(request: Request, months: int = 60, family: int = 0, member: s
     labels: list[str] = []
     series = {k: [] for k in CLASS_KEYS}
     totals: list[float] = []
+    page_values = [] if id_set is not None else None
     while d <= today:
         labels.append(d.strftime("%Y-%m"))
         end_str = f"{d.strftime('%Y-%m')}-{calendar.monthrange(d.year, d.month)[1]:02d}"
         msum = 0.0
+        page_sum = 0.0 if id_set is not None else None
         monthly = {k: 0.0 for k in CLASS_KEYS}
         for r in rows:
             if not r["active"]:
+                continue
+            if id_set is not None and r["id"] not in id_set:
                 continue
             if r["open_date"] and r["open_date"][:10] > end_str:
                 continue
@@ -3689,11 +3781,21 @@ async def history(request: Request, months: int = 60, family: int = 0, member: s
             # la série est la SOMME par mois — jamais une valeur par compte
             monthly[r["asset_class"]] += val
             msum += val
+            if page_sum is not None:
+                page_sum += val
         for k in CLASS_KEYS:
             series[k].append(round(monthly[k], 2))
         totals.append(round(msum, 2))
+        if page_values is not None:
+            page_values.append(round(page_sum or 0.0, 2))
         d = date(d.year + d.month // 12, d.month % 12 + 1, 1)
     conn.close()
+    if page_values is not None:
+        return {
+            "labels": labels,
+            "values": page_values,
+            "current": page_values[-1] if page_values else 0,
+        }
     return {
         "labels": labels,
         "series": series,

@@ -332,6 +332,8 @@ def schema_data(conn: sqlite3.Connection) -> None:
             loan_id INTEGER REFERENCES loans(id) ON DELETE SET NULL,
             purchase_date TEXT,
             purchase_price REAL,
+            resale_value REAL,
+            resale_date TEXT,
             active INTEGER DEFAULT 1,
             notes TEXT DEFAULT ''
         );
@@ -357,6 +359,10 @@ def schema_data(conn: sqlite3.Connection) -> None:
         ("loan_principal", "ALTER TABLE accounts ADD COLUMN loan_principal REAL NOT NULL DEFAULT 0"),
         ("loan_rate", "ALTER TABLE accounts ADD COLUMN loan_rate REAL NOT NULL DEFAULT 0"),
         ("loan_monthly", "ALTER TABLE accounts ADD COLUMN loan_monthly REAL NOT NULL DEFAULT 0"),
+        ("area_m2", "ALTER TABLE accounts ADD COLUMN area_m2 REAL"),
+        ("price_m2", "ALTER TABLE accounts ADD COLUMN price_m2 REAL"),
+        ("resale_value", "ALTER TABLE tco_items ADD COLUMN resale_value REAL"),
+        ("resale_date", "ALTER TABLE tco_items ADD COLUMN resale_date TEXT"),
     ):
         try:
             conn.execute(ddl)

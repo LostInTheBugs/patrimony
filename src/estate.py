@@ -325,7 +325,7 @@ def item_err(conn: sqlite3.Connection, owner: str, b: dict,
         ).fetchone()
         if dup:
             return "Ce crédit est déjà lié à une autre fiche"
-    for f in ("purchase_date",):
+    for f in ("purchase_date", "resale_date"):
         if b.get(f):
             try:
                 date.fromisoformat(b[f])
@@ -336,7 +336,29 @@ def item_err(conn: sqlite3.Connection, owner: str, b: dict,
             return "Prix d'achat invalide"
     except (TypeError, ValueError):
         return "Prix d'achat invalide"
+    try:
+        if b.get("resale_value") is not None and float(b["resale_value"]) < 0:
+            return "Valeur résiduelle invalide"
+    except (TypeError, ValueError):
+        return "Valeur résiduelle invalide"
     return None
+
+
+def resale_meta(resale_date: str | None,
+                today: date | None = None) -> tuple[int | None, bool]:
+    """Mois calendaires écoulés depuis l'estimation + vétusté (> 12 mois =
+    rappel doux de mise à jour annuelle de l'argus)."""
+    if not resale_date:
+        return None, False
+    try:
+        d = date.fromisoformat(resale_date[:10])
+    except (TypeError, ValueError):
+        return None, False
+    t = today or date.today()
+    months = (t.year - d.year) * 12 + (t.month - d.month)
+    if months < 0:
+        months = 0
+    return months, months > 12
 
 
 def _item_loan(conn: sqlite3.Connection, item_row) -> sqlite3.Row | None:
