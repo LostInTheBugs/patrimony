@@ -297,6 +297,53 @@ def schema_data(conn: sqlite3.Connection) -> None:
         );
         CREATE INDEX IF NOT EXISTS idx_loans_owner ON loans(owner);
         CREATE INDEX IF NOT EXISTS idx_loans_account ON loans(account_id);
+        CREATE TABLE IF NOT EXISTS loc_contracts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            owner TEXT NOT NULL,
+            account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+            tenant TEXT NOT NULL,
+            rent_monthly REAL NOT NULL,
+            deposit REAL DEFAULT 0,
+            start_date TEXT NOT NULL,
+            end_date TEXT,
+            active INTEGER DEFAULT 1,
+            notes TEXT DEFAULT ''
+        );
+        CREATE INDEX IF NOT EXISTS idx_loc_contracts_owner ON loc_contracts(owner);
+        CREATE INDEX IF NOT EXISTS idx_loc_contracts_account ON loc_contracts(account_id);
+        CREATE TABLE IF NOT EXISTS loc_payments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            owner TEXT NOT NULL,
+            contract_id INTEGER NOT NULL REFERENCES loc_contracts(id) ON DELETE CASCADE,
+            op_date TEXT NOT NULL,
+            amount REAL NOT NULL,
+            month TEXT NOT NULL,
+            transaction_id INTEGER REFERENCES transactions(id) ON DELETE SET NULL,
+            notes TEXT DEFAULT ''
+        );
+        CREATE INDEX IF NOT EXISTS idx_loc_payments_owner ON loc_payments(owner);
+        CREATE INDEX IF NOT EXISTS idx_loc_payments_contract ON loc_payments(contract_id);
+        CREATE TABLE IF NOT EXISTS tco_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            owner TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            label TEXT NOT NULL,
+            account_id INTEGER REFERENCES accounts(id) ON DELETE CASCADE,
+            loan_id INTEGER REFERENCES loans(id) ON DELETE SET NULL,
+            purchase_date TEXT,
+            purchase_price REAL,
+            active INTEGER DEFAULT 1,
+            notes TEXT DEFAULT ''
+        );
+        CREATE INDEX IF NOT EXISTS idx_tco_items_owner ON tco_items(owner);
+        CREATE TABLE IF NOT EXISTS tco_imputations (
+            transaction_id INTEGER PRIMARY KEY REFERENCES transactions(id) ON DELETE CASCADE,
+            owner TEXT NOT NULL,
+            item_id INTEGER NOT NULL REFERENCES tco_items(id) ON DELETE CASCADE,
+            category TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_tco_imp_owner ON tco_imputations(owner);
+        CREATE INDEX IF NOT EXISTS idx_tco_imp_item ON tco_imputations(item_id);
         """
     )
     for col, ddl in (

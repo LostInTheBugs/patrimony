@@ -340,6 +340,12 @@ def init_vault(main: sqlite3.Connection, username: str, salt: str, wrapped: str,
     # module Crédits (v2026.09.056) : crédits liés legacy migrés ici même
     copy_rows(main, mem, "loans", "owner=?", (username,))
     migrate_legacy(mem)
+    # module Locations & TCO (v2026.09.058) : contrats, encaissements, fiches,
+    # imputations — parents (accounts/transactions/loans) copiés ci-dessus
+    copy_rows(main, mem, "loc_contracts", "owner=?", (username,))
+    copy_rows(main, mem, "loc_payments", "owner=?", (username,))
+    copy_rows(main, mem, "tco_items", "owner=?", (username,))
+    copy_rows(main, mem, "tco_imputations", "owner=?", (username,))
     # module Crypto (v2026.09.050) : wallets + transferts + séries + scans
     copy_rows(main, mem, "cw_wallets", "owner=?", (username,))
     copy_rows(main, mem, "cw_transfers", "owner=?", (username,))

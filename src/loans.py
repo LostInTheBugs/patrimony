@@ -191,3 +191,92 @@ def theoretical_remaining(conn: sqlite3.Connection, loan_id: int) -> float | Non
         if rest <= 0:
             break
     return round(max(0.0, rest), 2)
+
+
+def paid_breakdown(conn: sqlite3.Connection, loan_id: int,
+                   asof: date | None = None) -> dict | None:
+    """Ventilation par année civile de ce qu'un crédit a déjà coûté (TCO).
+
+    Simulation théorique depuis `start_date` (mensualités régulières) jusqu'à
+    `asof` inclus : capital remboursé, intérêts et assurance emprunteur par
+    année + totaux, plus le coût total au TERME (ce que le crédit aura coûté
+    in fine). None si le crédit ne s'amortit jamais, si la date de départ
+    manque ou si le crédit n'existe pas — l'appelant exclut proprement la
+    composante crédit du TCO (jamais de 0 muet).
+    """
+    if asof is None:
+        asof = date.today()
+    row = conn.execute(
+        "SELECT principal_initial, rate_annual, monthly_payment,"
+        " insurance_monthly, start_date FROM loans WHERE id=?",
+        (loan_id,),
+    ).fetchone()
+    if row is None or not row["start_date"]:
+        return None
+    r = (row["rate_annual"] or 0) / 100.0 / 12.0
+    M = row["monthly_payment"] or 0
+    P0 = row["principal_initial"] or 0
+    if M <= 0 or P0 <= 0 or (r > 0 and M <= P0 * r):
+        return None
+    try:
+        start = date.fromisoformat(row["start_date"])
+    except ValueError:
+        return None
+    if r > 0:
+        n = int(math.ceil(math.log(M / (M - P0 * r)) / math.log(1 + r)))
+    else:
+        n = int(math.ceil(P0 / M))
+    ins = row["insurance_monthly"] or 0
+    years: dict[str, dict] = {}
+    rest = P0
+    paid_cap = paid_int = paid_ins = 0.0
+    mp = 0
+    for k in range(1, min(n, _SIM_MAX) + 1):
+        y = start.year + (start.month - 1 + k) // 12
+        mo = (start.month - 1 + k) % 12 + 1
+        ym = date(y, mo, 1)
+        if ym > asof:
+            break  # échéances futures : ni ventilées ni comptées
+        it = rest * r
+        am = M - it
+        if am >= rest:
+            am = rest
+        rest -= am
+        yk = f"{y:04d}"
+        ye = years.setdefault(yk, {"capital": 0.0, "interest": 0.0, "insurance": 0.0})
+        ye["capital"] += am
+        ye["interest"] += it
+        ye["insurance"] += ins
+        paid_cap += am
+        paid_int += it
+        paid_ins += ins
+        mp += 1
+        if rest <= 1e-9:
+            break
+    return {
+        "years": {k: {kk: round(vv, 2) for kk, vv in v.items()}
+                  for k, v in sorted(years.items())},
+        "months_paid": mp,
+        "paid_capital": round(paid_cap, 2),
+        "paid_interest": round(paid_int, 2),
+        "paid_insurance": round(paid_ins, 2),
+        "credit_total_at_term": round(P0 + _total_interest_series(P0, r, M, n), 2),
+        "insurance_total_at_term": round(ins * n, 2),
+        "term_months": n,
+    }
+
+
+def _total_interest_series(P0: float, r: float, M: float, n: int) -> float:
+    """Intérêts totaux d'un amortissement français de n échéances."""
+    rest = P0
+    tot = 0.0
+    for _ in range(min(n, _SIM_MAX)):
+        it = rest * r
+        am = M - it
+        if am >= rest:
+            am = rest
+        rest -= am
+        tot += it
+        if rest <= 1e-9:
+            break
+    return tot

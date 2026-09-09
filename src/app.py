@@ -48,6 +48,7 @@ from src.schema import schema_data
 from src import bench
 from src import crowdfund
 from src import crypto
+from src import estate
 from src import loans
 
 FX_SUPPORTED = fx.SUPPORTED  # liste canonique des devises (module src/fx.py)
@@ -358,6 +359,14 @@ def init_db() -> None:
         "DELETE FROM loans WHERE owner IN"
         " (SELECT v.username FROM vaults v JOIN users u ON u.username=v.username WHERE u.mode='protected')"
     )
+    # module Locations & TCO (v2026.09.058) : même purge (imputations → txs,
+    # fiches → comptes/crédits, encaissements → contrats/txs, contrats → biens)
+    for tbl in ("tco_imputations", "tco_items", "loc_payments", "loc_contracts"):
+        conn.execute(
+            f"DELETE FROM {tbl} WHERE owner IN"
+            " (SELECT v.username FROM vaults v JOIN users u ON u.username=v.username"
+            " WHERE u.mode='protected')"
+        )
     # journal d'audit : rétention 90 jours (purge au boot)
     conn.execute("DELETE FROM audit_log WHERE ts < datetime('now', '-90 days')")
     # v2026.09.025 : un compte bourse auto « 1 symbole » (modèle historique)
@@ -488,6 +497,75 @@ def _seed_demo() -> None:
     crowdfund.seed_demo(conn, owner)
     # module Crypto (démo) : wallet fictif synthétique (hors-ligne) → compte-auto
     crypto.seed_demo(conn, owner)
+    # module Locations & TCO (démo v2026.09.058) : contrat de location du bien
+    # + encaissements mensuels historiques (SANS op matérialisée : import
+    # initial — la matérialisation income est couverte par les tests), fiche
+    # TCO du bien, véhicule financé + dépenses imputées
+    accs = {r["name"]: r["id"] for r in conn.execute(
+        "SELECT name, id FROM accounts WHERE owner=?", (owner,)).fetchall()}
+    apt = accs.get("Appartement locatif")
+    ccur = accs.get("Compte courant")
+    if apt:
+        loan = conn.execute(
+            "SELECT id FROM loans WHERE owner=? AND account_id=?", (owner, apt)).fetchone()
+        conn.execute(
+            "INSERT INTO tco_items (owner, kind, label, account_id, loan_id)"
+            " VALUES (?,?,?,?,?)",
+            (owner, "immo", "Appartement locatif", apt,
+             loan["id"] if loan else None))
+        conn.execute(
+            "INSERT INTO loc_contracts (owner, account_id, tenant, rent_monthly,"
+            " deposit, start_date, active) VALUES (?,?,?,?,?,?,1)",
+            (owner, apt, "M. Weber", 1250, 2500, "2021-04-01"))
+        cid = conn.execute("SELECT last_insert_rowid() AS id").fetchone()["id"]
+        # encaissements du 3 de chaque mois, de 2021-04 au mois courant si le
+        # 3 est déjà passé (sinon mois précédent — jamais de loyer futur)
+        ym = "2021-04"
+        cur = f"{date.today().year:04d}-{date.today().month:02d}"
+        last_ym = cur if date.today().day >= 4 else estate._ym_add(cur, -1)
+        while ym <= last_ym:
+            conn.execute(
+                "INSERT INTO loc_payments (owner, contract_id, op_date, amount,"
+                " month, notes) VALUES (?,?,?,?,?,?)",
+                (owner, cid, ym + "-03", 1250, ym, ""))
+            ym = estate._ym_add(ym, 1)
+    # véhicule financé : crédit auto (table loans, sans bien lié) + fiche TCO
+    if ccur:
+        tl = conn.execute(
+            "INSERT INTO loans (owner, name, loan_type, lender, currency,"
+            " principal_initial, principal_remaining, rate_annual,"
+            " monthly_payment, insurance_monthly, start_date, account_id)"
+            " VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+            (owner, "Prêt Tesla", "auto", "ING", "EUR", 30000, 30000, 3.9,
+             884, 0, "2024-03-01", None)).lastrowid
+        conn.execute(
+            "INSERT INTO tco_items (owner, kind, label, account_id, loan_id,"
+            " purchase_date, purchase_price, notes)"
+            " VALUES (?,?,?,?,?,?,?,?)",
+            (owner, "vehicle", "Tesla Model 3", None, tl, "2024-02-15",
+             39990, "Achetée 39 990 € — apport 9 990 € + crédit 30 000 €"))
+        # dépenses imputées (ops expense sur le compte courant — sans impact
+        # sur le coût/gain, le modèle ne compte que deposit/income/withdrawal)
+        for d, note, amount, item_kind, cat in (
+            ("2025-03-10", "Assurance auto Tesla", 480, "vehicle", "insurance"),
+            ("2025-09-20", "Entretien Tesla (révision)", 210, "vehicle", "maintenance"),
+            ("2026-01-15", "Carburant Tesla", 140, "vehicle", "fuel"),
+            ("2025-10-15", "Taxe foncière Appartement", 720, "immo", "tax"),
+            ("2026-06-10", "Assurance habitation Appartement (PNO)", 180,
+             "immo", "insurance"),
+        ):
+            tid = conn.execute(
+                "INSERT INTO transactions (account_id, op_date, kind, amount,"
+                " note) VALUES (?,?,?,?,?)",
+                (ccur, d, "expense", amount, note)).lastrowid
+            item = conn.execute(
+                "SELECT id FROM tco_items WHERE owner=? AND kind=? LIMIT 1",
+                (owner, item_kind)).fetchone()
+            if item:
+                conn.execute(
+                    "INSERT INTO tco_imputations (transaction_id, owner, item_id,"
+                    " category) VALUES (?,?,?,?)",
+                    (tid, owner, item["id"], cat))
     conn.commit()
     conn.close()
 
@@ -1354,6 +1432,10 @@ async def family_delete(username: str, request: Request):
     conn.execute("DELETE FROM cf_operations WHERE owner=?", (uname,))
     conn.execute("DELETE FROM cf_projects WHERE owner=?", (uname,))
     conn.execute("DELETE FROM cf_platforms WHERE owner=?", (uname,))
+    conn.execute("DELETE FROM tco_imputations WHERE owner=?", (uname,))
+    conn.execute("DELETE FROM tco_items WHERE owner=?", (uname,))
+    conn.execute("DELETE FROM loc_payments WHERE owner=?", (uname,))
+    conn.execute("DELETE FROM loc_contracts WHERE owner=?", (uname,))  # Locations & TCO v2026.09.058
     conn.execute("DELETE FROM loans WHERE owner=?", (uname,))  # module Crédits v2026.09.056
     conn.execute("DELETE FROM accounts WHERE owner=?", (uname,))  # cascade : valuations/transactions/règles
     conn.commit()
@@ -2820,6 +2902,530 @@ async def loan_recompute(lid: int, request: Request):
     return {"declared_remaining": round(declared, 2),
             "theoretical_remaining": theo,
             "delta": round(theo - declared, 2)}
+
+
+# ---------------------------------------------------------------- module Locations & TCO (v2026.09.058)
+# Suivi locatif par contrat (locataire, loyer, dépôt, début/fin) + coût total
+# de possession (TCO) par fiche (bien immo / véhicule hors patrimoine). Un
+# encaissement MATÉRIALISE une op income (source_id loc:enc:<id>) ; les
+# dépenses imputées = lien vers une op expense existante (une op = un objet).
+
+class LocContractIn(BaseModel):
+    account_id: int | None = None
+    tenant: str = ""
+    rent_monthly: float = 0
+    deposit: float = 0
+    start_date: str = ""
+    end_date: str | None = None
+    active: int = 1
+    notes: str = ""
+
+
+class LocPaymentIn(BaseModel):
+    contract_id: int = 0
+    op_date: str = ""
+    amount: float = 0
+    month: str = ""
+    cash_account_id: int | None = None
+    notes: str = ""
+
+
+class TcoItemIn(BaseModel):
+    kind: str = ""
+    label: str = ""
+    account_id: int | None = None
+    loan_id: int | None = None
+    purchase_date: str | None = None
+    purchase_price: float | None = None
+    active: int = 1
+    notes: str = ""
+
+
+class TcoImputeIn(BaseModel):
+    transaction_id: int = 0
+    item_id: int = 0
+    category: str = ""
+
+
+def _loc_account_summary(conn, latest: dict | None, acc_row) -> dict:
+    """Payload léger d'un bien immo pour l'overview Locations (valeur +
+    devise gérées comme /api/accounts, sans tout le payload de compte)."""
+    p = {k: acc_row[k] for k in acc_row.keys()}
+    p["last_value"] = latest["value"] if latest else None
+    p["last_val_date"] = latest["date"] if latest else None
+    if latest and (acc_row["currency"] or "EUR") != "EUR":
+        fxr = fx.lookup(conn, acc_row["currency"], latest["date"], None)
+        p["value_eur"] = round(latest["value"] / fxr["rate"], 2) if fxr else None
+    else:
+        p["value_eur"] = latest["value"] if latest else None
+    return p
+
+
+@app.get("/api/loc/overview")
+async def loc_overview(request: Request, family: int = 0, member: str = ""):
+    """Par bien immobilier : contrat actif, loyers attendus/perçus (12 m et
+    total), occupation, coûts 12 m et rendements brut/net/net-financier."""
+    u = _need(request)
+    conn = db()
+    try:
+        owners = _visible_owners(conn, u, bool(family), member or None)
+        wc = "a.owner IN (%s)" % ",".join("?" * len(owners))
+        accs = conn.execute(
+            "SELECT * FROM accounts a WHERE a.asset_class='immobilier'"
+            f" AND a.active=1 AND {wc} ORDER BY a.name", owners).fetchall()
+        latest = _latest_valuations(conn)
+        out = []
+        for a in accs:
+            o = a["owner"]
+            pay = estate.contract_payload  # noqa
+            entry = _loc_account_summary(conn, latest.get(a["id"]), a)
+            entry["owner"] = o
+            entry["contracts"] = [
+                {k: c[k] for k in c.keys()} | {"account_name": a["name"]}
+                for c in conn.execute(
+                    "SELECT * FROM loc_contracts WHERE owner=? AND account_id=?"
+                    " ORDER BY start_date DESC", (o, a["id"])).fetchall()
+            ]
+            first = min((c["start_date"][:7] for c in entry["contracts"]), default=None)
+            today = estate._today_ym()
+            f12 = estate._ym_add(today, -11)
+            exp12 = est_exp = {}
+            per12 = est_per = {}
+            if first:
+                exp12 = estate.expected_by_month(conn, o, a["id"], f12, today)
+                est_exp = estate.expected_by_month(conn, o, a["id"], first, today)
+                per12 = estate.perceived_by_month(conn, o, a["id"], f12, today)
+                est_per = estate.perceived_by_month(conn, o, a["id"], first, today)
+            entry["expected_12m"] = round(sum(exp12.values()), 2)
+            entry["expected_total"] = round(sum(est_exp.values()), 2)
+            entry["perceived_12m"] = round(sum(per12.values()), 2)
+            entry["perceived_total"] = round(sum(est_per.values()), 2)
+            entry["occupancy"] = estate.occupancy(conn, o, a["id"])
+            entry["costs_12m"] = estate._imputed_window(conn, o, a["id"],
+                                                        estate._ym_add(today, -11))
+            entry["credit_12m"] = estate.credit_paid_12m(conn, a["id"])
+            val = entry.get("value_eur")
+            if val:
+                entry["yield_brut"] = round(entry["perceived_12m"] / val * 100, 2)
+                entry["yield_net"] = round(
+                    (entry["perceived_12m"] - entry["costs_12m"]) / val * 100, 2)
+                entry["yield_net_fin"] = round(
+                    (entry["perceived_12m"] - entry["costs_12m"]
+                     - entry["credit_12m"]) / val * 100, 2)
+            else:
+                entry["yield_brut"] = entry["yield_net"] = entry["yield_net_fin"] = None
+            # encaissements récents (détail 12 derniers mois pour l'UI)
+            entry["payments_12m"] = [
+                {k: p[k] for k in p.keys()} for p in conn.execute(
+                    "SELECT p.*, c.tenant FROM loc_payments p"
+                    " JOIN loc_contracts c ON c.id=p.contract_id"
+                    " WHERE c.owner=? AND c.account_id=? AND p.month>=?"
+                    " ORDER BY p.month DESC LIMIT 400", (o, a["id"], f12)).fetchall()
+            ]
+            out.append(entry)
+    finally:
+        conn.close()
+    return {"properties": out}
+
+
+@app.get("/api/loc/contracts")
+async def list_loc_contracts(request: Request, family: int = 0, member: str = ""):
+    u = _need(request)
+    conn = db()
+    try:
+        owners = _visible_owners(conn, u, bool(family), member or None)
+        wc = "c.owner IN (%s)" % ",".join("?" * len(owners))
+        rows = conn.execute(
+            "SELECT c.*, a.name AS account_name FROM loc_contracts c"
+            " JOIN accounts a ON a.id=c.account_id"
+            f" WHERE {wc} ORDER BY c.start_date DESC", owners).fetchall()
+        out = [estate.contract_payload(r, conn) for r in rows]
+    finally:
+        conn.close()
+    return {"contracts": out}
+
+
+@app.post("/api/loc/contracts")
+async def create_loc_contract(body: LocContractIn, request: Request):
+    u = _need(request)
+    b = body.model_dump()
+    conn = db()
+    try:
+        err = estate.contract_err(conn, u["username"], b)
+        if err:
+            return JSONResponse({"detail": err}, status_code=400)
+        cur = conn.execute(
+            "INSERT INTO loc_contracts (owner, account_id, tenant, rent_monthly,"
+            " deposit, start_date, end_date, active, notes)"
+            " VALUES (?,?,?,?,?,?,?,?,?)",
+            (u["username"], b["account_id"], b["tenant"].strip(),
+             round(b["rent_monthly"], 2), round(b["deposit"] or 0, 2),
+             b["start_date"], b.get("end_date"), 1 if b["active"] else 0,
+             b.get("notes", "").strip()),
+        )
+        cid = cur.lastrowid
+        conn.commit()
+    finally:
+        conn.close()
+    _audit(u["username"], "Création de contrat de location", f"#{cid} {b['tenant'].strip()}")
+    return {"id": cid}
+
+
+@app.put("/api/loc/contracts/{cid}")
+async def update_loc_contract(cid: int, body: LocContractIn, request: Request):
+    u = _need(request)
+    b = body.model_dump()
+    conn = db()
+    try:
+        row = conn.execute(
+            "SELECT id FROM loc_contracts WHERE id=? AND owner=?", (cid, u["username"])
+        ).fetchone()
+        if row is None:
+            return JSONResponse({"detail": "Contrat introuvable"}, status_code=404)
+        err = estate.contract_err(conn, u["username"], b, cid)
+        if err:
+            return JSONResponse({"detail": err}, status_code=400)
+        conn.execute(
+            "UPDATE loc_contracts SET account_id=?, tenant=?, rent_monthly=?,"
+            " deposit=?, start_date=?, end_date=?, active=?, notes=? WHERE id=?",
+            (b["account_id"], b["tenant"].strip(), round(b["rent_monthly"], 2),
+             round(b["deposit"] or 0, 2), b["start_date"], b.get("end_date"),
+             1 if b["active"] else 0, b.get("notes", "").strip(), cid),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    _audit(u["username"], "Modification de contrat de location", f"#{cid}")
+    return {"ok": True}
+
+
+@app.delete("/api/loc/contracts/{cid}")
+async def delete_loc_contract(cid: int, request: Request):
+    u = _need(request)
+    conn = db()
+    try:
+        row = conn.execute(
+            "SELECT id FROM loc_contracts WHERE id=? AND owner=?", (cid, u["username"])
+        ).fetchone()
+        if row is None:
+            return JSONResponse({"detail": "Contrat introuvable"}, status_code=404)
+        n = conn.execute("SELECT COUNT(*) AS n FROM loc_payments WHERE contract_id=?",
+                         (cid,)).fetchone()["n"]
+        if n:
+            conn.execute("UPDATE loc_contracts SET active=0 WHERE id=?", (cid,))
+        else:
+            conn.execute("DELETE FROM loc_contracts WHERE id=?", (cid,))
+        conn.commit()
+    finally:
+        conn.close()
+    _audit(u["username"], "Suppression de contrat de location", f"#{cid}")
+    return {"ok": True}
+
+
+@app.get("/api/loc/payments")
+async def list_loc_payments(request: Request, contract_id: int = 0, year: str = ""):
+    u = _need(request)
+    conn = db()
+    try:
+        c = conn.execute(
+            "SELECT owner FROM loc_contracts WHERE id=?", (contract_id,)).fetchone()
+        if c is None or c["owner"] != u["username"]:
+            return JSONResponse({"detail": "Contrat introuvable"}, status_code=404)
+        rows = estate.payments_for(conn, contract_id, year or None)
+        out = []
+        for r in rows:
+            p = {k: r[k] for k in r.keys()}
+            if p["transaction_id"]:
+                tx = conn.execute(
+                    "SELECT kind FROM transactions WHERE id=?",
+                    (p["transaction_id"],)).fetchone()
+                p["tx_ok"] = bool(tx)
+            else:
+                p["tx_ok"] = False
+            out.append(p)
+    finally:
+        conn.close()
+    return {"payments": out}
+
+
+@app.post("/api/loc/payments")
+async def create_loc_payment(body: LocPaymentIn, request: Request):
+    u = _need(request)
+    b = body.model_dump()
+    conn = db()
+    try:
+        err = estate.pay_err(conn, u["username"], b)
+        if err:
+            return JSONResponse({"detail": err}, status_code=400)
+        c = conn.execute(
+            "SELECT c.id, c.tenant, a.name AS acc_name FROM loc_contracts c"
+            " JOIN accounts a ON a.id=c.account_id WHERE c.id=?",
+            (b["contract_id"],)).fetchone()
+        cur = conn.execute(
+            "INSERT INTO loc_payments (owner, contract_id, op_date, amount,"
+            " month, notes) VALUES (?,?,?,?,?,?)",
+            (u["username"], b["contract_id"], b["op_date"], round(b["amount"], 2),
+             b["month"], b.get("notes", "").strip()),
+        )
+        pid = cur.lastrowid
+        # matérialisation : l'encaissement EST une op income sur le compte choisi
+        note = f"Loyer {b['month']} — {c['acc_name']} ({c['tenant']})"
+        tcur = conn.execute(
+            "INSERT INTO transactions (account_id, op_date, kind, amount, note,"
+            " source_id) VALUES (?,?,?,?,?,?)",
+            (b["cash_account_id"], b["op_date"], "income", round(b["amount"], 2),
+             note, f"loc:enc:{pid}"),
+        )
+        conn.execute("UPDATE loc_payments SET transaction_id=? WHERE id=?",
+                     (tcur.lastrowid, pid))
+        conn.commit()
+    finally:
+        conn.close()
+    _audit(u["username"], "Encaissement de loyer", f"#{pid} {b['month']} {b['amount']} €")
+    return {"id": pid}
+
+
+@app.delete("/api/loc/payments/{pid}")
+async def delete_loc_payment(pid: int, request: Request):
+    u = _need(request)
+    conn = db()
+    try:
+        row = conn.execute(
+            "SELECT id, transaction_id FROM loc_payments WHERE id=? AND owner=?",
+            (pid, u["username"])).fetchone()
+        if row is None:
+            return JSONResponse({"detail": "Encaissement introuvable"}, status_code=404)
+        if row["transaction_id"]:
+            conn.execute(
+                "DELETE FROM transactions WHERE id=? AND source_id=?",
+                (row["transaction_id"], f"loc:enc:{pid}"),
+            )
+        conn.execute("DELETE FROM loc_payments WHERE id=?", (pid,))
+        conn.commit()
+    finally:
+        conn.close()
+    _audit(u["username"], "Suppression d'encaissement de loyer", f"#{pid}")
+    return {"ok": True}
+
+
+@app.get("/api/tco/items")
+async def list_tco_items(request: Request, family: int = 0, member: str = ""):
+    u = _need(request)
+    conn = db()
+    try:
+        owners = _visible_owners(conn, u, bool(family), member or None)
+        wc = "i.owner IN (%s)" % ",".join("?" * len(owners))
+        rows = conn.execute(
+            "SELECT i.*, a.name AS account_name, l.name AS loan_name"
+            " FROM tco_items i LEFT JOIN accounts a ON a.id=i.account_id"
+            " LEFT JOIN loans l ON l.id=i.loan_id"
+            f" WHERE i.active=1 AND {wc} ORDER BY i.kind, i.label", owners).fetchall()
+        out = []
+        for r in rows:
+            p = {k: r[k] for k in r.keys()}
+            p["imputations_count"] = conn.execute(
+                "SELECT COUNT(*) AS n FROM tco_imputations WHERE item_id=?",
+                (r["id"],)).fetchone()["n"]
+            out.append(p)
+    finally:
+        conn.close()
+    return {"items": out}
+
+
+@app.post("/api/tco/items")
+async def create_tco_item(body: TcoItemIn, request: Request):
+    u = _need(request)
+    b = body.model_dump()
+    conn = db()
+    try:
+        err = estate.item_err(conn, u["username"], b)
+        if err:
+            return JSONResponse({"detail": err}, status_code=400)
+        cur = conn.execute(
+            "INSERT INTO tco_items (owner, kind, label, account_id, loan_id,"
+            " purchase_date, purchase_price, active, notes)"
+            " VALUES (?,?,?,?,?,?,?,?,?)",
+            (u["username"], b["kind"], b["label"].strip(), b.get("account_id"),
+             b.get("loan_id"), b.get("purchase_date"),
+             round(b["purchase_price"], 2) if b.get("purchase_price") is not None else None,
+             1 if b["active"] else 0, b.get("notes", "").strip()),
+        )
+        iid = cur.lastrowid
+        conn.commit()
+    finally:
+        conn.close()
+    _audit(u["username"], "Création de fiche de coûts", f"#{iid} {b['label'].strip()}")
+    return {"id": iid}
+
+
+@app.put("/api/tco/items/{iid}")
+async def update_tco_item(iid: int, body: TcoItemIn, request: Request):
+    u = _need(request)
+    b = body.model_dump()
+    conn = db()
+    try:
+        row = conn.execute(
+            "SELECT id FROM tco_items WHERE id=? AND owner=?", (iid, u["username"])
+        ).fetchone()
+        if row is None:
+            return JSONResponse({"detail": "Fiche introuvable"}, status_code=404)
+        err = estate.item_err(conn, u["username"], b, iid)
+        if err:
+            return JSONResponse({"detail": err}, status_code=400)
+        conn.execute(
+            "UPDATE tco_items SET kind=?, label=?, account_id=?, loan_id=?,"
+            " purchase_date=?, purchase_price=?, active=?, notes=? WHERE id=?",
+            (b["kind"], b["label"].strip(), b.get("account_id"), b.get("loan_id"),
+             b.get("purchase_date"),
+             round(b["purchase_price"], 2) if b.get("purchase_price") is not None else None,
+             1 if b["active"] else 0, b.get("notes", "").strip(), iid),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    _audit(u["username"], "Modification de fiche de coûts", f"#{iid}")
+    return {"ok": True}
+
+
+@app.delete("/api/tco/items/{iid}")
+async def delete_tco_item(iid: int, request: Request):
+    u = _need(request)
+    conn = db()
+    try:
+        row = conn.execute(
+            "SELECT id FROM tco_items WHERE id=? AND owner=?", (iid, u["username"])
+        ).fetchone()
+        if row is None:
+            return JSONResponse({"detail": "Fiche introuvable"}, status_code=404)
+        n = conn.execute(
+            "SELECT COUNT(*) AS n FROM tco_imputations WHERE item_id=?",
+            (iid,)).fetchone()["n"]
+        if n:
+            conn.execute("UPDATE tco_items SET active=0 WHERE id=?", (iid,))
+        else:
+            conn.execute("DELETE FROM tco_items WHERE id=?", (iid,))
+        conn.commit()
+    finally:
+        conn.close()
+    _audit(u["username"], "Suppression de fiche de coûts", f"#{iid}")
+    return {"ok": True}
+
+
+@app.get("/api/tco/overview")
+async def tco_overview(request: Request, family: int = 0, member: str = ""):
+    """Coûts par objet : fiches véhicules + biens immo (fiche créée ou non —
+    le crédit du bien est lu via loans.account_id, les imputations via sa
+    fiche). Véhicule = acquisition cash + crédit versé + imputations."""
+    u = _need(request)
+    conn = db()
+    try:
+        owners = _visible_owners(conn, u, bool(family), member or None)
+        wc = "owner IN (%s)" % ",".join("?" * len(owners))
+        latest = _latest_valuations(conn)
+        items = conn.execute(
+            "SELECT * FROM tco_items WHERE active=1 AND " + wc +
+            " ORDER BY kind, label", owners).fetchall()
+        accs = conn.execute(
+            "SELECT * FROM accounts WHERE asset_class='immobilier' AND active=1"
+            " AND " + wc + " ORDER BY name", owners).fetchall()
+        out = []
+        for it in items:
+            p = {k: it[k] for k in it.keys()}
+            acc = None
+            if it["account_id"]:
+                acc = next((x for x in accs if x["id"] == it["account_id"]), None)
+            p["value"] = latest.get(it["account_id"], {}).get("value") if it["account_id"] else None
+            p["account_name"] = acc["name"] if acc else None
+            costs = estate.item_costs(conn, it)
+            p["costs"] = costs
+            out.append(p)
+        # biens immo sans fiche : crédit seul (coûts imputés = aucun)
+        for a in accs:
+            if any(o["account_id"] == a["id"] for o in items if o["kind"] == "immo"):
+                continue
+            ghost = {"id": -a["id"], "owner": a["owner"], "kind": "immo",
+                     "label": a["name"], "account_id": a["id"], "loan_id": None,
+                     "purchase_date": None, "purchase_price": None, "active": 1,
+                     "notes": ""}
+            costs = estate.item_costs(conn, ghost)
+            out.append({
+                "id": None, "kind": "immo", "label": a["name"], "owner": a["owner"],
+                "account_id": a["id"], "account_name": a["name"], "loan_id": None,
+                "purchase_date": None, "purchase_price": None, "notes": "",
+                "value": latest.get(a["id"], {}).get("value"),
+                "costs": costs,
+            })
+        for e in out:
+            e["owner"] = e.get("owner") or u["username"]
+    finally:
+        conn.close()
+    return {"items": out}
+
+
+@app.get("/api/tco/imputations")
+async def list_tco_imputations(request: Request, unmapped: int = 0):
+    """Imputations de l'owner ; ?unmapped=1 = dépenses non encore imputées
+    (assistant UI) — limité à 500 pour rester léger."""
+    u = _need(request)
+    conn = db()
+    try:
+        if unmapped:
+            rows = conn.execute(
+                "SELECT t.id, t.op_date, t.amount, t.note, a.name AS account_name"
+                " FROM transactions t JOIN accounts a ON a.id=t.account_id"
+                " WHERE t.kind='expense' AND a.owner=? AND NOT EXISTS"
+                " (SELECT 1 FROM tco_imputations i WHERE i.transaction_id=t.id)"
+                " ORDER BY t.op_date DESC LIMIT 500", (u["username"],)).fetchall()
+            return {"unmapped": [dict(r) for r in rows]}
+        rows = conn.execute(
+            "SELECT i.*, t.op_date, t.amount, t.note, a.name AS account_name,"
+            " it.label AS item_label FROM tco_imputations i"
+            " JOIN transactions t ON t.id=i.transaction_id"
+            " JOIN accounts a ON a.id=t.account_id"
+            " JOIN tco_items it ON it.id=i.item_id"
+            " WHERE i.owner=? ORDER BY t.op_date DESC LIMIT 500",
+            (u["username"],)).fetchall()
+        return {"imputations": [dict(r) for r in rows]}
+    finally:
+        conn.close()
+
+
+@app.post("/api/tco/impute")
+async def create_tco_impute(body: TcoImputeIn, request: Request):
+    u = _need(request)
+    conn = db()
+    try:
+        err = estate.impute_err(conn, u["username"], body.transaction_id,
+                                body.item_id, body.category)
+        if err:
+            return JSONResponse({"detail": err}, status_code=400)
+        conn.execute(
+            "INSERT OR REPLACE INTO tco_imputations (transaction_id, owner,"
+            " item_id, category) VALUES (?,?,?,?)",
+            (body.transaction_id, u["username"], body.item_id, body.category),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    _audit(u["username"], "Imputation de dépense", f"tx {body.transaction_id} → #{body.item_id}")
+    return {"ok": True}
+
+
+@app.delete("/api/tco/impute/{tid}")
+async def delete_tco_impute(tid: int, request: Request):
+    u = _need(request)
+    conn = db()
+    try:
+        cur = conn.execute(
+            "DELETE FROM tco_imputations WHERE transaction_id=? AND owner=?",
+            (tid, u["username"]))
+        conn.commit()
+        if cur.rowcount == 0:
+            return JSONResponse({"detail": "Imputation introuvable"}, status_code=404)
+    finally:
+        conn.close()
+    _audit(u["username"], "Retrait d'imputation de dépense", f"tx {tid}")
+    return {"ok": True}
 
 
 # ---------------------------------------------------------------- investissements (v2026.09.054)

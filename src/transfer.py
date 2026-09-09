@@ -63,6 +63,16 @@ def export_data(conn, username: str, app_version: str) -> dict:
         "crypto": _cw_payload(conn, username),
         "loans": [dict(r) for r in conn.execute(
             "SELECT * FROM loans WHERE owner=?", (username,)).fetchall()],
+        "estate": {  # module Locations & TCO (v2026.09.058)
+            "loc_contracts": [dict(r) for r in conn.execute(
+                "SELECT * FROM loc_contracts WHERE owner=?", (username,)).fetchall()],
+            "loc_payments": [dict(r) for r in conn.execute(
+                "SELECT * FROM loc_payments WHERE owner=?", (username,)).fetchall()],
+            "tco_items": [dict(r) for r in conn.execute(
+                "SELECT * FROM tco_items WHERE owner=?", (username,)).fetchall()],
+            "tco_imputations": [dict(r) for r in conn.execute(
+                "SELECT * FROM tco_imputations WHERE owner=?", (username,)).fetchall()],
+        },
     }
 
 
@@ -91,6 +101,13 @@ def do_import(conn, username: str, body: dict) -> str | None:
         # ids explicites (account_id lié conservé) — suppression AVANT les
         # comptes (le lien FK serait sinon nullifié par le cascade)
         conn.execute("DELETE FROM loans WHERE owner=?", (username,))
+        # module Locations & TCO (v2026.09.058) : suppression AVANT les comptes /
+        # transactions / crédits (FK) — imputations puis fiches, encaissements puis
+        # contrats
+        conn.execute("DELETE FROM tco_imputations WHERE owner=?", (username,))
+        conn.execute("DELETE FROM tco_items WHERE owner=?", (username,))
+        conn.execute("DELETE FROM loc_payments WHERE owner=?", (username,))
+        conn.execute("DELETE FROM loc_contracts WHERE owner=?", (username,))
         conn.execute("DELETE FROM accounts WHERE owner=?", (username,))  # cascade enfants
         for a in body["accounts"]:
             conn.execute(
@@ -170,6 +187,41 @@ def do_import(conn, username: str, body: dict) -> str | None:
                 " :notes,:active,:created_at,:updated_at)",
                 {**ln, "owner": username},
             )
+        # module Locations & TCO (v2026.09.058) : restauré APRÈS comptes,
+        # transactions et crédits (FK) — les sauvegardes anciennes n'ont pas
+        # la section « estate »
+        est = body.get("estate") or {}
+        if est:
+            for c in est.get("loc_contracts") or []:
+                conn.execute(
+                    "INSERT INTO loc_contracts (id, owner, account_id, tenant,"
+                    " rent_monthly, deposit, start_date, end_date, active, notes)"
+                    " VALUES (:id,:owner,:account_id,:tenant,:rent_monthly,:deposit,"
+                    " :start_date,:end_date,:active,:notes)",
+                    {**c, "owner": username},
+                )
+            for p in est.get("loc_payments") or []:
+                conn.execute(
+                    "INSERT INTO loc_payments (id, owner, contract_id, op_date,"
+                    " amount, month, transaction_id, notes)"
+                    " VALUES (:id,:owner,:contract_id,:op_date,:amount,:month,"
+                    " :transaction_id,:notes)",
+                    {**p, "owner": username},
+                )
+            for it in est.get("tco_items") or []:
+                conn.execute(
+                    "INSERT INTO tco_items (id, owner, kind, label, account_id,"
+                    " loan_id, purchase_date, purchase_price, active, notes)"
+                    " VALUES (:id,:owner,:kind,:label,:account_id,:loan_id,"
+                    " :purchase_date,:purchase_price,:active,:notes)",
+                    {**it, "owner": username},
+                )
+            for im in est.get("tco_imputations") or []:
+                conn.execute(
+                    "INSERT INTO tco_imputations (transaction_id, owner, item_id,"
+                    " category) VALUES (:transaction_id,:owner,:item_id,:category)",
+                    {**im, "owner": username},
+                )
         conn.commit()
     except Exception as e:
         conn.rollback()

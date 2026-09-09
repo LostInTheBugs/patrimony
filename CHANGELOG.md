@@ -2,6 +2,50 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.058] — 2026-09-09
+
+### Added — Locations & TCO module backend (🏠 step ③ of the dedicated pages chantier)
+
+Third step of the dedicated pages chantier (design
+`claude/design-locations-tco-2026.md`, never pushed — Fred GO with the
+car-ownership precision: vehicle TCO is a full CASH cost including purchase).
+
+- Locations: `loc_contracts` (per real-estate account: tenant, rent, deposit,
+  start/end, soft close) + `loc_payments` (dated, covered month). A payment
+  MATERIALIZES an income transaction on the chosen cash account
+  (source_id `loc:enc:<id>`) — one entry, coherent treasury/income-actual;
+  deleting the payment removes the linked transaction.
+- `/api/loc/overview`: per property — expected vs perceived rents (12m +
+  total), occupancy rate (months covered by active contracts ÷ months since
+  first contract/opening), 12m imputed costs + credit interest/insurance,
+  yields brut / net / net-financial (perceived − costs − credit ÷ value).
+- TCO: `tco_items` (kind immo — linked account with loan auto-detected via
+  loans.account_id — or vehicle OUTSIDE net worth, optional linked auto/conso
+  loan, purchase date/price) + `tco_imputations` (one expense op → one item,
+  one category). Imputations never create transactions.
+- Vehicle TCO = full cash cost (Fred): down payment (purchase_price −
+  loan principal) + paid installments (capital + interest + borrower
+  insurance, derived from the loans module via `loans.paid_breakdown` —
+  yearly breakdown by civil year) + imputed expenses; total at loan term;
+  per-month/per-year smoothing; yearly table → « keep vs replace » reading.
+  Immo TCO = paid interest + insurance + imputed expenses (purchase stays out
+  — valued asset).
+- `src/estate.py` pure engine + 13 routes `/api/loc/*` `/api/tco/*`; guards
+  (contract clash per property, categories per kind, loan type per kind,
+  one active item per property, one imputation per transaction); exports /
+  imports (`estate` section, after transactions/loans), vault copy_rows ×4,
+  boot purge + family delete; demo seed: Weber contract since 2021-04 with
+  monthly receipts (import-style, no materialized ops), Tesla Model 3 bought
+  39 990 € (9 990 down + 30 000 € loan at 3.9 %) with imputed insurance /
+  maintenance / fuel, property imputed tax + PNO.
+- `loans.paid_breakdown(conn, loan_id, asof)`: theoretical yearly split of
+  paid capital/interest/insurance since start_date (never counts a future
+  installment — past-only ventilation).
+- Tests: `tests/test_estate.py` (11 — CRUD/clash/guards, income
+  materialization + cascade delete, exact overview math, full vehicle cash
+  cost, ghost immo credit, imputation guards + unmapped list, family view,
+  export/import round-trip, vault init copy). 212/212.
+
 ## [2026.09.057] — 2026-09-09
 
 ### Added — Loans module UI (💳 Crédits page + debts on dashboard)
