@@ -2,6 +2,43 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.059] — 2026-09-09
+
+### Added — Locations & TCO module UI (🏠 Immo & TCO page — step ③ UI)
+
+Fourth step of the dedicated pages chantier, UI of the v058 module (backend
+`src/estate.py`, design `claude/design-locations-tco-2026.md`, never pushed).
+
+- New page `#pageEst` (nav « 🏠 Immo & TCO » between Crédits and Crypto) with
+  two segments — Rentals (🏘) and Costs-TCO (🚗).
+- Rentals: per real-estate property — active contract (tenant, rent, deposit,
+  lease period) or « vacant » state with last contract, KPIs (received vs
+  expected 12m with receipt progress bar, occupancy « X months out of Y »,
+  gross yield with net / net-financial sub-line, cumulative received), 12m
+  receipts table, actions: new contract / edit / close (asks lease end) /
+  receive a rent (modal: operation date, covered month, amount pre-filled
+  with the rent, receiving account) / delete receipt (cascade removes the
+  materialized income transaction).
+- Costs-TCO: one panel per tracked object — vehicles (outside net worth) and
+  real-estate cost sheets (ghost « no sheet — loan only » entries get a
+  one-click sheet creation). KPIs vehicle: total to date (acquisition =
+  down-payment + paid installments, sub-line with category chips), per month
+  (over N months owned), per year, at loan term (with real months-left);
+  KPIs real estate: total (loan · expenses split), loan paid (interest +
+  insurance), imputed expenses, last-12-months flow; yearly cost table (loan
+  vs imputations vs total). Actions: impute an expense (unmapped expenses
+  picker: date · amount · note · account, category per object kind), edit /
+  delete sheet, new vehicle sheet.
+- Backend precision: `loans.paid_breakdown` now exposes `scheduled_payments`
+  (installments actually scheduled until the last adjusted one, computed
+  without the today bound) and the TCO payload a real `months_left`
+  (= scheduled − paid) — the term card shows « 7 months remaining » instead
+  of the raw amortization ceiling.
+- i18n ×4 full parity (est* keys, dynamic categories labels); CSS reuse only
+  (panel/cards/tablewrap/badge), no new stylesheet.
+- Tests: unchanged suite 212/212 green (26 targeted estate/loans after the
+  scheduled_payments change).
+
 ## [2026.09.058] — 2026-09-09
 
 ### Added — Locations & TCO module backend (🏠 step ③ of the dedicated pages chantier)

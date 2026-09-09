@@ -260,10 +260,27 @@ def paid_breakdown(conn: sqlite3.Connection, loan_id: int,
         "paid_capital": round(paid_cap, 2),
         "paid_interest": round(paid_int, 2),
         "paid_insurance": round(paid_ins, 2),
+        "scheduled_payments": _count_schedule(P0, r, M, n),
         "credit_total_at_term": round(P0 + _total_interest_series(P0, r, M, n), 2),
         "insurance_total_at_term": round(ins * n, 2),
         "term_months": n,
     }
+
+
+def _count_schedule(P0: float, r: float, M: float, n: int) -> int:
+    """Nombre d'échéances réellement versées jusqu'au terme (sans la borne
+    « aujourd'hui ») : la dernière échéance ajustée compte, le plafond n non."""
+    rest = P0
+    cnt = 0
+    for _ in range(min(n, _SIM_MAX)):
+        am = M - rest * r
+        if am >= rest:
+            am = rest
+        rest -= am
+        cnt += 1
+        if rest <= 1e-9:
+            break
+    return cnt
 
 
 def _total_interest_series(P0: float, r: float, M: float, n: int) -> float:

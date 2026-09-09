@@ -281,6 +281,7 @@
       <a href="#" id="navAct" onclick="switchPage('act')"><span class="e">📈</span> <span data-i18n="navAct">Actions</span></a>
       <a href="#" id="navAv" onclick="switchPage('av')"><span class="e">🛡️</span> <span data-i18n="navAv">Assurance vie</span></a>
       <a href="#" id="navLoan" onclick="switchPage('loan')"><span class="e">💳</span> <span data-i18n="navLoan">Crédits</span></a>
+      <a href="#" id="navEst" onclick="switchPage('est')"><span class="e">🏠</span> <span data-i18n="navEst">Immo & TCO</span></a>
       <a href="#" id="navCw" onclick="switchPage('cw')"><span class="e">₿</span> <span data-i18n="navCw">Crypto</span></a>
       <a href="#" id="navCrowd" onclick="switchPage('crowd')"><span class="e">🧱</span> <span data-i18n="navCrowd">Crowdfunding</span></a>
       <a href="#" id="navOps" onclick="switchPage('ops')"><span class="e">📜</span> <span data-i18n="navOps">Opérations</span></a>
@@ -485,6 +486,20 @@
       <div class="cards" id="loanCards"></div>
       <div class="tablewrap" style="margin-top:12px" id="loanWrap"></div>
       <div class="muted" style="font-size:11.5px;margin-top:8px" data-i18n="loanNote">Le capital restant dû est déclaré (mettez-le à jour lors d’un remboursement anticipé) ; le bouton ↻ propose la valeur théorique de l’échéancier. Les mensualités se suivent comme dépenses récurrentes — aucune double saisie.</div>
+    </section>
+
+    <!-- ---------- IMMO & TCO (module Locations + coûts, v2026.09.059) ---------- -->
+    <section id="pageEst" class="hidden">
+      <div class="page-title">
+        <h1>🏠 <span data-i18n="estTtl">Immo &amp; coûts de possession</span></h1>
+      </div>
+      <div class="seg" id="estSeg">
+        <button data-v="loc" class="on" onclick="estView('loc')">🏘 <span data-i18n="estSegLoc">Locations</span></button>
+        <button data-v="tco" onclick="estView('tco')">🚗 <span data-i18n="estSegTco">Coûts (TCO)</span></button>
+      </div>
+      <div id="estLocWrap"></div>
+      <div id="estTcoWrap" class="hidden"></div>
+      <div class="muted" style="font-size:11.5px;margin-top:10px" data-i18n="estNote">Les encaissements de loyer matérialisent l’opération de revenu sur le compte choisi ; les dépenses d’un objet se rattachent à une opération existante (aucune double saisie).</div>
     </section>
 
     <!-- ---------- CROWDFUNDING (module, v2026.09.047) ---------- -->
@@ -799,6 +814,30 @@ let FAMILY_LIST = [];
 /* ---------------- i18n FR / DE / LU / EN ---------------- */
 const I18N = {
 fr: {
+  estImmoSplit:'crédit {i} · dépenses {u}',
+  estOccupSub:'{c} mois couverts sur {m}',
+  navEst:'Immo & TCO', estTtl:'Immo & coûts de possession', estSegLoc:'Locations', estSegTco:'Coûts (TCO)',
+  estNote:'Les encaissements de loyer matérialisent l’opération de revenu sur le compte choisi ; les dépenses d’un objet se rattachent à une opération existante (aucune double saisie).',
+  estLocEmpty:'Aucun bien immobilier — les locations se rattachent à un bien de la classe immobilier (page Actifs).', estVacant:'Vacant', estClosed:'Clôturé le {d}',
+  estTenant:'Locataire', estRent:'Loyer', estDeposit:'Dépôt de garantie', estSince:'depuis le {d}', estUntil:'→ {d}',
+  estPerc:'Perçu (12 mois)', estExp:'Attendu (12 mois)', estPercTotal:'Perçu (total)', estExpTotal:'Attendu (total)',
+  estOccup:'Occupation', estYield:'Rendement brut', estYieldSub:'net {n} · net fin. {f}',
+  estCosts12:'Coûts 12 mois', estCred12:'Crédit 12 mois', estYldNone:'valeur manquante pour le rendement',
+  estNewC:'Nouveau contrat', estEditC:'Modifier le contrat', estCloseC:'Clôturer', estPay:'Encaisser', 
+  estPayments:'Encaissements (12 derniers mois)', estNoPay:'Aucun encaissement sur les 12 derniers mois', estMonth:'Mois', estOpDate:'Opération',  estColAmount:'Montant',
+   estCTenant:'Locataire', estCRent:'Loyer mensuel (€)', estCDep:'Dépôt de garantie (€)', estCStart:'Début du bail', estCEnd:'Fin du bail (vide = durée indéterminée)', estCNotes:'Notes',
+  estCErr:'Renseignez le locataire, un loyer mensuel positif et une date de début.', estCAsk:'Clôturer le contrat de {t} ? Les loyers attendus cesseront à la fin du bail renseignée.', estDelAskC:'Retirer ce contrat ? Les encaissements existants seront conservés.',
+  estPTtl:'Encaisser un loyer', estPMonth:'Mois couvert', estPDate:'Date de l’opération', estPAmount:'Montant', estPAccount:'Compte d’encaissement', estPNotes:'Notes',
+  estPAsk:'Supprimer cet encaissement ? L’opération de revenu liée sera aussi supprimée.', estPErr:'Montant invalide.',
+  estTcoTtl:'Coûts de possession', estNewV:'Nouveau véhicule', estFicheImmo:'Créer la fiche de coûts du bien',  estNoFiche:'aucune fiche — crédit seul', estBought:'Acheté le {d} · {p}', estLoanOf:'crédit {n}', estNoLoan:'sans crédit',
+  estCardTotal:'Total à date', estCardTotalSub:'acquisition {a} + dépenses {u}', estCardMonth:'par mois', estCardMonthSub:'sur {n} mois', estCardYear:'par an', estCardTerm:'au terme du crédit', estCardTermSub:'{d} estimées restantes',
+  estCredPaid:'Crédit payé à date', estCredPaidSub:'intérêts {i} + assurance {a}', estUsage:'Dépenses imputées', estLast12:'12 derniers mois', 
+  estYears:'Coûts par année', estYCol:'Année', estYCred:'Crédit', estYImp:'Imputations', estYTotal:'Total',
+  estImpute:'Imputer une dépense', estImputeTtl:'Imputer une dépense à « {l} »', estImputeOp:'Dépense (page Opérations)', estImputeCat:'Catégorie', estImputeNone:'Aucune dépense non imputée — créez-en une dans la page Opérations.', estImputeGo:'Imputer',
+  estEdit:'Modifier la fiche', estDelItemAsk:'Supprimer cette fiche ? Les imputations seront retirées (les opérations restent).',
+  estItemTtl:'Fiche de coûts', estItemTtlV:'Fiche véhicule', estItemLabel:'Nom', estItemKind:'Type', estItemKImmo:'Bien immobilier', estItemKVehicle:'Véhicule', estItemPrice:'Prix d’achat (€)', estItemDate:'Date d’achat', estItemLoan:'Crédit lié', estItemLoanNone:'— aucun —', estItemNotes:'Notes', estItemErr:'Renseignez au moins le nom.',
+  estCatMaintenance:'Entretien / réparations', estCatInsurance:'Assurance', estCatTax:'Taxes / vignette', estCatFuel:'Carburant', estCatParking:'Stationnement', estCatOther:'Autre', estCatCharges:'Charges', estCatWork:'Travaux',
+  estCreditWarn:'Crédit sans date de départ — coût non ventilable.', estAdmin:'vue d’ensemble — les actions sont sur chaque ligne',
   wrapper:'Enveloppe fiscale', wrapperHint:'détermine l\'estimation fiscale ⚖️ (avec le pays)', wrpNone:'Aucune', wrpPea:'PEA (plan épargne actions)', wrpAv:'Assurance-vie (AV)', wrpCto:'Compte-titres ordinaire (CTO)',
   txCountry:'Pays fiscal', txCountryNone:'— non renseigné', txCountryFr:'France', txCountryLu:'Luxembourg',
   txBtn:'Estimation fiscale (si liquidation aujourd\'hui)', txEstTitle:'Estimation fiscale', txEstSub:'« Si je liquide aujourd\'hui » — {name}',
@@ -981,6 +1020,30 @@ avNote:'Un compte = un contrat. La classe Épargne = fonds €, la classe Bourse
   clsImmo:'Immobilier', clsCrowd:'Crowdfunding', clsCrypto:'Cryptomonnaies', clsMetaux:'Métaux précieux', clsDivers:'Divers'
 },
 en: {
+  estImmoSplit:'loan {i} · expenses {u}',
+  estOccupSub:'{c} months covered out of {m}',
+  navEst:'Real estate & TCO', estTtl:'Real estate & cost of ownership', estSegLoc:'Rentals', estSegTco:'Costs (TCO)',
+  estNote:'Rent receipts materialize the income transaction on the chosen account; an object’s expenses link to an existing transaction (no double entry).',
+  estLocEmpty:'No real-estate asset — rentals attach to an asset of the immobilier class (Assets page).', estVacant:'Vacant', estClosed:'Closed on {d}',
+  estTenant:'Tenant', estRent:'Rent', estDeposit:'Security deposit', estSince:'since {d}', estUntil:'→ {d}',
+  estPerc:'Received (12 mo)', estExp:'Expected (12 mo)', estPercTotal:'Received (total)', estExpTotal:'Expected (total)',
+  estOccup:'Occupancy', estYield:'Gross yield', estYieldSub:'net {n} · net-fin. {f}',
+  estCosts12:'Costs 12 mo', estCred12:'Loan 12 mo', estYldNone:'missing value for yield',
+  estNewC:'New contract', estEditC:'Edit contract', estCloseC:'Close', estPay:'Receive', 
+  estPayments:'Receipts (last 12 months)', estNoPay:'No receipt in the last 12 months', estMonth:'Month', estOpDate:'Operation',  estColAmount:'Amount',
+   estCTenant:'Tenant', estCRent:'Monthly rent (€)', estCDep:'Security deposit (€)', estCStart:'Lease start', estCEnd:'Lease end (empty = open-ended)', estCNotes:'Notes',
+  estCErr:'Fill in the tenant, a positive monthly rent and a start date.', estCAsk:'Close the contract of {t}? Expected rents will stop at the given lease end.', estDelAskC:'Remove this contract? Existing receipts are kept.',
+  estPTtl:'Receive a rent', estPMonth:'Covered month', estPDate:'Operation date', estPAmount:'Amount', estPAccount:'Receiving account', estPNotes:'Notes',
+  estPAsk:'Delete this receipt? The linked income transaction will also be deleted.', estPErr:'Invalid amount.',
+  estTcoTtl:'Cost of ownership', estNewV:'New vehicle', estFicheImmo:'Create the asset cost sheet',  estNoFiche:'no sheet — loan only', estBought:'Bought on {d} · {p}', estLoanOf:'loan {n}', estNoLoan:'no loan',
+  estCardTotal:'Total to date', estCardTotalSub:'acquisition {a} + expenses {u}', estCardMonth:'per month', estCardMonthSub:'over {n} months', estCardYear:'per year', estCardTerm:'at loan term', estCardTermSub:'{d} estimated remaining',
+  estCredPaid:'Loan paid to date', estCredPaidSub:'interest {i} + insurance {a}', estUsage:'Imputed expenses', estLast12:'Last 12 months', 
+  estYears:'Yearly costs', estYCol:'Year', estYCred:'Loan', estYImp:'Imputations', estYTotal:'Total',
+  estImpute:'Impute an expense', estImputeTtl:'Impute an expense to “{l}”', estImputeOp:'Expense (Transactions page)', estImputeCat:'Category', estImputeNone:'No un-imputed expense — create one in the Transactions page.', estImputeGo:'Impute',
+  estEdit:'Edit the sheet', estDelItemAsk:'Delete this sheet? Imputations are removed (transactions remain).',
+  estItemTtl:'Cost sheet', estItemTtlV:'Vehicle sheet', estItemLabel:'Name', estItemKind:'Type', estItemKImmo:'Real-estate asset', estItemKVehicle:'Vehicle', estItemPrice:'Purchase price (€)', estItemDate:'Purchase date', estItemLoan:'Linked loan', estItemLoanNone:'— none —', estItemNotes:'Notes', estItemErr:'Fill in at least the name.',
+  estCatMaintenance:'Maintenance / repairs', estCatInsurance:'Insurance', estCatTax:'Taxes / sticker', estCatFuel:'Fuel', estCatParking:'Parking', estCatOther:'Other', estCatCharges:'Service charges', estCatWork:'Works',
+  estCreditWarn:'Loan without start date — cost cannot be split.', estAdmin:'overview — actions are per row',
   wrapper:'Tax wrapper', wrapperHint:'drives the tax estimate ⚖️ (with the country)', wrpNone:'None', wrpPea:'PEA (French equity plan)', wrpAv:'Life insurance (AV)', wrpCto:'Taxable brokerage (CTO)',
   txCountry:'Tax country', txCountryNone:'— not set', txCountryFr:'France', txCountryLu:'Luxembourg',
   txBtn:'Tax estimate (if liquidated today)', txEstTitle:'Tax estimate', txEstSub:'"If I liquidate today" — {name}',
@@ -1163,6 +1226,30 @@ avNote:'One account = one contract. Savings class = funds €, Stocks class = un
   clsImmo:'Real estate', clsCrowd:'Crowdfunding', clsCrypto:'Cryptocurrencies', clsMetaux:'Precious metals', clsDivers:'Other'
 },
 de: {
+  estImmoSplit:'Kredit {i} · Ausgaben {u}',
+  estOccupSub:'{c} von {m} Monaten belegt',
+  navEst:'Immo & TCO', estTtl:'Immobilien & Gesamtkosten', estSegLoc:'Vermietungen', estSegTco:'Kosten (TCO)',
+  estNote:'Mieteinnahmen materialisieren die Einnahmetransaktion auf dem gewählten Konto; Ausgaben eines Objekts werden an eine bestehende Transaktion geknüpft (keine Doppelerfassung).',
+  estLocEmpty:'Keine Immobilie — Vermietungen hängen an einem Objekt der Klasse immobilier (Seite Vermögen).', estVacant:'Leerstehend', estClosed:'Geschlossen am {d}',
+  estTenant:'Mieter', estRent:'Miete', estDeposit:'Kaution', estSince:'seit {d}', estUntil:'→ {d}',
+  estPerc:'Erhalten (12 M.)', estExp:'Erwartet (12 M.)', estPercTotal:'Erhalten (gesamt)', estExpTotal:'Erwartet (gesamt)',
+  estOccup:'Belegung', estYield:'Bruttorendite', estYieldSub:'netto {n} · netto-fin. {f}',
+  estCosts12:'Kosten 12 M.', estCred12:'Kredit 12 M.', estYldNone:'Wert fehlt für Rendite',
+  estNewC:'Neuer Vertrag', estEditC:'Vertrag bearbeiten', estCloseC:'Schließen', estPay:'Vereinnahmen', 
+  estPayments:'Einnahmen (letzte 12 Monate)', estNoPay:'Keine Einnahmen in den letzten 12 Monaten', estMonth:'Monat', estOpDate:'Vorgang',  estColAmount:'Betrag',
+   estCTenant:'Mieter', estCRent:'Monatsmiete (€)', estCDep:'Kaution (€)', estCStart:'Mietbeginn', estCEnd:'Mietende (leer = unbefristet)', estCNotes:'Notizen',
+  estCErr:'Mieter, positive Monatsmiete und Beginn angeben.', estCAsk:'Vertrag von {t} schließen? Erwartete Mieten enden am angegebenen Mietende.', estDelAskC:'Vertrag entfernen? Vorhandene Einnahmen bleiben erhalten.',
+  estPTtl:'Miete vereinnahmen', estPMonth:'Mietmonat', estPDate:'Vorgangsdatum', estPAmount:'Betrag', estPAccount:'Eingangskonto', estPNotes:'Notizen',
+  estPAsk:'Diese Einnahme löschen? Die verknüpfte Einnahmetransaktion wird ebenfalls gelöscht.', estPErr:'Ungültiger Betrag.',
+  estTcoTtl:'Gesamtkosten', estNewV:'Neues Fahrzeug', estFicheImmo:'Kostenblatt des Objekts erstellen',  estNoFiche:'kein Blatt — nur Kredit', estBought:'Gekauft am {d} · {p}', estLoanOf:'Kredit {n}', estNoLoan:'kein Kredit',
+  estCardTotal:'Summe bisher', estCardTotalSub:'Erwerb {a} + Ausgaben {u}', estCardMonth:'pro Monat', estCardMonthSub:'über {n} Monate', estCardYear:'pro Jahr', estCardTerm:'bei Kreditende', estCardTermSub:'{d} geschätzt verbleibend',
+  estCredPaid:'Kredit bisher gezahlt', estCredPaidSub:'Zinsen {i} + Versicherung {a}', estUsage:'Zugeordnete Ausgaben', estLast12:'Letzte 12 Monate', 
+  estYears:'Jahreskosten', estYCol:'Jahr', estYCred:'Kredit', estYImp:'Zuordnungen', estYTotal:'Summe',
+  estImpute:'Ausgabe zuordnen', estImputeTtl:'Ausgabe zuordnen an „{l}“', estImputeOp:'Ausgabe (Seite Vorgänge)', estImputeCat:'Kategorie', estImputeNone:'Keine unzugeordnete Ausgabe — zuerst eine auf der Seite Vorgänge anlegen.', estImputeGo:'Zuordnen',
+  estEdit:'Blatt bearbeiten', estDelItemAsk:'Dieses Blatt löschen? Zuordnungen werden entfernt (Vorgänge bleiben).',
+  estItemTtl:'Kostenblatt', estItemTtlV:'Fahrzeugblatt', estItemLabel:'Name', estItemKind:'Typ', estItemKImmo:'Immobilie', estItemKVehicle:'Fahrzeug', estItemPrice:'Kaufpreis (€)', estItemDate:'Kaufdatum', estItemLoan:'Verknüpfter Kredit', estItemLoanNone:'— keiner —', estItemNotes:'Notizen', estItemErr:'Mindestens den Namen angeben.',
+  estCatMaintenance:'Wartung / Reparaturen', estCatInsurance:'Versicherung', estCatTax:'Steuern / Plakette', estCatFuel:'Treibstoff', estCatParking:'Parken', estCatOther:'Sonstiges', estCatCharges:'Betriebskosten', estCatWork:'Arbeiten',
+  estCreditWarn:'Kredit ohne Startdatum — Kosten nicht aufteilbar.', estAdmin:'Übersicht — Aktionen je Zeile',
   wrapper:'Steuerhülle', wrapperHint:'bestimmt die Steuerschätzung ⚖️ (mit dem Land)', wrpNone:'Keine', wrpPea:'PEA (Aktiensparplan)', wrpAv:'Lebensversicherung (AV)', wrpCto:'Wertpapierdepot (CTO)',
   txCountry:'Steuerland', txCountryNone:'— nicht angegeben', txCountryFr:'Frankreich', txCountryLu:'Luxemburg',
   txBtn:'Steuerschätzung (bei Liquidation heute)', txEstTitle:'Steuerschätzung', txEstSub:'« Liquidiere ich heute » — {name}',
@@ -1344,6 +1431,30 @@ avNote:'Ein Konto = ein Vertrag. Sparklasse = fonds €, Wertpapierklasse = UC. 
   clsImmo:'Immobilien', clsCrowd:'Crowdfunding', clsCrypto:'Kryptowährungen', clsMetaux:'Edelmetalle', clsDivers:'Sonstiges'
 },
 lu: {
+  estImmoSplit:'Kredit {i} · Ausgaben {u}',
+  estOccupSub:'{c} Méint ofgedeckt vu {m}',
+  navEst:'Immo & TCO', estTtl:'Immobilien & Käschte vum Besëtz', estSegLoc:'Lokatiounen', estSegTco:'Käschten (TCO)',
+  estNote:'Loyer-Encässer matérialiséieren d’Akommes-Transaktioun op dem gewielte Konto; Ausgaben vun engem Objet gi mat enger bestoender Transaktioun verbonnen (keng Duebel-Erfaassung).',
+  estLocEmpty:'Keng Immobilie — Lokatioune gehéieren zu engem Objet vun der Klass immobilier (Säit Aktiven).', estVacant:'Eidel', estClosed:'Ofgeschloss den {d}',
+  estTenant:'Locataire', estRent:'Loyer', estDeposit:'Caution', estSince:'zënter {d}', estUntil:'→ {d}',
+  estPerc:'Erhalen (12 M.)', estExp:'Erwaart (12 M.)', estPercTotal:'Erhalen (total)', estExpTotal:'Erwaart (total)',
+  estOccup:'Besetzung', estYield:'Brutto-Rendement', estYieldSub:'netto {n} · netto-fin. {f}',
+  estCosts12:'Käschten 12 M.', estCred12:'Kredit 12 M.', estYldNone:'Wäert feelt fir de Rendement',
+  estNewC:'Neie Kontrakt', estEditC:'Kontrakt änneren', estCloseC:'Ofschléissen', estPay:'Akéissen', 
+  estPayments:'Encässer (lescht 12 Méint)', estNoPay:'Keen Encassement an de leschten 12 Méint', estMonth:'Mount', estOpDate:'Vorgang',  estColAmount:'Betrag',
+   estCTenant:'Locataire', estCRent:'Mountsloyer (€)', estCDep:'Caution (€)', estCStart:'Ufank vum Bail', estCEnd:'Enn vum Bail (eidel = onbestëmmt)', estCNotes:'Notizen',
+  estCErr:'Locataire, positive Mountsloyer an Ufanksdatum uginn.', estCAsk:'Kontrakt vum {t} ofschléissen? Erwaart Loyer halen um uginn Enn op.', estDelAskC:'Kontrakt ewechhuelen? Bestoend Encässer bleiwen.',
+  estPTtl:'Loyer akéissen', estPMonth:'Mount ofgedeckt', estPDate:'Datum vum Vorgang', estPAmount:'Betrag', estPAccount:'Konto vum Encassement', estPNotes:'Notizen',
+  estPAsk:'Dësen Encassement läschen? Déi verbonne Akommes-Transaktioun gëtt och geläscht.', estPErr:'Ongültege Betrag.',
+  estTcoTtl:'Käschte vum Besëtz', estNewV:'Neit Gefier', estFicheImmo:'Käschteblad vum Objet uleeën',  estNoFiche:'keint Blad — nëmme Kredit', estBought:'Kaaft den {d} · {p}', estLoanOf:'Kredit {n}', estNoLoan:'kee Kredit',
+  estCardTotal:'Total bis elo', estCardTotalSub:'Akeef {a} + Ausgaben {u}', estCardMonth:'pro Mount', estCardMonthSub:'iwwer {n} Méint', estCardYear:'pro Joer', estCardTerm:'um Enn vum Kredit', estCardTermSub:'{d} geschat nach',
+  estCredPaid:'Kredit bezuelt bis elo', estCredPaidSub:'Zënssen {i} + Versécherung {a}', estUsage:'Zougewisen Ausgaben', estLast12:'Lescht 12 Méint', 
+  estYears:'Käschten pro Joer', estYCol:'Joer', estYCred:'Kredit', estYImp:'Zouweisungen', estYTotal:'Total',
+  estImpute:'Ausgab zouweisen', estImputeTtl:'Ausgab zouweisen un „{l}“', estImputeOp:'Ausgab (Säit Vorgäng)', estImputeCat:'Kategorie', estImputeNone:'Keng Ausgab onzugewise — maacht eng op der Säit Vorgäng.', estImputeGo:'Zouweisen',
+  estEdit:'Blad änneren', estDelItemAsk:'Dëst Blad läschen? Zouweisungen ginn ewech (Vorgäng bleiwen).',
+  estItemTtl:'Käschteblad', estItemTtlV:'Gefierblad', estItemLabel:'Numm', estItemKind:'Typ', estItemKImmo:'Immobilie', estItemKVehicle:'Gefier', estItemPrice:'Kafpräis (€)', estItemDate:'Kafdatum', estItemLoan:'Verbonne Kredit', estItemLoanNone:'— keen —', estItemNotes:'Notizen', estItemErr:'Mannstens den Numm uginn.',
+  estCatMaintenance:'Entretien / Reparaturen', estCatInsurance:'Versécherung', estCatTax:'Steieren / Vignette', estCatFuel:'Bensin', estCatParking:'Parken', estCatOther:'Aneres', estCatCharges:'Charge', estCatWork:'Aarbechten',
+  estCreditWarn:'Kredit ouni Ufanksdatum — Käschten net opdeelbar.', estAdmin:'Iwwersiicht — Aktiounen op all Zeil',
   wrapper:'Enveloppe fiscale', wrapperHint:'bestëmmt d\'Steierschätzung ⚖️ (mat dem Land)', wrpNone:'Keng', wrpPea:'PEA (Plang spuere fir Aktien)', wrpAv:'Assurance-vie (AV)', wrpCto:'Compte-titres ordinaire (CTO)',
   txCountry:'Steierland', txCountryNone:'— net aginn', txCountryFr:'Frankräich', txCountryLu:'Lëtzebuerg',
   txBtn:'Steierschätzung (wann haut liquidéiert)', txEstTitle:'Steierschätzung', txEstSub:'« Wann ech haut liquidéieren » — {name}',
@@ -1594,7 +1705,7 @@ async function api(path, opts={}) {
 function switchPage(p) {
   if (MEMBER && (p === 'fire' || p === 'params')) p = 'dash';  // hors périmètre vue membre
   CUR_PAGE = p;
-  ['dash','ev','actifs','act','av','loan','cw','crowd','ops','rev','fire','params'].forEach(x => $('page'+x[0].toUpperCase()+x.slice(1)).classList.toggle('hidden', x!==p));
+  ['dash','ev','actifs','act','av','loan','est','cw','crowd','ops','rev','fire','params'].forEach(x => $('page'+x[0].toUpperCase()+x.slice(1)).classList.toggle('hidden', x!==p));
   document.querySelectorAll('nav a').forEach(a => a.classList.toggle('active', a.id === 'nav'+p[0].toUpperCase()+p.slice(1)));
   if (p==='dash') { loadSummary(); loadHistory(); loadBench(); }
   if (p==='ev') { loadEv(); }
@@ -1602,6 +1713,7 @@ function switchPage(p) {
   if (p==='act') { actLoad(); }
   if (p==='av') { avLoad(); }
   if (p==='loan') { loanLoad(); }
+  if (p==='est') { estLoad(); }
   if (p==='cw') { cwLoad(); }
   if (p==='crowd') { cfLoad(); }
   if (p==='ops') { loadOps(); }
@@ -4405,6 +4517,406 @@ async function loanApplyRec(id, theo) {
     await api('/api/loans/' + id, {method: 'PUT', body: JSON.stringify(body)});
     closeModal();
     await loanLoad(); loadSummary(); loadAccounts();
+  } catch (e) { alert(e.message); }
+}
+
+/* ===== module Immo & TCO — Locations + coûts de possession (v2026.09.059) ===== */
+let EST_VW = 'loc', EST_LOC = [], EST_TCO = [];
+const EST_KINDS = {immo: '🏠', vehicle: '🚗'};
+const EST_CATS = {
+  immo: ['maintenance', 'tax', 'insurance', 'charges', 'work', 'other'],
+  vehicle: ['fuel', 'maintenance', 'insurance', 'tax', 'parking', 'other']
+};
+const estCatLbl = c => t('estCat' + c.charAt(0).toUpperCase() + c.slice(1));
+const estP = p => EST_LOC.find(x => x.id === p);
+
+async function estLoad() {
+  document.querySelectorAll('.est-admin').forEach(b => b.classList.toggle('hidden', !!MEMBER));
+  const [l, c] = await Promise.all([
+    api('/api/loc/overview' + scopeSuffix()).catch(() => null),
+    api('/api/tco/overview' + scopeSuffix()).catch(() => null)
+  ]);
+  if (!l || !c) { alert(t('loanErrLoad')); return; }
+  EST_LOC = l.properties || [];
+  EST_TCO = c.items || [];
+  estLocRender(); estTcoRender();
+}
+function estView(v) {
+  EST_VW = v;
+  document.querySelectorAll('#estSeg button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  $('estLocWrap').classList.toggle('hidden', v !== 'loc');
+  $('estTcoWrap').classList.toggle('hidden', v !== 'tco');
+  if (v === 'loc') estLocRender(); else estTcoRender();
+}
+function estActContract(p) {
+  const cs = (p.contracts || []).filter(c => c.active === 1);
+  return cs.length ? cs[0] : null;
+}
+function estLastContract(p) {
+  const cs = p.contracts || [];
+  return cs.length ? cs[0] : null; // triés start_date DESC
+}
+function estBar(pct) {
+  const w = Math.max(0, Math.min(100, pct == null ? 0 : pct));
+  return '<div style="background:#2a2f3a;height:5px;border-radius:3px;overflow:hidden;margin-top:4px">' +
+    '<div style="width:' + w + '%;background:' + (pct != null && pct < 100 ? '#e6a23c' : '#34c759') + ';height:5px;border-radius:3px"></div></div>';
+}
+function estTopBar() {
+  return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px">' +
+    (!MEMBER ? '<button class="btn primary est-admin" onclick="estItemModal(\'vehicle\',null,null)">➕ ' + esc(t('estNewV')) + '</button>' : '') +
+    '<span class="muted" style="font-size:11.5px">' + esc(t('estAdmin')) + '</span></div>';
+}
+function estLocRender() {
+  if (!EST_LOC.length) {
+    $('estLocWrap').innerHTML = '<div class="crowd-empty">' + esc(t('estLocEmpty')) + '</div>';
+    return;
+  }
+  $('estLocWrap').innerHTML = EST_LOC.map(p => {
+    const c = estActContract(p);
+    const last = estLastContract(p);
+    const oc = p.occupancy || {};
+    const recPct = p.expected_12m > 0 ? Math.round(p.perceived_12m / p.expected_12m * 100) : null;
+    const yl = p.yield_brut;
+    const creditSub = (p.costs_12m || p.credit_12m)
+      ? '<div class="muted" style="font-size:11px">' + t('estCosts12') + ' ' + mon(p.costs_12m) +
+        ' · ' + t('estCred12') + ' ' + mon(p.credit_12m) + '</div>' : '';
+    const kpis = [
+      ['📥', t('estPerc'), p.perceived_12m == null ? '—' : mon(p.perceived_12m),
+       t('estExp') + ' ' + (p.expected_12m == null ? '—' : mon(p.expected_12m)) + (recPct != null ? ' · ' + recPct + ' %' : ''),
+       recPct != null ? estBar(recPct) : ''],
+      ['🏠', t('estOccup'), oc.pct == null ? '—' : oc.pct.toLocaleString(locale(), {maximumFractionDigits: 1}) + ' %',
+       tF('estOccupSub', {c: oc.covered, m: oc.months}), ''],
+      ['💰', t('estYield'), yl == null ? '—' : yl.toLocaleString(locale(), {maximumFractionDigits: 2}) + ' %',
+       tF('estYieldSub', {
+         n: p.yield_net == null ? '—' : p.yield_net.toLocaleString(locale(), {maximumFractionDigits: 2}) + ' %',
+         f: p.yield_net_fin == null ? '—' : p.yield_net_fin.toLocaleString(locale(), {maximumFractionDigits: 2}) + ' %'
+       }) + creditSub, ''],
+      ['📦', t('estPercTotal'), p.perceived_total == null ? '—' : mon(p.perceived_total),
+       t('estExpTotal') + ' ' + (p.expected_total == null ? '—' : mon(p.expected_total)), '']
+    ];
+    let hd = '<h3 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">🏠 ' + esc(p.name);
+    if (p.last_value != null) hd += ' <span class="hint">' + mon(p.last_value, p.currency) +
+      (p.last_val_date ? ' · ' + fmtDate(p.last_val_date) : '') + '</span>';
+    if (FAMILY && !MEMBER) hd += ' <span class="muted" style="font-size:11px">' + esc(p.owner) + '</span>';
+    hd += '</h3>';
+    let ctl = '';
+    if (c) {
+      ctl = '<div style="margin:2px 0 10px">👤 <b>' + esc(c.tenant) + '</b> · ' + mon(c.rent_monthly) + '/mois' +
+        '<div class="muted" style="font-size:11.5px">🛡 ' + t('estDeposit') + ' ' + mon(c.deposit) + ' · ' +
+        tF('estSince', {d: fmtDate(c.start_date)}) + (c.end_date ? ' ' + tF('estUntil', {d: fmtDate(c.end_date)}) : '') +
+        (c.notes ? ' · ' + esc(c.notes) : '') + '</div></div>';
+    } else if (last) {
+      ctl = '<div style="margin:2px 0 10px"><span class="badge" style="background:#5a3a22">' + esc(t('estVacant')) + '</span> ' +
+        '<span class="muted" style="font-size:11.5px">' + esc(last.tenant) + ' · ' +
+        (last.end_date ? tF('estClosed', {d: fmtDate(last.end_date)}) : fmtDate(last.start_date)) + '</span></div>';
+    } else {
+      ctl = '<div style="margin:2px 0 10px"><span class="badge" style="background:#5a3a22">' + esc(t('estVacant')) + '</span></div>';
+    }
+    const acts = !MEMBER
+      ? '<div style="margin:10px 0 2px;display:flex;gap:8px;flex-wrap:wrap">' +
+        (c
+          ? '<button class="btn primary est-admin" onclick="estPayModal(' + p.id + ',' + c.id + ')">💶 ' + esc(t('estPay')) + '</button>' +
+            '<button class="btn est-admin" title="' + esc(t('estCloseC')) + '" onclick="estCloseContract(' + c.id + ')">🔒 ' + esc(t('estCloseC')) + '</button>' +
+            '<button class="btn small est-admin" title="' + esc(t('estEditC')) + '" onclick="estContractModal(' + p.id + ',' + c.id + ')">✏️</button>'
+          : '<button class="btn primary est-admin" onclick="estContractModal(' + p.id + ',null)">➕ ' + esc(t('estNewC')) + '</button>') +
+        '</div>'
+      : '';
+    const payRows = (p.payments_12m || []).map(pm =>
+      '<tr><td class="muted" style="white-space:nowrap">' + esc(pm.month) + '</td>' +
+      '<td class="muted" style="white-space:nowrap">' + fmtDate(pm.op_date) + '</td>' +
+      '<td class="num" style="font-weight:600">' + mon(pm.amount) + '</td>' +
+      '<td>' + esc(pm.tenant || '') + (pm.notes ? '<div class="muted" style="font-size:11px">' + esc(pm.notes) + '</div>' : '') + '</td>' +
+      (!MEMBER ? '<td class="rowacts"><button class="btn small danger" title="' + esc(t('actDelTitle')) + '" onclick="estPayDel(' + pm.id + ')">🗑</button></td>' : '') +
+      '</tr>').join('');
+    const paySec = '<div style="margin-top:12px"><div class="muted" style="font-size:11.5px;margin-bottom:6px">💶 ' + esc(t('estPayments')) + '</div>' +
+      (payRows ? '<div class="tablewrap" style="margin-top:0"><table style="min-width:0"><thead><tr>' +
+        '<th>' + esc(t('estMonth')) + '</th><th>' + esc(t('estOpDate')) + '</th><th class="num">' + esc(t('estColAmount')) + '</th>' +
+        '<th>' + esc(t('estTenant')) + '</th>' + (!MEMBER ? '<th></th>' : '') + '</tr></thead><tbody>' + payRows + '</tbody></table></div>'
+        : '<div class="muted" style="font-size:12px">' + esc(t('estNoPay')) + '</div>') + '</div>';
+    return '<div class="panel" style="margin-top:14px">' + hd + ctl +
+      '<div class="cards">' + kpis.map(k => '<div class="card"><div class="k">' + k[0] + ' ' + esc(k[1]) + '</div>' +
+        '<div class="v">' + k[2] + '</div><div class="s">' + k[3] + '</div>' + (k[4] || '') + '</div>').join('') + '</div>' +
+      acts + paySec + '</div>';
+  }).join('');
+  applyI18n();
+}
+
+function estTcoRender() {
+  const top = estTopBar();
+  if (!EST_TCO.length) {
+    $('estTcoWrap').innerHTML = top + '<div class="crowd-empty">' + esc(t('estLocEmpty')) + '</div>';
+    return;
+  }
+  $('estTcoWrap').innerHTML = top + EST_TCO.map(it => {
+    const cs = it.costs || {};
+    const kd = EST_KINDS[it.kind] || '🏠';
+    const loan = cs.credit;
+    const credNote = loan && loan.note
+      ? '<div class="muted" style="font-size:11px;color:#e6a23c">⚠️ ' + esc(t('estCreditWarn')) + '</div>' : '';
+    const catChips = Object.keys(cs.by_cat || {}).map(k => estCatLbl(k) + ' ' + mon(cs.by_cat[k])).join(' · ');
+    let hd = '<h3 style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">' + kd + ' ' + esc(it.label);
+    if (it.kind === 'immo' && it.value != null) hd += ' <span class="hint">' + mon(it.value) + '</span>';
+    if (it.id == null) hd += ' <span class="badge" style="background:#5a3a22">' + esc(t('estNoFiche')) + '</span>';
+    if (FAMILY && !MEMBER) hd += ' <span class="muted" style="font-size:11px">' + esc(it.owner) + '</span>';
+    hd += '</h3>';
+    let info = '';
+    if (it.kind === 'vehicle') {
+      info = '<div class="muted" style="font-size:11.5px;margin-bottom:8px">' +
+        (it.purchase_date
+          ? tF('estBought', {d: fmtDate(it.purchase_date), p: it.purchase_price != null ? mon(it.purchase_price) : '—'}) + ' · '
+          : '') +
+        (loan ? tF('estLoanOf', {n: esc(loan.name)}) : esc(t('estNoLoan'))) + '</div>';
+    } else if (it.account_name && it.account_name !== it.label) {
+      info = '<div class="muted" style="font-size:11.5px;margin-bottom:8px">🏠 ' + esc(it.account_name) +
+        (loan ? ' · ' + tF('estLoanOf', {n: esc(loan.name)}) : '') + '</div>';
+    }
+    let kpis;
+    if (it.kind === 'vehicle') {
+      kpis = [
+        ['💶', t('estCardTotal'), cs.total_to_date == null ? '—' : mon(cs.total_to_date),
+         tF('estCardTotalSub', {a: cs.acquisition_to_date == null ? '—' : mon(cs.acquisition_to_date),
+                               u: cs.usage_to_date == null ? '—' : mon(cs.usage_to_date)}) + credNote],
+        ['📆', t('estCardMonth'), cs.per_month == null ? '—' : mon(cs.per_month),
+         tF('estCardMonthSub', {n: cs.months_owned || 0}), ''],
+        ['📅', t('estCardYear'), cs.per_year == null ? '—' : mon(cs.per_year), '', ''],
+        ['🏁', t('estCardTerm'), cs.total_at_term == null ? '—' : mon(cs.total_at_term),
+         loan && loan.months_left != null ? tF('estCardTermSub', {d: loan.months_left + ' ' + t('estMonth')}) : '', '']
+      ];
+      if (catChips && cs.usage_to_date) {
+        kpis[0][3] += '<div class="muted" style="font-size:11px">' + catChips + '</div>';
+      }
+    } else {
+      kpis = [
+        ['💶', t('estCardTotal'), cs.total_to_date == null ? '—' : mon(cs.total_to_date),
+         tF('estImmoSplit', {i: cs.credit_to_date == null ? '—' : mon(cs.credit_to_date),
+                             u: cs.usage_to_date == null ? '—' : mon(cs.usage_to_date)}) + credNote],
+        ['🏦', t('estCredPaid'), cs.credit_to_date == null ? '—' : mon(cs.credit_to_date),
+         tF('estCredPaidSub', {i: loan && loan.paid_interest != null ? mon(loan.paid_interest) : '—',
+                               a: loan && loan.paid_insurance != null ? mon(loan.paid_insurance) : '—'})],
+        ['🧾', t('estUsage'), cs.usage_to_date == null ? '—' : mon(cs.usage_to_date), catChips],
+        ['📥', t('estLast12'), mon((cs.last12_usage || 0) + (cs.last12_credit || 0)),
+         t('estCosts12') + ' ' + mon(cs.last12_usage) + ' · ' + t('estCred12') + ' ' + mon(cs.last12_credit)]
+      ];
+    }
+    const yrows = Object.keys(cs.by_year || {}).sort().reverse().map(y =>
+      '<tr><td class="muted">' + y + '</td><td class="num">' + mon(cs.by_year[y].credit) + '</td>' +
+      '<td class="num">' + mon(cs.by_year[y].imputations) + '</td>' +
+      '<td class="num" style="font-weight:700">' + mon(cs.by_year[y].total) + '</td></tr>').join('');
+    const ysec = yrows
+      ? '<div style="margin-top:12px"><div class="muted" style="font-size:11.5px;margin-bottom:6px">📅 ' + esc(t('estYears')) + '</div>' +
+        '<div class="tablewrap" style="margin-top:0"><table style="min-width:0"><thead><tr><th>' + esc(t('estYCol')) + '</th>' +
+        '<th class="num">' + esc(t('estYCred')) + '</th><th class="num">' + esc(t('estYImp')) + '</th>' +
+        '<th class="num">' + esc(t('estYTotal')) + '</th></tr></thead><tbody>' + yrows + '</tbody></table></div></div>'
+      : '';
+    const acts = !MEMBER ? '<div style="margin:10px 0 2px;display:flex;gap:8px;flex-wrap:wrap">' +
+      (it.id == null
+        ? '<button class="btn primary est-admin" onclick="estEnsureFiche(' + it.account_id + ')">➕ ' + esc(t('estFicheImmo')) + '</button>'
+        : '<button class="btn primary est-admin" onclick="estImputeModal(' + it.id + ')">🧾 ' + esc(t('estImpute')) + '</button>' +
+          '<button class="btn est-admin" title="' + esc(t('estEdit')) + '" onclick="estItemModal(\'' + it.kind + '\',' + (it.account_id == null ? 'null' : it.account_id) + ',' + it.id + ')">✏️</button>' +
+          '<button class="btn small danger est-admin" title="' + esc(t('actDelTitle')) + '" onclick="estItemDel(' + it.id + ')">🗑</button>') +
+      '</div>' : '';
+    return '<div class="panel" style="margin-top:14px">' + hd + info +
+      '<div class="cards">' + kpis.map(k => '<div class="card"><div class="k">' + k[0] + ' ' + esc(k[1]) + '</div>' +
+        '<div class="v">' + k[2] + '</div><div class="s">' + k[3] + '</div></div>').join('') + '</div>' +
+      acts + ysec + '</div>';
+  }).join('');
+  applyI18n();
+}
+async function estContractModal(accId, cid) {
+  const p = estP(accId);
+  if (!p) return;
+  const c = cid ? (p.contracts || []).find(x => x.id === cid) : null;
+  openModal(
+    '<h2>👤 ' + esc(c ? t('estEditC') : t('estNewC')) + ' — ' + esc(p.name) + '</h2>' +
+    '<div class="grid2">' +
+      '<div><label>' + esc(t('estCTenant')) + '</label><input id="fCTenant" value="' + (c ? esc(c.tenant) : '') + '" style="width:100%"></div>' +
+      '<div><label>' + esc(t('estCRent')) + '</label><input id="fCRent" type="number" min="0" step="0.01" value="' + (c ? esc(c.rent_monthly) : '') + '" style="width:100%"></div>' +
+    '</div>' +
+    '<div class="grid2">' +
+      '<div><label>' + esc(t('estCDep')) + '</label><input id="fCDep" type="number" min="0" step="0.01" value="' + (c ? esc(c.deposit) : '') + '" style="width:100%"></div>' +
+      '<div><label>' + esc(t('estCStart')) + '</label><input id="fCStart" type="date" value="' + (c && c.start_date ? c.start_date.slice(0, 10) : new Date().toISOString().slice(0, 10)) + '" style="width:100%"></div>' +
+    '</div>' +
+    '<label>' + esc(t('estCEnd')) + '</label><input id="fCEnd" type="date" value="' + (c && c.end_date ? c.end_date.slice(0, 10) : '') + '" style="width:100%">' +
+    '<label>' + esc(t('estCNotes')) + '</label><input id="fCNotes" value="' + (c ? esc(c.notes) : '') + '" style="width:100%">' +
+    '<div class="modal-actions">' +
+      '<button class="btn ghost" onclick="closeModal()">' + esc(t('cancel')) + '</button>' +
+      '<button class="btn primary" onclick="estContractSave(' + accId + ',' + (cid || 'null') + ')">' + esc(t('save')) + '</button>' +
+    '</div>'
+  );
+}
+async function estContractSave(accId, cid) {
+  const tenant = $('fCTenant').value.trim();
+  const rent = parseFloat($('fCRent').value) || 0;
+  if (!tenant || rent <= 0 || !$('fCStart').value) { alert(t('estCErr')); return; }
+  const prev = cid ? estP(accId).contracts.find(x => x.id === cid) : null;
+  const body = {
+    account_id: accId, tenant, rent_monthly: rent,
+    deposit: parseFloat($('fCDep').value) || 0,
+    start_date: $('fCStart').value,
+    end_date: $('fCEnd').value || null,
+    notes: $('fCNotes').value.trim(),
+    active: prev ? prev.active : 1
+  };
+  try {
+    if (cid) await api('/api/loc/contracts/' + cid, {method: 'PUT', body: JSON.stringify(body)});
+    else await api('/api/loc/contracts', {method: 'POST', body: JSON.stringify(body)});
+    closeModal(); await estLoad();
+  } catch (e) { alert(e.message); }
+}
+async function estCloseContract(cid) {
+  const c = EST_LOC.map(p => p.contracts || []).flat().find(x => x.id === cid);
+  if (!c) return;
+  const end = new Date().toISOString().slice(0, 10);
+  const body = {
+    account_id: c.account_id, tenant: c.tenant, rent_monthly: c.rent_monthly,
+    deposit: c.deposit, start_date: c.start_date, end_date: c.end_date || end,
+    notes: c.notes || '', active: 0
+  };
+  if (!confirm(tF('estCAsk', {t: c.tenant}))) return;
+  try {
+    await api('/api/loc/contracts/' + cid, {method: 'PUT', body: JSON.stringify(body)});
+    await estLoad();
+  } catch (e) { alert(e.message); }
+}
+async function estPayModal(accId, cid) {
+  const p = estP(accId);
+  const c = cid ? (p.contracts || []).find(x => x.id === cid) : null;
+  if (!c) return;
+  if (!ACCOUNTS || !ACCOUNTS.length) {
+    try { const d = await api('/api/accounts'); ACCOUNTS = d.accounts; } catch (e) {}
+  }
+  const cash = (ACCOUNTS || []).filter(a => a.asset_class === 'comptes' && a.active);
+  const cashOpts = cash.map(a => '<option value="' + a.id + '">' + esc(a.name) + '</option>').join('');
+  const now = new Date();
+  const month = now.toISOString().slice(0, 7);
+  openModal(
+    '<h2>💶 ' + esc(t('estPTtl')) + ' — ' + esc(c.tenant) + ' · ' + esc(p.name) + '</h2>' +
+    '<div class="grid2">' +
+      '<div><label>' + esc(t('estPDate')) + '</label><input id="fPDate" type="date" value="' + now.toISOString().slice(0, 10) + '" style="width:100%"></div>' +
+      '<div><label>' + esc(t('estPMonth')) + '</label><input id="fPMonth" type="month" value="' + month + '" style="width:100%"></div>' +
+    '</div>' +
+    '<div class="grid2">' +
+      '<div><label>' + esc(t('estPAmount')) + '</label><input id="fPAmount" type="number" min="0" step="0.01" value="' + c.rent_monthly + '" style="width:100%"></div>' +
+      '<div><label>' + esc(t('estPAccount')) + '</label><select id="fPAccount" style="width:100%">' +
+        (cashOpts || '<option value="">—</option>') + '</select></div>' +
+    '</div>' +
+    '<div class="modal-actions">' +
+      '<button class="btn ghost" onclick="closeModal()">' + esc(t('cancel')) + '</button>' +
+      '<button class="btn primary" onclick="estPaySave(' + cid + ')">' + esc(t('estPay')) + '</button>' +
+    '</div>'
+  );
+}
+async function estPaySave(cid) {
+  const amount = parseFloat($('fPAmount').value) || 0;
+  if (amount <= 0 || !$('fPAccount').value) { alert(t('estPErr')); return; }
+  const body = {
+    contract_id: cid, op_date: $('fPDate').value, amount,
+    month: $('fPMonth').value, cash_account_id: parseInt($('fPAccount').value, 10), notes: ''
+  };
+  try {
+    await api('/api/loc/payments', {method: 'POST', body: JSON.stringify(body)});
+    closeModal(); await estLoad(); loadSummary();
+  } catch (e) { alert(e.message); }
+}
+async function estPayDel(pid) {
+  if (!confirm(t('estPAsk'))) return;
+  try {
+    await api('/api/loc/payments/' + pid, {method: 'DELETE'});
+    await estLoad(); loadSummary();
+  } catch (e) { alert(e.message); }
+}
+async function estItemModal(kind, accId, iid) {
+  let item = null;
+  if (iid) item = EST_TCO.find(x => x.id === iid);
+  let loans = [];
+  try { const d = await api('/api/loans'); loans = d.loans || []; } catch (e) {}
+  const loanTypes = kind === 'vehicle' ? ['auto', 'conso'] : ['immo'];
+  const elig = loans.filter(x => loanTypes.indexOf(x.loan_type) >= 0);
+  const loanOpts = elig.map(x => '<option value="' + x.id + '"' +
+    (item && item.loan_id === x.id ? ' selected' : '') + '>' +
+    loanTypeE(x.loan_type) + ' ' + esc(x.name) + ' (' + mon(x.principal_remaining, x.currency) + ')</option>').join('');
+  const isV = kind === 'vehicle';
+  const accName = accId ? (EST_LOC.find(x => x.id === accId) || {}).name : null;
+  openModal(
+    '<h2>➕ ' + esc(isV ? t('estItemTtlV') : t('estItemTtl')) + '</h2>' +
+    '<label>' + esc(t('estItemLabel')) + '</label><input id="fILabel" value="' +
+      ((item && item.label) || accName || '') + '" style="width:100%">' +
+    (isV ? '<div class="grid2">' +
+      '<div><label>' + esc(t('estItemPrice')) + '</label><input id="fIPrice" type="number" min="0" step="0.01" value="' + ((item && item.purchase_price) || '') + '" style="width:100%"></div>' +
+      '<div><label>' + esc(t('estItemDate')) + '</label><input id="fIDate" type="date" value="' + ((item && item.purchase_date) || '') + '" style="width:100%"></div>' +
+    '</div>' : '') +
+    '<label>' + esc(t('estItemLoan')) + '</label><select id="fILoan" style="width:100%">' +
+      '<option value="">' + esc(t('estItemLoanNone')) + '</option>' + loanOpts + '</select>' +
+    '<label>' + esc(t('estItemNotes')) + '</label><input id="fINotes" value="' + ((item && item.notes) || '') + '" style="width:100%">' +
+    '<div class="modal-actions">' +
+      '<button class="btn ghost" onclick="closeModal()">' + esc(t('cancel')) + '</button>' +
+      '<button class="btn primary" onclick="estItemSave(\'' + kind + '\',' + (accId == null ? 'null' : accId) + ',' + (iid || 'null') + ')">' + esc(t('save')) + '</button>' +
+    '</div>'
+  );
+}
+async function estItemSave(kind, accId, iid) {
+  const label = $('fILabel').value.trim();
+  if (!label) { alert(t('estItemErr')); return; }
+  const body = {
+    kind, label,
+    account_id: kind === 'immo' ? accId : null,
+    loan_id: $('fILoan').value ? parseInt($('fILoan').value, 10) : null,
+    purchase_price: kind === 'vehicle' && $('fIPrice').value ? parseFloat($('fIPrice').value) : null,
+    purchase_date: kind === 'vehicle' && $('fIDate').value ? $('fIDate').value : null,
+    notes: $('fINotes').value.trim(), active: 1
+  };
+  try {
+    if (iid) await api('/api/tco/items/' + iid, {method: 'PUT', body: JSON.stringify(body)});
+    else await api('/api/tco/items', {method: 'POST', body: JSON.stringify(body)});
+    closeModal(); await estLoad();
+  } catch (e) { alert(e.message); }
+}
+async function estEnsureFiche(accId) {
+  const it = EST_TCO.find(x => x.account_id === accId && x.kind === 'immo');
+  if (!it) return;
+  const body = {kind: 'immo', label: it.label, account_id: accId, loan_id: null,
+                purchase_price: null, purchase_date: null, notes: '', active: 1};
+  try {
+    await api('/api/tco/items', {method: 'POST', body: JSON.stringify(body)});
+    await estLoad();
+  } catch (e) { alert(e.message); }
+}
+async function estItemDel(iid) {
+  if (!confirm(t('estDelItemAsk'))) return;
+  try {
+    await api('/api/tco/items/' + iid, {method: 'DELETE'});
+    await estLoad();
+  } catch (e) { alert(e.message); }
+}
+async function estImputeModal(iid) {
+  const item = EST_TCO.find(x => x.id === iid);
+  if (!item) return;
+  const unm = await api('/api/tco/imputations?unmapped=1').catch(() => null);
+  const ops = (unm && unm.unmapped) || [];
+  if (!ops.length) {
+    alert(t('estImputeNone')); return;
+  }
+  const cats = EST_CATS[item.kind] || ['other'];
+  const opOpts = ops.map(o => '<option value="' + o.id + '">' + fmtDate(o.op_date) + ' · ' +
+    mon(o.amount) + ' — ' + esc((o.note || o.account_name).slice(0, 60)) + ' (' + esc(o.account_name) + ')</option>').join('');
+  openModal(
+    '<h2>🧾 ' + esc(tF('estImputeTtl', {l: item.label})) + '</h2>' +
+    '<label>' + esc(t('estImputeOp')) + '</label><select id="fIOp" style="width:100%">' + opOpts + '</select>' +
+    '<label>' + esc(t('estImputeCat')) + '</label><select id="fICat" style="width:100%">' +
+      cats.map(k => '<option value="' + k + '"' + (k === 'maintenance' ? ' selected' : '') + '>' + esc(estCatLbl(k)) + '</option>').join('') +
+    '</select>' +
+    '<div class="modal-actions">' +
+      '<button class="btn ghost" onclick="closeModal()">' + esc(t('cancel')) + '</button>' +
+      '<button class="btn primary" onclick="estImputeSave(' + iid + ')">' + esc(t('estImputeGo')) + '</button>' +
+    '</div>'
+  );
+}
+async function estImputeSave(iid) {
+  try {
+    await api('/api/tco/impute', {method: 'POST', body: JSON.stringify({
+      transaction_id: parseInt($('fIOp').value, 10), item_id: iid, category: $('fICat').value
+    })});
+    closeModal(); await estLoad();
   } catch (e) { alert(e.message); }
 }
 

@@ -413,6 +413,8 @@ def item_costs(conn: sqlite3.Connection, item_row, asof: date | None = None) -> 
             "paid_interest": bd["paid_interest"] if bd else None,
             "paid_insurance": bd["paid_insurance"] if bd else None,
             "months_paid": bd["months_paid"] if bd else None,
+            "months_left": (bd["scheduled_payments"] - bd["months_paid"])
+            if bd and bd["scheduled_payments"] else None,
             "credit_total_at_term": bd["credit_total_at_term"] if bd else None,
             "insurance_total_at_term": bd["insurance_total_at_term"] if bd else None,
             "term_months": bd["term_months"] if bd else None,
