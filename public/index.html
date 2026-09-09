@@ -59,6 +59,8 @@
   .side-brand .b2{font-size:7.5px;letter-spacing:2.2px;color:var(--gold)}
   nav{flex:1;padding:10px 8px;display:flex;flex-direction:column;gap:2px}
   nav a{display:flex;align-items:center;gap:10px;color:var(--muted);text-decoration:none;padding:10px 12px;border-radius:9px;font-weight:600;font-size:13.5px}
+  nav a.nav-sub{padding-left:34px;font-weight:500;font-size:13px}
+  nav a.nav-sub .e{opacity:.85}
   nav a:hover{background:#1a2230;color:var(--text)}
   nav a.active{background:#1d2942;color:var(--gold2)}
   #sideFoot{padding:10px 8px;border-top:1px solid var(--border)}
@@ -186,7 +188,7 @@
     font-size:13px;flex-wrap:wrap}
   #mbBar .mbRo{color:#8b949e;font-size:11.5px}
   #mbBar button{margin-left:auto}
-  body[data-member] #navFire,body[data-member] #navParams,body[data-member] #segScope{display:none!important}
+  body[data-member] #navSim,body[data-member] #navParams,body[data-member] #segScope{display:none!important}
   body[data-member] #pageDash .btn,body[data-member] #pageEv .btn,body[data-member] #pageActifs .btn,
   body[data-member] #pageOps .btn,body[data-member] #pageRev .btn{display:none} /* pages de données = lecture pure */
 
@@ -196,6 +198,7 @@
     .side-brand{display:none}
     nav{flex:1 1 auto;flex-direction:row;overflow-x:auto;overflow-y:hidden;justify-content:flex-start;padding:0 2px;scrollbar-width:thin;min-width:0}
     nav a{flex:0 0 auto;flex-direction:column;gap:2px;font-size:9.5px;padding:6px 10px}
+    nav a.nav-sub{padding-left:10px;font-size:9.5px}
     nav a span.e{font-size:15px}
     #sideFoot{display:flex;border-top:none;padding:0;flex:0 0 auto}
     #sideFoot button{flex-direction:column;gap:2px;justify-content:center;padding:6px 8px;font-size:9px;width:auto}
@@ -279,15 +282,15 @@
       <a href="#" id="navDash" onclick="switchPage('dash')"><span class="e">📊</span> <span data-i18n="navDash">Tableau de bord</span></a>
       <a href="#" id="navEv" onclick="switchPage('ev')"><span class="e">📈</span> <span data-i18n="navEv">Évolution</span></a>
       <a href="#" id="navActifs" onclick="switchPage('actifs')"><span class="e">💼</span> <span data-i18n="navActifs">Actifs</span></a>
-      <a href="#" id="navAct" onclick="switchPage('act')"><span class="e">📈</span> <span data-i18n="navAct">Actions</span></a>
-      <a href="#" id="navAv" onclick="switchPage('av')"><span class="e">🛡️</span> <span data-i18n="navAv">Assurance vie</span></a>
-      <a href="#" id="navLoan" onclick="switchPage('loan')"><span class="e">💳</span> <span data-i18n="navLoan">Crédits</span></a>
-      <a href="#" id="navEst" onclick="switchPage('est')"><span class="e">🏠</span> <span data-i18n="navEst">Immo & TCO</span></a>
-      <a href="#" id="navCw" onclick="switchPage('cw')"><span class="e">₿</span> <span data-i18n="navCw">Crypto</span></a>
-      <a href="#" id="navCrowd" onclick="switchPage('crowd')"><span class="e">🧱</span> <span data-i18n="navCrowd">Crowdfunding</span></a>
+      <a href="#" id="navAct" class="nav-sub" onclick="switchPage('act')"><span class="e">📈</span> <span data-i18n="navAct">Actions</span></a>
+      <a href="#" id="navAv" class="nav-sub" onclick="switchPage('av')"><span class="e">🛡️</span> <span data-i18n="navAv">Assurance vie</span></a>
+      <a href="#" id="navLoan" class="nav-sub" onclick="switchPage('loan')"><span class="e">💳</span> <span data-i18n="navLoan">Crédits</span></a>
+      <a href="#" id="navEst" class="nav-sub" onclick="switchPage('est')"><span class="e">🏠</span> <span data-i18n="navEst">Immo & TCO</span></a>
+      <a href="#" id="navCw" class="nav-sub" onclick="switchPage('cw')"><span class="e">₿</span> <span data-i18n="navCw">Crypto</span></a>
+      <a href="#" id="navCrowd" class="nav-sub" onclick="switchPage('crowd')"><span class="e">🧱</span> <span data-i18n="navCrowd">Crowdfunding</span></a>
       <a href="#" id="navOps" onclick="switchPage('ops')"><span class="e">📜</span> <span data-i18n="navOps">Opérations</span></a>
       <a href="#" id="navRev" onclick="switchPage('rev')"><span class="e">📅</span> <span data-i18n="navRev">Revenus</span></a>
-      <a href="#" id="navFire" onclick="switchPage('fire')"><span class="e">🔮</span> <span data-i18n="navFire">Indépendance</span></a>
+      <a href="#" id="navSim" onclick="switchPage('fire')"><span class="e">🔮</span> <span data-i18n="navSim">Simulateurs</span></a>
       <a href="#" id="navParams" onclick="switchPage('params')"><span class="e">⚙️</span> <span data-i18n="navParams">Paramètres</span></a>
     </nav>
     <div id="sideFoot">
@@ -716,8 +719,45 @@
 
     <!-- ---------- FIRE (indépendance financière) ---------- -->
     <section id="pageFire" class="hidden">
-      <div class="page-title"><h1>🔮 <span data-i18n="navFire">Indépendance financière</span></h1></div>
-      <div class="params">
+      <div class="page-title"><h1>🔮 <span data-i18n="navSim">Simulateurs</span></h1></div>
+      <div class="seg" id="simSeg">
+        <button data-v="proj" onclick="simView('proj')">🔮 <span data-i18n="simSegProj">Projection</span></button>
+        <button data-v="fire" class="on" onclick="simView('fire')">🔥 <span data-i18n="simSegFire">FIRE</span></button>
+        <button data-v="rente" onclick="simView('rente')">🏦 <span data-i18n="simSegRente">Rente</span></button>
+      </div>
+      <div id="simWrapProj" class="hidden">
+        <div class="params">
+          <div class="panel">
+            <h3>📈 <span data-i18n="simProjTtl">Projection — intérêts composés</span></h3>
+            <label data-i18n="projPrinc">Capital de départ</label>
+            <input id="pP0" type="number" step="1" min="0">
+            <div class="grid2">
+              <div><label data-i18n="projPmt">Versement mensuel</label><input id="pPmt" type="number" step="1" min="0"></div>
+              <div><label data-i18n="projYears">Horizon (années)</label><input id="pYears" type="number" step="1" min="1" max="60"></div>
+              <div><label data-i18n="fireRet">Rendement annuel (%)</label><input id="pRet" type="number" step="0.1" min="-5" max="25"></div>
+              <div><label data-i18n="fireInfl">Inflation annuelle (%)</label><input id="pInfl" type="number" step="0.1" min="0" max="15"></div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:12px">
+              <button class="btn primary" onclick="projSim()">📈 <span data-i18n="projGo">Projeter</span></button>
+            </div>
+            <div class="note" id="projErr" style="font-size:12px;margin-top:6px"></div>
+          </div>
+          <div class="panel">
+            <h3><span data-i18n="fireRes">Résultat</span></h3>
+            <div class="big" id="projFin" style="color:#3fb950">—</div>
+            <div class="muted" id="projFinSub" style="font-size:13px;margin-top:4px"></div>
+            <div id="projStats" style="font-size:12px;margin-top:10px;line-height:1.8;color:#8b949e"></div>
+          </div>
+        </div>
+        <div class="panel" style="margin-top:14px">
+          <h3>📈 <span data-i18n="fireChartT">Capital projeté</span> <span class="hint" data-i18n="projHint">nominal · réel (inflation déduite) · versé</span></h3>
+          <div class="chartbox" style="height:250px"><canvas id="chSimProj"></canvas></div>
+          <div class="legend" id="projLeg"></div>
+          <div class="note muted" id="projNote" style="font-size:11px;margin-top:6px;line-height:1.6"></div>
+        </div>
+      </div>
+      <div id="simWrapFire">
+        <div class="params">
         <div class="panel">
           <h3><span data-i18n="fireHyp">Hypothèses</span></h3>
           <label data-i18n="firePrinc">Patrimoine actuel</label>
@@ -753,6 +793,43 @@
         <h3>📈 <span data-i18n="fireChartT">Capital projeté</span></h3>
         <div class="chartbox" style="height:250px"><canvas id="chFire"></canvas></div>
         <div class="note muted" id="fireNote" style="font-size:11px;margin-top:6px;line-height:1.6"></div>
+      </div>
+      </div>
+      <div id="simWrapRente" class="hidden">
+        <div class="params">
+          <div class="panel">
+            <h3>🏦 <span data-i18n="simRenteTtl">Rente potentielle</span></h3>
+            <label data-i18n="renteCap">Capital disponible</label>
+            <input id="rCap" type="number" step="1" min="0">
+            <label data-i18n="renteMode">Type de rente</label>
+            <div style="display:flex;flex-direction:column;gap:6px;margin:8px 0 4px">
+              <label style="display:flex;gap:8px;align-items:flex-start"><input type="radio" name="rMode" value="years" checked onchange="renteModeSet()"> <span data-i18n="renteMy">Rente certaine — le capital s'épuise au terme</span></label>
+              <label style="display:flex;gap:8px;align-items:flex-start"><input type="radio" name="rMode" value="life" onchange="renteModeSet()"> <span data-i18n="renteMl">À vie — taux de retrait soutenable (règle des 4 %)</span></label>
+              <label style="display:flex;gap:8px;align-items:flex-start"><input type="radio" name="rMode" value="perp" onchange="renteModeSet()"> <span data-i18n="renteMp">Perpétuelle — intérêts seuls, capital intact</span></label>
+            </div>
+            <div class="grid2">
+              <div id="rYearsBox"><label data-i18n="renteYears">Durée de la rente (années)</label><input id="rYears" type="number" step="1" min="1" max="60"></div>
+              <div id="rSwrBox" class="hidden"><label data-i18n="fireSwr">Taux de retrait (%)</label><input id="rSwr" type="number" step="0.1" min="0.1" max="25"></div>
+              <div><label data-i18n="fireRet">Rendement annuel (%)</label><input id="rRet" type="number" step="0.1" min="-5" max="25"></div>
+              <div><label data-i18n="fireInfl">Inflation annuelle (%)</label><input id="rInfl" type="number" step="0.1" min="0" max="15"></div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:12px">
+              <button class="btn primary" onclick="renteSim()">🏦 <span data-i18n="renteGo">Calculer la rente</span></button>
+            </div>
+            <div class="note" id="renteErr" style="font-size:12px;margin-top:6px"></div>
+          </div>
+          <div class="panel">
+            <h3><span data-i18n="fireRes">Résultat</span></h3>
+            <div class="big" id="renteM" style="color:#3fb950">—</div>
+            <div class="muted" id="renteMSub" style="font-size:13px;margin-top:4px"></div>
+            <div id="renteStats" style="font-size:12px;margin-top:10px;line-height:1.8;color:#8b949e"></div>
+          </div>
+        </div>
+        <div class="panel" style="margin-top:14px">
+          <h3>📉 <span data-i18n="simRenteChart">Capital restant</span></h3>
+          <div class="chartbox" style="height:250px"><canvas id="chSimRente"></canvas></div>
+          <div class="note muted" id="renteNote" style="font-size:11px;margin-top:6px;line-height:1.6"></div>
+        </div>
       </div>
     </section>
 
@@ -969,7 +1046,7 @@ avNote:'Un compte = un contrat. La classe Épargne = fonds €, la classe Bourse
   lnYear:'Année', lnAmort:'Amorti', lnInterest:'Intérêts', lnLeft:'Restant dû',
   lnEnd:'Fin estimée : {d} (dans {n} ans) · intérêts restants : {i}',
   lnHeroDebt:'Actifs {a} − passifs {d}',
-  navFire:'Indépendance (FIRE)', fireHyp:'Hypothèses', firePrinc:'Patrimoine actuel',
+  navSim:'Simulateurs', simSegProj:'Projection', simSegFire:'FIRE', simSegRente:'Rente', simProjTtl:'Projection — intérêts composés', projPrinc:'Capital de départ', projPmt:'Versement mensuel', projYears:'Horizon (années)', projGo:'Projeter', projFinSub:'≈ {r} en euros actuels (inflation déduite)', projInv:'Total versé', projInt:'Intérêts cumulés', projHint:'nominal · réel (inflation déduite) · versé', projLNom:'capital nominal', projLReel:'réel (€ actuels)', projLInv:'versements cumulés', projNote:'Capitalisation mensuelle, versements en fin de mois (euros courants). La ligne réelle déflate l’inflation : elle montre le pouvoir d’achat.', simRenteTtl:'Rente potentielle', renteCap:'Capital disponible', renteMode:'Type de rente', renteMy:'Rente certaine — le capital s’épuise au terme', renteMl:'À vie — taux de retrait soutenable (règle des 4 %)', renteMp:'Perpétuelle — intérêts seuls, capital intact', renteYears:'Durée de la rente (années)', renteGo:'Calculer la rente', renteMSub:'{y} par an', renteReel:'pouvoir d’achat au terme (€ actuels)', renteCapEnd:'capital restant au terme', rentePay:'rentes cumulées versées', simRenteChart:'Capital restant', renteNote:'Retraits mensuels en fin de mois, euros nominaux. Rente certaine : le capital s’épuise au terme. À vie : taux de retrait fixe — capital non garanti (règle pensée pour ~30 ans). Perpétuelle : seuls les intérêts sont versés, le capital reste intact.', fireHyp:'Hypothèses', firePrinc:'Patrimoine actuel',
   fireSave:'Épargne mensuelle', fireExp:'Dépenses mensuelles', fireRent:'Rentes / pensions mensuelles',
   fireBirth:'Année de naissance', fireRet:'Rendement annuel (%)', fireInfl:'Inflation annuelle (%)',
   fireSwr:'Taux de retrait (%)', fireGo:'Simuler', fireSaveH:'Enregistrer les hypothèses', fireRes:'Résultat',
@@ -1177,7 +1254,7 @@ avNote:'One account = one contract. Savings class = funds €, Stocks class = un
   lnYear:'Year', lnAmort:'Principal paid', lnInterest:'Interest', lnLeft:'Remaining',
   lnEnd:'Estimated end: {d} (in {n} years) · remaining interest: {i}',
   lnHeroDebt:'Assets {a} − liabilities {d}',
-  navFire:'FIRE independence', fireHyp:'Assumptions', firePrinc:'Current net worth',
+  navSim:'Simulators', simSegProj:'Projection', simSegFire:'FIRE', simSegRente:'Annuity', simProjTtl:'Projection — compound interest', projPrinc:'Starting capital', projPmt:'Monthly contribution', projYears:'Horizon (years)', projGo:'Project', projFinSub:'≈ {r} in today’s euros (inflation-adjusted)', projInv:'Total contributed', projInt:'Compound interest earned', projHint:'nominal · real (inflation-adjusted) · contributed', projLNom:'nominal capital', projLReel:'real (today’s euros)', projLInv:'cumulated contributions', projNote:'Monthly compounding, contributions at month end (current euros). The real line is inflation-deflated: it shows purchasing power.', simRenteTtl:'Potential annuity', renteCap:'Available capital', renteMode:'Annuity type', renteMy:'Term annuity — capital is exhausted at term', renteMl:'For life — sustainable withdrawal rate (4 % rule)', renteMp:'Perpetual — interest only, capital untouched', renteYears:'Annuity term (years)', renteGo:'Compute the annuity', renteMSub:'{y} per year', renteReel:'purchasing power at term (today’s euros)', renteCapEnd:'capital left at term', rentePay:'cumulated annuity paid out', simRenteChart:'Remaining capital', renteNote:'Monthly withdrawals at month end, nominal euros. Term annuity: capital exhausted at term. For life: fixed withdrawal rate — capital not guaranteed (rule designed for ~30 years). Perpetual: interest only, capital stays intact.', fireHyp:'Assumptions', firePrinc:'Current net worth',
   fireSave:'Monthly savings', fireExp:'Monthly expenses', fireRent:'Monthly annuities / pensions',
   fireBirth:'Birth year', fireRet:'Annual return (%)', fireInfl:'Annual inflation (%)',
   fireSwr:'Withdrawal rate (%)', fireGo:'Simulate', fireSaveH:'Save assumptions', fireRes:'Result',
@@ -1385,7 +1462,7 @@ avNote:'Ein Konto = ein Vertrag. Sparklasse = fonds €, Wertpapierklasse = UC. 
   lnYear:'Jahr', lnAmort:'Getilgt', lnInterest:'Zinsen', lnLeft:'Restbetrag',
   lnEnd:'Voraussichtliches Ende: {d} (in {n} Jahren) · Restzinsen: {i}',
   lnHeroDebt:'Vermögen {a} − Verbindlichkeiten {d}',
-  navFire:'Unabhängigkeit (FIRE)', fireHyp:'Annahmen', firePrinc:'Aktuelles Vermögen',
+  navSim:'Simulatoren', simSegProj:'Projektion', simSegFire:'FIRE', simSegRente:'Rente', simProjTtl:'Projektion — Zinseszins', projPrinc:'Startkapital', projPmt:'Monatlicher Beitrag', projYears:'Horizont (Jahre)', projGo:'Projizieren', projFinSub:'≈ {r} in heutigen Euro (nach Inflation)', projInv:'Gesamteinzahlungen', projInt:'Kumulierte Zinsen', projHint:'nominal · real (nach Inflation) · eingezahlt', projLNom:'Kapital nominal', projLReel:'real (heutige Euro)', projLInv:'kumulierte Einzahlungen', projNote:'Monatliche Verzinsung, Einzahlungen am Monatsende (laufende Euro). Die reale Linie ist um die Inflation bereinigt: sie zeigt die Kaufkraft.', simRenteTtl:'Potenzielle Rente', renteCap:'Verfügbares Kapital', renteMode:'Rentenart', renteMy:'Zeitrente — das Kapital ist am Laufzeitende aufgebraucht', renteMl:'Auf Lebenszeit — nachhaltige Entnahmerate (4-%-Regel)', renteMp:'Ewige Rente — nur Zinsen, Kapital bleibt unangetastet', renteYears:'Laufzeit der Rente (Jahre)', renteGo:'Rente berechnen', renteMSub:'{y} pro Jahr', renteReel:'Kaufkraft am Laufzeitende (heutige Euro)', renteCapEnd:'Kapital am Laufzeitende', rentePay:'kumulierte Rentenzahlungen', simRenteChart:'Verbleibendes Kapital', renteNote:'Monatliche Entnahmen am Monatsende, laufende Euro. Zeitrente: Kapital am Laufzeitende aufgebraucht. Auf Lebenszeit: fester Entnahmesatz — Kapital nicht garantiert (Regel für ~30 Jahre gedacht). Ewige Rente: nur Zinsen werden ausgezahlt, Kapital bleibt unangetastet.', fireHyp:'Annahmen', firePrinc:'Aktuelles Vermögen',
   fireSave:'Monatliche Sparrate', fireExp:'Monatliche Ausgaben', fireRent:'Monatliche Renten / Pensionen',
   fireBirth:'Geburtsjahr', fireRet:'Jährliche Rendite (%)', fireInfl:'Jährliche Inflation (%)',
   fireSwr:'Entnahmerate (%)', fireGo:'Simulieren', fireSaveH:'Annahmen speichern', fireRes:'Ergebnis',
@@ -1592,7 +1669,7 @@ avNote:'Ee Konto = ee Kontrakt. Spuerklass = fonds €, Bourse-Klass = UC. Erfaa
   lnYear:'Joer', lnAmort:'Getilgt', lnInterest:'Zënssen', lnLeft:'Rescht',
   lnEnd:'Geschate Enn: {d} (an {n} Joer) · Reschtzënssen: {i}',
   lnHeroDebt:'Aktiva {a} − Verbindlechkeeten {d}',
-  navFire:'Onofhängegkeet (FIRE)', fireHyp:'Unnerstellungen', firePrinc:'Aktuell Verméigen',
+  navSim:'Simulatoren', simSegProj:'Projektioun', simSegFire:'FIRE', simSegRente:'Rent', simProjTtl:'Projektioun — Zënseszëns', projPrinc:'Startkapital', projPmt:'Monatleche Bäitrag', projYears:'Horizont (Joer)', projGo:'Projizéieren', projFinSub:'≈ {r} an hautdesdaagegen Euro (Inflatioun ofgezunn)', projInv:'Total ageluegt', projInt:'Zënsen total', projHint:'nominal · real (Inflatioun ofgezunn) · ageluegt', projLNom:'Kapital nominal', projLReel:'real (hautdesdaags Euro)', projLInv:'kumuléiert Agëtt', projNote:'Monatlech Kapitaliséierung, Agëtt um Enn vum Mount (aktuell Euro). Déi real Linn ass ëm d’Inflatioun bereinegt: si weist d’Kafkraaft.', simRenteTtl:'Potentiell Rent', renteCap:'Disponibel Kapital', renteMode:'Zort Rent', renteMy:'Zäitrent — d’Kapital ass um Enn vun der Laufzäit opgebraucht', renteMl:'Op Liewenszäit — nohaltege Réckzuchssaz (4-%-Regel)', renteMp:'Éiweg Rent — nëmmen Zënsen, d’Kapital bleift onugetaascht', renteYears:'Dauer vun der Rent (Joer)', renteGo:'Rent berechnen', renteMSub:'{y} pro Joer', renteReel:'Kafkraaft um Enn vun der Laufzäit (hautdesdaags Euro)', renteCapEnd:'Kapital um Enn vun der Laufzäit', rentePay:'kumuléiert Rentzuelungen', simRenteChart:'Verbleiwend Kapital', renteNote:'Monatlech Réckzuch um Enn vum Mount, aktuell Euro. Zäitrent: d’Kapital um Enn vun der Laufzäit opgebraucht. Op Liewenszäit: festen Entnahmesaz — Kapital net garantéiert (Regel fir ~30 Joer geduecht). Éiweg Rent: nëmmen d’Zënse ginn ausbezuelt, d’Kapital bleift onugetaascht.', fireHyp:'Unnerstellungen', firePrinc:'Aktuell Verméigen',
   fireSave:'Monatlecht Spueren', fireExp:'Monatlech Ausgaben', fireRent:'Monatlech Renten / Pensiounen',
   fireBirth:'Gebuertsjoer', fireRet:'Jährlech Rendit (%)', fireInfl:'Jährlech Inflatioun (%)',
   fireSwr:'Entnarate (%)', fireGo:'Simuléieren', fireSaveH:'Unnerstellungen späicheren', fireRes:'Resultat',
@@ -3225,6 +3302,21 @@ async function renderFire() {
     if (empty('fE0') && net > 0) $('fE0').value = Math.round(net * 100) / 100;
     if (exp > 0) $('fireAuto').textContent = tF('firePrefill', {e: mon(Math.round(exp * 100) / 100), n: net > 0 ? mon(Math.round(net * 100) / 100) : '—'});
   }
+  // onglets Projection / Rente (v2026.09.065) : préremplissage unique, calé
+  // sur les mêmes sources réelles que FIRE (patrimoine, règles, hypothèses)
+  const nw = s && s.net_worth != null ? Math.round(s.net_worth) : 0;
+  const fill = (id, v) => { const el = $(id); if (el && !el.value) el.value = String(v); };
+  if (nw) { fill('pP0', nw); fill('rCap', nw); }
+  const ne = parseFloat(($('fE0') || {}).value);
+  fill('pPmt', ne > 0 ? ne : 0);
+  fill('pYears', 20); fill('rYears', 25); fill('rSwr', 4);
+  if (set) {
+    fill('pRet', set.fire_return != null ? set.fire_return : 4);
+    fill('pInfl', set.fire_inflation != null ? set.fire_inflation : 2);
+    fill('rRet', set.fire_return != null ? set.fire_return : 4);
+    fill('rInfl', set.fire_inflation != null ? set.fire_inflation : 2);
+    if (set.fire_swr != null) fill('rSwr', set.fire_swr);
+  }
   fireSim();
 }
 
@@ -3320,6 +3412,83 @@ async function fireSaveH() {
   if (b) body.fire_birthyear = Math.round(b);
   const r = await api('/api/settings', {method: 'PUT', body: JSON.stringify(body)});
   $('fireAuto').textContent = r.ok ? t('fireSaved') : t('fireSaveErr');
+}
+
+/* ---------- page Simulateurs — onglets Projection / Rente (v2026.09.065) ---------- */
+function simView(v) {
+  document.querySelectorAll('#simSeg button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  $('simWrapProj').classList.toggle('hidden', v !== 'proj');
+  $('simWrapFire').classList.toggle('hidden', v !== 'fire');
+  $('simWrapRente').classList.toggle('hidden', v !== 'rente');
+  if (v === 'proj') projSim();
+  else if (v === 'rente') renteSim();
+}
+
+async function projSim() {
+  const ids = [['principal','pP0'],['pmt_month','pPmt'],['return_pct','pRet'],['inflation_pct','pInfl']];
+  const q = new URLSearchParams();
+  for (const [k, id] of ids) {
+    const v = parseFloat(($(id) || {}).value);
+    if (isNaN(v)) { $('projErr').textContent = t('fireFill'); return; }
+    q.set(k, String(v));
+  }
+  const y = parseInt(($('pYears') || {}).value, 10);
+  if (!y || y < 1 || y > 60) { $('projErr').textContent = t('fireFill'); return; }
+  q.set('years', String(y));
+  const j = await api('/api/sim/project?' + q);
+  $('projErr').textContent = '';
+  $('projFin').textContent = mon(j.final_nominal);
+  $('projFinSub').textContent = tF('projFinSub', {r: mon(j.final_reel)});
+  $('projStats').innerHTML =
+    '<div>'+esc(t('projInv'))+' : <b>'+mon(j.total_pmts)+'</b></div>' +
+    '<div>'+esc(t('projInt'))+' : <b>'+mon(j.interest)+'</b></div>';
+  const specs = [
+    {label: t('projLNom'), values: j.nominal, color: '#e8e6e3', width: 2.6},
+    {label: t('projLReel'), values: j.reel, color: '#58a6ff', width: 1.6},
+    {label: t('projLInv'), values: j.invested, color: '#8b949e', width: 1.2, dash: [4, 4]},
+  ];
+  chLineMulti('chSimProj', 'SIM_PROJ_CH', 'projLeg', j.labels.map(String), specs);
+  $('projNote').textContent = t('projNote');
+}
+
+function renteModeSet() {
+  const m = (document.querySelector('input[name="rMode"]:checked') || {}).value || 'years';
+  const yb = $('rYearsBox'), sb = $('rSwrBox');
+  if (yb) yb.classList.toggle('hidden', m !== 'years');
+  if (sb) sb.classList.toggle('hidden', m !== 'life');
+  if (m === 'perp') renteSim();  // pas de champ de plus : résultat immédiat
+}
+
+async function renteSim() {
+  const m = (document.querySelector('input[name="rMode"]:checked') || {}).value || 'years';
+  const q = new URLSearchParams();
+  const cap = parseFloat(($('rCap') || {}).value);
+  if (isNaN(cap) || cap < 0) { $('renteErr').textContent = t('fireFill'); return; }
+  q.set('principal', String(cap));
+  q.set('mode', m);
+  const ret = parseFloat(($('rRet') || {}).value);
+  const infl = parseFloat(($('rInfl') || {}).value);
+  if (isNaN(ret) || isNaN(infl)) { $('renteErr').textContent = t('fireFill'); return; }
+  q.set('return_pct', String(ret)); q.set('inflation_pct', String(infl));
+  if (m === 'years') {
+    const y = parseInt(($('rYears') || {}).value, 10);
+    if (!y || y < 1 || y > 60) { $('renteErr').textContent = t('fireFill'); return; }
+    q.set('years', String(y));
+  } else if (m === 'life') {
+    const s = parseFloat(($('rSwr') || {}).value);
+    if (isNaN(s) || s <= 0) { $('renteErr').textContent = t('fireFill'); return; }
+    q.set('swr_pct', String(s));
+  }
+  const j = await api('/api/sim/rente?' + q);
+  $('renteErr').textContent = '';
+  $('renteM').textContent = mon(j.pmt_month);
+  $('renteMSub').textContent = tF('renteMSub', {y: mon(j.pmt_year)});
+  $('renteStats').innerHTML =
+    '<div>'+esc(t('renteReel'))+' : <b>'+mon(j.pmt_month_real_end)+'</b></div>' +
+    '<div>'+esc(t('renteCapEnd'))+' : <b>'+mon(j.cap_end)+'</b></div>' +
+    '<div>'+esc(t('rentePay'))+' : <b>'+mon(j.total_payout)+'</b></div>';
+  chLineDraw('chSimRente', 'SIM_RENTE_CH', j.labels.map(String), j.capital);
+  $('renteNote').textContent = t('renteNote');
 }
 
 function openRuleModal(id) {

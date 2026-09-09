@@ -2,6 +2,38 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.065] — 2026-09-09
+
+### Added — Simulators page + hierarchical menu (UI, step ② of the Fred
+chantier — backend v2026.09.064)
+
+Demande Fred : ① le menu traite Actions, Assurance vie… comme des
+sous-parties d'Actifs ; ② la page Indépendance devient une page plus large
+de simulateurs.
+
+- Menu : « Actifs » devient le parent visuel — Actions, Assurance vie,
+  Crédits, Immo & TCO, Crypto et Crowdfunding passent en sous-niveau
+  (décalés, classe `nav-sub`, graisse réduite ; rangée mobile inchangée) ;
+  « Indépendance » devient « 🔮 Simulateurs » (clé `navSim`, l'ancienne
+  `navFire` supprimée ×4 langues).
+- Page Simulateurs : trois onglets (`simView`) — 🔮 Projection, 🔥 FIRE,
+  🏦 Rente. L'onglet FIRE reprend à l'identique l'ancienne page (verdict
+  d'indépendance, sensibilité, Monte-Carlo bootstrap).
+  - Projection (route /api/sim/project) : capital de départ, versement
+    mensuel, rendement, inflation, horizon — capital final nominal + en
+    euros actuels, total versé, intérêts cumulés ; courbe 3 lignes
+    (nominal / réel / versements cumulés).
+  - Rente (route /api/sim/rente) : capital disponible + type de rente
+    (certaine : durée au choix / à vie : taux de retrait / perpétuelle :
+    intérêts seuls) — rente mensuelle et annuelle, pouvoir d'achat au
+    terme, capital restant au terme, cumul versé ; courbe du capital.
+  - Les champs des nouveaux onglets sont pré-remplis une fois, depuis les
+    mêmes sources réelles que FIRE (patrimoine net, épargne mensuelle des
+    règles de revenus, hypothèses persistées fire_*).
+- i18n ×4 (31 clés nouvelles, `navFire` retirée), audit visuel des deux
+  nouveaux onglets et du menu (sous-entrées indentées sous Actifs).
+  Tests : 233/233 (UI seule — backend v064 inchangé).
+
 ## [2026.09.064] — 2026-09-09
 
 ### Added — Simulators backend (v2026.09.064, step ① of the Fred chantier
