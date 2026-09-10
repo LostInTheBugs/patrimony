@@ -12,6 +12,11 @@ You can typically expect an acknowledgement within **7 days**. The report
 will be investigated and you will be kept informed; you will be credited
 in the release notes unless you prefer otherwise.
 
+We follow **coordinated disclosure**: expect a fix and an advisory within
+**90 days** of your report, or as soon as a corrected release is
+published — whichever comes first. If you intend to publish earlier, a
+heads-up lets us ship the fix first.
+
 ## Scope
 
 Patrimony is a self-hosted, offline-first application. Areas of special
