@@ -2,6 +2,18 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.069] — 2026-09-10
+
+### Added — PWA polish (mobile app-like experience, Fred: « oui stp »)
+
+- `short_name: "Patrimony"` added to the manifest so the home-screen icon
+  shows the compact name (the long name stays in app switchers/info).
+- Verified with Chrome DevTools Protocol on the live app: manifest parsed
+  with no errors, `installabilityErrors: []`, service worker registered and
+  controlling (versioned `patrimony-<VERSION>` cache, navigation
+  network-first, API never cached). « Ajouter à l'écran d'accueil » now
+  yields a full-screen standalone app. Tests: 233/233.
+
 ## [2026.09.068] — 2026-09-09
 
 ### Fixed — stale front-end after deployments (mobile refonte invisible on

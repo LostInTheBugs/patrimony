@@ -5552,6 +5552,7 @@ async def manifest_pwa():
     return JSONResponse(
         {
             "name": "Patrimony — Data Sovereignty",
+            "short_name": "Patrimony",
             "description": "Self-hosted wealth dashboard — your data stays on your network.",
             "start_url": "/",
             "scope": "/",
