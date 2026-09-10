@@ -221,6 +221,13 @@ it with more than one worker (open vaults are process memory).
 | `POST /api/vault/init` · `POST /api/vault/open` (protected) | First-time seal / unlock of the encrypted vault |
 | `GET /api/version` | App version |
 
+## Security
+
+See [`SECURITY.md`](SECURITY.md) for the vulnerability reporting policy
+(private advisory, latest release only). The public demo runs **fictional
+data only**; keep real deployments on a private network or behind HTTPS,
+and change the seeded admin password on first login.
+
 ## Repository conventions
 
 - Version: see `VERSION` (YEAR.MONTH.NNN, no `v` prefix)
