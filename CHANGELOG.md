@@ -2,6 +2,18 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.068] — 2026-09-09
+
+### Fixed — stale front-end after deployments (mobile refonte invisible on
+phone despite the live instance serving v067)
+
+Root cause: the static mount sent no `Cache-Control` header, so browsers
+apply a heuristic freshness and may serve an old `index.html` for days
+without revalidating. Fix: `NoCacheStatic(StaticFiles)` subclass — every
+200 response now carries `Cache-Control: no-cache` (mandatory revalidation:
+304 if unchanged, 200 with the new file otherwise). The single-file SPA is
+now always current on the next open. Tests: 233/233.
+
 ## [2026.09.067] — 2026-09-09
 
 ### Changed — Mobile navigation overhaul (Fred: « revoir l'interface sur

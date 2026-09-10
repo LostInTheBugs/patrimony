@@ -5616,7 +5616,24 @@ self.addEventListener('fetch', e => {
 """
 
 
-app.mount("/", StaticFiles(directory=PUBLIC_DIR, html=True), name="public")
+class NoCacheStatic(StaticFiles):
+    """Static files with mandatory revalidation (v2026.09.068).
+
+    Sans Cache-Control, les navigateurs appliquent une fraîcheur heuristique
+    et peuvent servir un vieil index.html pendant des jours après un
+    déploiement (vécu : refonte mobile invisible sur téléphone). « no-cache »
+    force la revalidation (304 si inchangé, 200 sinon) — la SPA single-file
+    est ainsi toujours à jour.
+    """
+
+    async def get_response(self, path, scope):
+        resp = await super().get_response(path, scope)
+        if resp.status_code == 200:
+            resp.headers["Cache-Control"] = "no-cache"
+        return resp
+
+
+app.mount("/", NoCacheStatic(directory=PUBLIC_DIR, html=True), name="public")
 
 init_db()
 
