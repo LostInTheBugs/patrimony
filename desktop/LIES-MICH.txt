@@ -1,0 +1,54 @@
+PATRIMONY — DESKTOP-APPLIKATIOUN (Windows)
+===========================================
+
+Är Patrimoine, Är Donnéeën, op ÄREM Computer.
+Kee Server, kee Cloud-Kont, keng Installatioun néideg. Nëmmen eng Saach
+geet online: ëffentlech Krypto-Coursen (nëmmen liesen — NIEMOLS Är
+Schlësselen).
+
+🌍 Aner Sproochen: Français → LISEZ-MOI.txt · English → README.txt ·
+   Deutsch → LIESMICH.txt
+
+INSTALLATIOUN (2 Minutten, ouni Installateur)
+---------------------------------------------
+1. Packt den Dossier "Patrimony-Windows" aus, wou Dir wëllt (zum
+   Beispill: Dokumenter\Patrimony). Vermeit "Program Files" — Windows
+   blockéiert do d'Schreiwen.
+2. Duebelklick op "Patrimony.exe".
+
+   Beim éischte Start weist Windows Iech eventuell "Windows huet Ären
+   PC geschützt" (SmartScreen — normal fir en nach onbekannten
+   Editeur). Klickt op "Informations complémentaires" / "Weitere
+   Informationen", duerno "Exécuter quand même" / "Trotzdem
+   ausféieren".
+
+3. D'Fënster vu Patrimony geet op.
+
+ÉISCHT ALOGGEN
+--------------
+   Benotzernumm: admin
+   Passwuert: change-me
+
+   ⚠️ Ännert et direkt: Menü "Astellungen" nom Aloggen.
+
+ÄR DONNÉEËN
+-----------
+Alles ass am Dossier "data", niewent Patrimony.exe.
+Sécherheetskopie = kopéiert dësen Dossier "data" heiansdo op en
+USB-Stick oder eng extern Plack. Et gëtt näischt eropgelueden:
+d'Krypto-Adressen, déi Dir verfollegt, ginn nëmmen iwwer ëffentlech
+Explorer ofgefrot (nëmmen liesen), NIEMOLS Är privat Schlësselen.
+
+FIR ZOUMAACHEN
+--------------
+Maacht einfach d'Fënster zou (d'Kräiz). D'Applikatioun hält un.
+
+WANN ET PROBLEMER GËTT
+----------------------
+- "Windows huet Ären PC geschützt": kuckt Schrëtt 2, dat ass normal.
+- D'Fënster geet net op: préift, ob en Antivirus Patrimony.exe
+  blockéiert, a probéiert nach eng Kéier.
+- Vun Null ufänken (alles läschen): läscht den Dossier "data" — den
+  nächste Start fänkt frësch un.
+
+MIT-Lizenz — Open Source: github.com/LostInTheBugs/patrimony

@@ -1,0 +1,53 @@
+PATRIMONY — DESKTOP-ANWENDUNG (Windows)
+========================================
+
+Ihr Vermögen, Ihre Daten, auf IHREM Computer.
+Kein Server, kein Cloud-Konto, keine Installation nötig. Nur eines geht
+online: öffentliche Krypto-Kurse (nur lesende Explorer — niemals Ihre
+Schlüssel).
+
+🌍 Weitere Sprachen: Français → LISEZ-MOI.txt · English → README.txt ·
+   Lëtzebuergesch → LIES-MICH.txt
+
+INSTALLATION (2 Minuten, ohne Installer)
+----------------------------------------
+1. Entpacken Sie den Ordner "Patrimony-Windows" an einen Ort Ihrer Wahl
+   (z. B. Dokumente\Patrimony). Vermeiden Sie "Program Files" — Windows
+   blockiert dort das Schreiben.
+2. Doppelklick auf "Patrimony.exe".
+
+   Beim ersten Start zeigt Windows eventuell "Windows hat Ihren PC
+   geschützt" (SmartScreen — normal bei einem noch unbekannten
+   Herausgeber). Klicken Sie auf "Weitere Informationen", dann
+   "Trotzdem ausführen".
+
+3. Das Fenster von Patrimony öffnet sich.
+
+ERSTE ANMELDUNG
+---------------
+   Benutzername: admin
+   Passwort: change-me
+
+   ⚠️ Bitte sofort ändern: Menü "Einstellungen" nach der Anmeldung.
+
+IHRE DATEN
+----------
+Alles liegt im Ordner "data" neben Patrimony.exe.
+Backup = diesen Ordner "data" ab und zu auf einen USB-Stick oder eine
+externe Festplatte kopieren. Es wird nichts hochgeladen: verfolgte
+Krypto-Adressen werden nur über öffentliche Explorer abgefragt (nur
+lesend), niemals Ihre privaten Schlüssel.
+
+SCHLIESSEN
+----------
+Einfach das Fenster schließen (das Kreuz). Die Anwendung beendet sich.
+
+FEHLERBEHEBUNG
+--------------
+- "Windows hat Ihren PC geschützt": siehe Schritt 2, das ist normal.
+- Das Fenster öffnet sich nicht: prüfen Sie, ob ein Antivirus
+  Patrimony.exe blockiert, und starten Sie erneut.
+- Neu beginnen (alles löschen): den Ordner "data" löschen — beim
+  nächsten Start geht es von vorne los.
+
+MIT-Lizenz — Open Source: github.com/LostInTheBugs/patrimony

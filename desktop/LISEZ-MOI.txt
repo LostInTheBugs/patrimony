@@ -1,6 +1,9 @@
 PATRIMONY — APPLICATION DE BUREAU (Windows)
 =============================================
 
+🌍 Autres langues : English → README.txt · Deutsch → LIESMICH.txt ·
+   Lëtzebuergesch → LIES-MICH.txt
+
 Votre patrimoine, vos données, sur VOTRE ordinateur.
 Aucun serveur, aucun compte en ligne, aucune connexion requise
 (sauf pour le cours des cryptos, qui vient de sources publiques).

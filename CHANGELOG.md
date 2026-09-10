@@ -16,7 +16,8 @@ with no server, no Docker, no cloud account — the app IS the server:
   FastAPI/uvicorn, `public/` UI and VERSION); icon generated from the logo.
 - `.github/workflows/desktop-build.yml`: builds `Patrimony.exe` on
   windows-latest (smoke test: launcher starts, API responds), packs
-  `Patrimony-Windows.zip` with a French end-user guide (`GUIDE-WINDOWS.txt`).
+  `Patrimony-Windows.zip` with end-user guides in French, English, German
+  and Luxembourgish (LISEZ-MOI / README / LIESMICH / LIES-MICH).
 - First run: login `admin` / `change-me` (documented, to be changed in
   Settings). Verified locally on the frozen binary: fresh DB creation,
   login, UI served, data directory next to the executable.

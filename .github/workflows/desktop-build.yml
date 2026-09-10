@@ -75,7 +75,10 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path package | Out-Null
           Copy-Item dist\Patrimony.exe package\
-          Copy-Item desktop\GUIDE-WINDOWS.txt package\LISEZ-MOI.txt
+          Copy-Item desktop\LISEZ-MOI.txt package\
+          Copy-Item desktop\README.txt package\
+          Copy-Item desktop\LIESMICH.txt package\
+          Copy-Item desktop\LIES-MICH.txt package\
           Compress-Archive -Path package\* -DestinationPath Patrimony-Windows.zip -Force
 
       - name: Upload artifact
