@@ -50,6 +50,13 @@ def main() -> None:
     if not getattr(sys, "frozen", False):
         sys.path.insert(0, str(base))  # dev : rendre « src » importable
 
+    # Binaire fenêtré (console=False) : stdout/stderr valent None sous Windows,
+    # ce qui fait planter la configuration des logs d'uvicorn (isatty sur None).
+    if sys.stdout is None:
+        sys.stdout = open(os.devnull, "w", encoding="utf-8")
+    if sys.stderr is None:
+        sys.stderr = open(os.devnull, "w", encoding="utf-8")
+
     import uvicorn
     from src.app import app
 
