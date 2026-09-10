@@ -1,0 +1,49 @@
+PATRIMONY — APPLICATION DE BUREAU (Windows)
+=============================================
+
+Votre patrimoine, vos données, sur VOTRE ordinateur.
+Aucun serveur, aucun compte en ligne, aucune connexion requise
+(sauf pour le cours des cryptos, qui vient de sources publiques).
+
+INSTALLATION (2 minutes, sans installateur)
+-------------------------------------------
+1. Décompressez le dossier « Patrimony-Windows » où vous voulez
+   (par exemple : Documents\Patrimony). Évitez de le placer dans
+   « Program Files », Windows y bloque l'écriture.
+2. Double-cliquez sur « Patrimony.exe ».
+
+   Premier lancement : Windows peut afficher « Windows a protégé
+   votre PC » (SmartScreen, normal pour un éditeur encore peu connu).
+   Cliquez sur « Informations complémentaires » puis
+   « Exécuter quand même ».
+
+3. La fenêtre Patrimony s'ouvre.
+
+PREMIÈRE CONNEXION
+------------------
+   Identifiant : admin
+   Mot de passe : change-me
+
+   ⚠️ Changez-le tout de suite : menu « Paramètres » une fois connecté.
+
+VOS DONNÉES
+-----------
+Elles sont dans le dossier « data », à côté de Patrimony.exe.
+Sauvegarder = copier ce dossier « data » sur une clé USB ou un disque
+externe de temps en temps. Rien n'est envoyé sur Internet : les
+adresses crypto suivies sont interrogées via des explorers publics
+(lecture seule), jamais vos clés privées.
+
+POUR FERMER
+-----------
+Fermez simplement la fenêtre (la croix). Le logiciel s'arrête.
+
+DÉPANNAGE
+---------
+- « Windows a protégé votre PC » : voir point 2, c'est normal.
+- La fenêtre ne s'ouvre pas : vérifiez qu'un antivirus ne bloque pas
+  Patrimony.exe, et relancez.
+- Réinitialiser (tout effacer) : supprimez le dossier « data »,
+  tout recommence à zéro au prochain lancement.
+
+Licence MIT — projet open source : github.com/LostInTheBugs/patrimony

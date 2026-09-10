@@ -1,0 +1,56 @@
+name: desktop-build
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'desktop/**'
+      - '.github/workflows/desktop-build.yml'
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pyinstaller pywebview
+
+      - name: Build Patrimony.exe
+        run: pyinstaller --clean --noconfirm desktop/patrimony.spec
+
+      - name: Smoke test (server responds)
+        shell: pwsh
+        run: |
+          $env:PATRIMONY_NO_WINDOW = '1'
+          $p = Start-Process -FilePath dist\Patrimony.exe -PassThru -RedirectStandardOutput out.txt
+          Start-Sleep -Seconds 25
+          $line = Get-Content out.txt -First 1
+          Write-Host "launcher url: $line"
+          if (-not $line.StartsWith('http://127.0.0.1:')) { throw "launcher did not start" }
+          $resp = Invoke-WebRequest -Uri "$line/api/version" -UseBasicParsing -TimeoutSec 15
+          Write-Host "version response: $($resp.Content)"
+          if ($resp.StatusCode -ne 200) { throw "API not responding" }
+          Stop-Process -Id $p.Id -Force
+
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path package | Out-Null
+          Copy-Item dist\Patrimony.exe package\
+          Copy-Item desktop\GUIDE-WINDOWS.txt package\LISEZ-MOI.txt
+          Compress-Archive -Path package\* -DestinationPath Patrimony-Windows.zip -Force
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PatrimonyDesktop-windows
+          path: Patrimony-Windows.zip
+          retention-days: 90

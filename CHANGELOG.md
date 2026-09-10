@@ -2,6 +2,25 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.070] — 2026-09-10
+
+### Added — Patrimony Desktop (proof of concept, Windows)
+
+Turn-key desktop packaging so non-technical users can run Patrimony at home
+with no server, no Docker, no cloud account — the app IS the server:
+
+- `desktop/launcher.py`: starts the bundled backend (uvicorn, random free
+  port on 127.0.0.1), opens a native window (pywebview/WebView2; falls back
+  to the default browser), data lives in `./data` next to the executable.
+- `desktop/patrimony.spec`: PyInstaller one-file build (bundles Python,
+  FastAPI/uvicorn, `public/` UI and VERSION); icon generated from the logo.
+- `.github/workflows/desktop-build.yml`: builds `Patrimony.exe` on
+  windows-latest (smoke test: launcher starts, API responds), packs
+  `Patrimony-Windows.zip` with a French end-user guide (`GUIDE-WINDOWS.txt`).
+- First run: login `admin` / `change-me` (documented, to be changed in
+  Settings). Verified locally on the frozen binary: fresh DB creation,
+  login, UI served, data directory next to the executable.
+
 ## [2026.09.069] — 2026-09-10
 
 ### Added — PWA polish (mobile app-like experience, Fred: « oui stp »)
