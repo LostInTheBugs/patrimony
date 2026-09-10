@@ -43,10 +43,11 @@ jobs:
           if (Test-Path dist\error.log) { Write-Host '--- error.log ---'; Get-Content dist\error.log }
           Write-Host "launcher url: $line"
           if (-not $line -or -not $line.StartsWith('http://127.0.0.1:')) { throw "launcher did not start" }
-          $resp = Invoke-WebRequest -Uri "$line/api/version" -UseBasicParsing -TimeoutSec 15
+          $base = $line.TrimEnd('/')
+          $resp = Invoke-WebRequest -Uri "$base/api/version" -UseBasicParsing -TimeoutSec 15
           Write-Host "version response: $($resp.Content)"
           if ($resp.StatusCode -ne 200) { throw "API not responding" }
-          $ui = (Invoke-WebRequest -Uri "$line/" -UseBasicParsing -TimeoutSec 15).Content
+          $ui = (Invoke-WebRequest -Uri "$base/" -UseBasicParsing -TimeoutSec 15).Content
           if ($ui -notmatch 'navMore') { throw "UI not served from bundle" }
           Write-Host "UI check: navMore found in bundle HTML"
           if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
