@@ -62,7 +62,15 @@ def main() -> None:
     wait_server(port)
 
     if os.environ.get("PATRIMONY_NO_WINDOW") == "1":
-        print(url, flush=True)
+        # mode headless (tests/CI) : stdout peut être absent (binaire windowed)
+        try:
+            print(url, flush=True)
+        except Exception:
+            pass
+        try:
+            (base / "url.txt").write_text(url + "\n", encoding="utf-8")
+        except Exception:
+            pass
         try:
             while True:
                 time.sleep(3600)

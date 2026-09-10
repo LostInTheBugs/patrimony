@@ -30,11 +30,17 @@ jobs:
         shell: pwsh
         run: |
           $env:PATRIMONY_NO_WINDOW = '1'
-          $p = Start-Process -FilePath dist\Patrimony.exe -PassThru -RedirectStandardOutput out.txt
-          Start-Sleep -Seconds 25
-          $line = Get-Content out.txt -First 1
+          $p = Start-Process -FilePath dist\Patrimony.exe -PassThru
+          $line = ''
+          for ($i = 0; $i -lt 60; $i++) {
+            Start-Sleep -Seconds 2
+            if (Test-Path dist\url.txt) {
+              $line = (Get-Content dist\url.txt -First 1).Trim()
+              if ($line) { break }
+            }
+          }
           Write-Host "launcher url: $line"
-          if (-not $line.StartsWith('http://127.0.0.1:')) { throw "launcher did not start" }
+          if (-not $line -or -not $line.StartsWith('http://127.0.0.1:')) { throw "launcher did not start" }
           $resp = Invoke-WebRequest -Uri "$line/api/version" -UseBasicParsing -TimeoutSec 15
           Write-Host "version response: $($resp.Content)"
           if ($resp.StatusCode -ne 200) { throw "API not responding" }
