@@ -98,4 +98,14 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception:  # binaire fenêtré : consigner le crash dans error.log
+        import traceback
+        try:
+            (base_dir() / "error.log").write_text(
+                traceback.format_exc(), encoding="utf-8"
+            )
+        except Exception:
+            pass
+        raise

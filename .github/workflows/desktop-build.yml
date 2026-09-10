@@ -34,17 +34,37 @@ jobs:
           $line = ''
           for ($i = 0; $i -lt 60; $i++) {
             Start-Sleep -Seconds 2
+            if ($p.HasExited) { Write-Host "launcher exited early, code $($p.ExitCode)"; break }
             if (Test-Path dist\url.txt) {
               $line = (Get-Content dist\url.txt -First 1).Trim()
               if ($line) { break }
             }
           }
+          if (Test-Path dist\error.log) { Write-Host '--- error.log ---'; Get-Content dist\error.log }
           Write-Host "launcher url: $line"
           if (-not $line -or -not $line.StartsWith('http://127.0.0.1:')) { throw "launcher did not start" }
           $resp = Invoke-WebRequest -Uri "$line/api/version" -UseBasicParsing -TimeoutSec 15
           Write-Host "version response: $($resp.Content)"
           if ($resp.StatusCode -ne 200) { throw "API not responding" }
-          Stop-Process -Id $p.Id -Force
+          if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
+
+      - name: Debug files (always)
+        if: always()
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path debug | Out-Null
+          Copy-Item dist\url.txt debug\ -ErrorAction SilentlyContinue
+          Copy-Item dist\error.log debug\ -ErrorAction SilentlyContinue
+          Get-ChildItem debug -ErrorAction SilentlyContinue | Select-Object Name, Length
+
+      - name: Upload debug files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: PatrimonyDesktop-debug
+          path: debug/
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Package
         shell: pwsh
