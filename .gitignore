@@ -8,3 +8,4 @@ data/
 *.tsbuildinfo
 build/
 dist/
+desktop/version_info.txt

@@ -20,6 +20,10 @@ SETUP (2 minutes, no installer)
    (SmartScreen — normal for a young publisher). Click "More info",
    then "Run anyway".
 
+   Windows Defender may also flag "Behavior:Win32/DefenseEvasion" or a
+   Trojan: this is a KNOWN FALSE POSITIVE for unsigned applications.
+   Click the alert -> "Actions" -> "Allow on device".
+
 3. The Patrimony window opens.
 
 FIRST LOGIN
@@ -44,6 +48,9 @@ Simply close the window (the X). The app stops.
 TROUBLESHOOTING
 ---------------
 - "Windows protected your PC": see step 2, this is normal.
+- Windows Defender blocks the file: false positive (unsigned app) ->
+  "Actions" -> "Allow on device". The file has been submitted to
+  Microsoft for review.
 - The window does not open: check that an antivirus is not blocking
   Patrimony.exe, then try again.
 - Start over (erase everything): delete the "data" folder; the next

@@ -20,6 +20,11 @@ INSTALLATION (2 minutes, sans installateur)
    Cliquez sur « Informations complémentaires » puis
    « Exécuter quand même ».
 
+   Windows Defender peut aussi signaler « Behavior:Win32/DefenseEvasion »
+   ou un cheval de Troie : c'est un FAUX POSITIF connu des applications
+   non signées. Cliquez sur l'alerte → « Actions » → « Autoriser sur
+   l'appareil ».
+
 3. La fenêtre Patrimony s'ouvre.
 
 PREMIÈRE CONNEXION
@@ -44,6 +49,9 @@ Fermez simplement la fenêtre (la croix). Le logiciel s'arrête.
 DÉPANNAGE
 ---------
 - « Windows a protégé votre PC » : voir point 2, c'est normal.
+- Windows Defender bloque le fichier : faux positif (application non
+  signée) → « Actions » → « Autoriser sur l'appareil ». Le fichier a été
+  soumis à Microsoft pour analyse.
 - La fenêtre ne s'ouvre pas : vérifiez qu'un antivirus ne bloque pas
   Patrimony.exe, et relancez.
 - Réinitialiser (tout effacer) : supprimez le dossier « data »,

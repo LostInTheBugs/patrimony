@@ -21,6 +21,11 @@ INSTALLATION (2 Minuten, ohne Installer)
    Herausgeber). Klicken Sie auf "Weitere Informationen", dann
    "Trotzdem ausführen".
 
+   Windows Defender meldet eventuell „Behavior:Win32/DefenseEvasion" oder
+   einen Trojaner: das ist ein BEKANNTER FEHLALARM bei nicht signierten
+   Programmen. Klicken Sie auf die Warnung → „Aktionen" → „Auf Gerät
+   zulassen".
+
 3. Das Fenster von Patrimony öffnet sich.
 
 ERSTE ANMELDUNG
@@ -45,6 +50,9 @@ Einfach das Fenster schließen (das Kreuz). Die Anwendung beendet sich.
 FEHLERBEHEBUNG
 --------------
 - "Windows hat Ihren PC geschützt": siehe Schritt 2, das ist normal.
+- Windows Defender blockiert die Datei: Fehlalarm (nicht signiertes
+  Programm) → „Aktionen" → „Auf Gerät zulassen". Die Datei wurde bei
+  Microsoft zur Überprüfung eingereicht.
 - Das Fenster öffnet sich nicht: prüfen Sie, ob ein Antivirus
   Patrimony.exe blockiert, und starten Sie erneut.
 - Neu beginnen (alles löschen): den Ordner "data" löschen — beim

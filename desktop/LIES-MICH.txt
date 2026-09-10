@@ -22,6 +22,11 @@ INSTALLATIOUN (2 Minutten, ouni Installateur)
    Informationen", duerno "Exécuter quand même" / "Trotzdem
    ausféieren".
 
+   Windows Defender mellt eventuell "Behavior:Win32/DefenseEvasion" oder
+   en Trojaner: dat ass e BEKANNTE FALSCHE ALARM bei net signéierten
+   Programmer. Klickt op d'Warnung → "Aktiounen" → "Op dem Apparat
+   zouloossen".
+
 3. D'Fënster vu Patrimony geet op.
 
 ÉISCHT ALOGGEN
@@ -46,6 +51,9 @@ Maacht einfach d'Fënster zou (d'Kräiz). D'Applikatioun hält un.
 WANN ET PROBLEMER GËTT
 ----------------------
 - "Windows huet Ären PC geschützt": kuckt Schrëtt 2, dat ass normal.
+- Windows Defender blockéiert de Fichier: falsche Alarm (net signéiert
+  Programm) → "Aktiounen" → "Op dem Apparat zouloossen". De Fichier gouf
+  bei Microsoft agereecht fir Iwwerpréiwung.
 - D'Fënster geet net op: préift, ob en Antivirus Patrimony.exe
   blockéiert, a probéiert nach eng Kéier.
 - Vun Null ufänken (alles läschen): läscht den Dossier "data" — den

@@ -30,17 +30,17 @@ jobs:
         shell: pwsh
         run: |
           $env:PATRIMONY_NO_WINDOW = '1'
-          $p = Start-Process -FilePath dist\Patrimony.exe -PassThru
+          $p = Start-Process -FilePath dist\Patrimony\Patrimony.exe -PassThru
           $line = ''
           for ($i = 0; $i -lt 60; $i++) {
             Start-Sleep -Seconds 2
             if ($p.HasExited) { Write-Host "launcher exited early, code $($p.ExitCode)"; break }
-            if (Test-Path dist\url.txt) {
-              $line = (Get-Content dist\url.txt -First 1).Trim()
+            if (Test-Path dist\Patrimony\url.txt) {
+              $line = (Get-Content dist\Patrimony\url.txt -First 1).Trim()
               if ($line) { break }
             }
           }
-          if (Test-Path dist\error.log) { Write-Host '--- error.log ---'; Get-Content dist\error.log }
+          if (Test-Path dist\Patrimony\error.log) { Write-Host '--- error.log ---'; Get-Content dist\Patrimony\error.log }
           Write-Host "launcher url: $line"
           if (-not $line -or -not $line.StartsWith('http://127.0.0.1:')) { throw "launcher did not start" }
           $base = $line.TrimEnd('/')
@@ -73,13 +73,11 @@ jobs:
       - name: Package
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path package | Out-Null
-          Copy-Item dist\Patrimony.exe package\
-          Copy-Item desktop\LISEZ-MOI.txt package\
-          Copy-Item desktop\README.txt package\
-          Copy-Item desktop\LIESMICH.txt package\
-          Copy-Item desktop\LIES-MICH.txt package\
-          Compress-Archive -Path package\* -DestinationPath Patrimony-Windows.zip -Force
+          Copy-Item desktop\LISEZ-MOI.txt dist\Patrimony\
+          Copy-Item desktop\README.txt dist\Patrimony\
+          Copy-Item desktop\LIESMICH.txt dist\Patrimony\
+          Copy-Item desktop\LIES-MICH.txt dist\Patrimony\
+          Compress-Archive -Path dist\Patrimony -DestinationPath Patrimony-Windows.zip -Force
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

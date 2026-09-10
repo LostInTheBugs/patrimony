@@ -16,7 +16,15 @@ All notable changes to Patrimony are documented in this file.
   screens) — it is now sized from the actual screen (up to 1320×880,
   minimum 760×540), and the content column was widened (max-width
   1180→1600) so the layout fills the window when enlarged.
-- i18n ×4 (one new key: `saveOk`). Tests: 233/233.
+- i18n ×4 (one new key: `saveOk`).
+- **Windows Defender false positive** (« Behavior:Win32/DefenseEvasion.A!ml »,
+  reported by Fred after first run): switched the build from onefile to
+  **onedir** (onefile self-extracts into %TEMP% and re-executes — the exact
+  pattern Defender's ML flags), added Windows **version metadata**
+  (company/product/version) to the executable, and documented the false
+  positive with the « Actions → Allow » procedure in all four end-user
+  guides. Code signing remains the definitive fix (to be decided later).
+  Tests: 233/233.
 
 ## [2026.09.070] — 2026-09-10
 
