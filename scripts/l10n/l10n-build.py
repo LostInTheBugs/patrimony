@@ -61,7 +61,23 @@ assert len(EN) == len(DE) == len(LU) == 77
 # en-têtes CSV : les traducteurs ont reçu la clé FR -> sens ; structure {fr: {lang}}
 ERRORS = {m: {"en": EN[m], "de": DE[m], "lu": LU[m]} for m in EN}
 CSV_HEADERS = {fr: {"en": en[fr], "de": de[fr], "lu": lu[fr]} for fr in keys["csv_headers"]}
-DISCLAIMERS = {keys["disclaimer"]: {"en": en[keys["disclaimer"]], "de": de[keys["disclaimer"]], "lu": lu[keys["disclaimer"]]}}
+# disclaimers connus : clés FR (ASCII) -> traductions par langue ; le code
+# (src/l10n.py) traduit selon Accept-Language. Un texte opérateur absent
+# d'ici (env DISCLAIMER) est renvoyé tel quel, sans traduction.
+DISCLAIMERS = {
+    # démo publique (combiné : données fictives + projet perso)
+    "Démo publique — données fictives, aucun compte réel connecté. Projet perso fait pour le plaisir : chiffres à vérifier, aucune garantie.": {
+        "en": "Public demo — fictional data, no real account connected. A personal for-fun project: check the figures, no warranty.",
+        "de": "Öffentliche Demo — fiktive Daten, kein echtes Konto verbunden. Ein privates Spaßprojekt: Werte prüfen, keine Gewährleistung.",
+        "lu": "Ëffentlech Demo — fiktiv Donnéeën, kee reelle Compte verbonnen. En perséinleche Freed-Projet: Wäerter préiwen, keng Garantie.",
+    },
+    # texte générique (instance réelle / desktop)
+    "Projet perso fait pour le plaisir — pas un produit professionnel. Les chiffres affichés (estimations fiscales notamment) sont donnés de bonne foi mais peuvent contenir des erreurs : vérifiez auprès d'un professionnel avant toute décision. Aucune garantie, aucun conseil financier ni fiscal.": {
+        "en": "A personal project, built for fun — not a professional product. Figures shown (tax estimates in particular) are best-effort but may contain errors: check with a professional before acting on them. No warranty, no financial or tax advice.",
+        "de": "Ein privates Projekt, aus Freude gebaut — kein professionelles Produkt. Die angezeigten Werte (insbesondere Steuerschätzungen) sind nach bestem Wissen, können aber Fehler enthalten: prüfen Sie vor Entscheidungen mit einem Profi. Keine Gewährleistung, keine Finanz- oder Steuerberatung.",
+        "lu": "E perséinleche Projet, aus Freed gebaut — ke professionellt Produkt. D'Wäerter déi ugewise ginn (besonnesch Steierschätzungen) sinn no beschten Wëssen, kënnen awer Feeler enthalen: préift mat engem Profi virun Entscheedungen. Keng Garantie, keng Finanz- oder Steierberodung.",
+    },
+}
 
 # placeholders d'un gabarit
 def ph(t):

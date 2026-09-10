@@ -12,7 +12,7 @@ services:
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-change-me}
       - COOKIE_SECURE=1
       - SEED_DEMO=1
-      - DISCLAIMER=${DISCLAIMER:-Démo publique — données fictives à but d’illustration. Aucun compte réel n’est connecté.}
+      - "DISCLAIMER=${DISCLAIMER:-Démo publique — données fictives, aucun compte réel connecté. Projet perso fait pour le plaisir : chiffres à vérifier, aucune garantie.}"
     volumes:
       - ./data:/app/data
     networks:

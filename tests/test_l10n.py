@@ -43,7 +43,10 @@ def test_integrite_dictionnaire():
     for fr, d in l10n.CSV_HEADERS.items():
         for lang in LANGS:
             assert lang in d and d[lang].strip(), (fr, lang)
-    assert len(l10n.DISCLAIMERS) == 1
+    assert len(l10n.DISCLAIMERS) == 2
+    for fr, d in l10n.DISCLAIMERS.items():
+        for lang in ("en", "de", "lu"):
+            assert lang in d and d[lang].strip(), (fr, lang)
     # placeholders : les gabarits localisés portent exactement les mêmes
     ph = lambda t: re.findall(r"\{([a-z_]+)\}", t)
     for fr, d in l10n.ERRORS.items():
@@ -116,11 +119,11 @@ def test_csv_headers_par_langue():
 
 def test_disclaimer_localise_et_reponses_intactes():
     _login(c)
-    os.environ["DISCLAIMER"] = "Démo publique — données fictives à but d'illustration. Aucun compte réel n'est connecté."
+    os.environ["DISCLAIMER"] = "Démo publique — données fictives, aucun compte réel connecté. Projet perso fait pour le plaisir : chiffres à vérifier, aucune garantie."
     try:
         r = c.get("/api/version", headers={"Accept-Language": "en"})
         assert r.status_code == 200
-        assert "demo" in r.json()["disclaimer"].lower() or "Demo" in r.json()["disclaimer"]
+        assert r.json()["disclaimer"].lower().startswith("public demo")
         r2 = c.get("/api/version", headers={"Accept-Language": "fr"})
         assert r2.json()["disclaimer"] == os.environ["DISCLAIMER"]
     finally:
@@ -134,20 +137,23 @@ def test_disclaimer_localise_et_reponses_intactes():
 
 
 def test_disclaimer_apostrophe_typographique():
-    """Le DISCLAIMER réel de la démo (v022) porte l'apostrophe typographique
-    U+2019 alors que la clé FR du dict est en ASCII — le lookup doit tolérer
-    la variante, sinon le texte opérateur ne se traduit jamais."""
-    os.environ["DISCLAIMER"] = "Démo publique — données fictives à but d’illustration. Aucun compte réel n’est connecté."
+    """Le DISCLAIMER opérateur peut porter l'apostrophe typographique U+2019
+    alors que la clé FR du dict est en ASCII — le lookup doit tolérer la
+    variante, sinon le texte opérateur ne se traduit jamais."""
+    typo = ("Projet perso fait pour le plaisir — pas un produit professionnel. Les chiffres affichés "
+            "(estimations fiscales notamment) sont donnés de bonne foi mais peuvent contenir des erreurs : "
+            "vérifiez auprès d’un professionnel avant toute décision. Aucune garantie, aucun conseil "
+            "financier ni fiscal.")
+    os.environ["DISCLAIMER"] = typo
     try:
         r = c.get("/api/version", headers={"Accept-Language": "de"})
         assert r.status_code == 200
         d = r.json()["disclaimer"]
-        assert "fiktive Daten" in d and "kein echtes Konto" in d, d
+        assert "Fehler" in d and "Gewährleistung" in d, d
         r2 = c.get("/api/version", headers={"Accept-Language": "fr"})
-        assert r2.json()["disclaimer"] == os.environ["DISCLAIMER"]
+        assert r2.json()["disclaimer"] == typo
     finally:
         os.environ.pop("DISCLAIMER", None)
     # unitaire : variante simple guillemet aussi tolérée
-    v = l10n.translate_disclaimer(
-        "Démo publique — données fictives à but d’illustration. Aucun compte réel n’est connecté.", "en")
-    assert v.startswith("Public demo"), v
+    v = l10n.translate_disclaimer(typo.replace("’", "'"), "en")
+    assert v.startswith("A personal project"), v

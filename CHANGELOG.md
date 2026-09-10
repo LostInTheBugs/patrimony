@@ -21,9 +21,13 @@ All notable changes to Patrimony are documented in this file.
   reported by Fred after first run): switched the build from onefile to
   **onedir** (onefile self-extracts into %TEMP% and re-executes — the exact
   pattern Defender's ML flags), added Windows **version metadata**
-  (company/product/version) to the executable, and documented the false
-  positive with the « Actions → Allow » procedure in all four end-user
+  (company/product/version) to the executable, and documented the
+  false positive with the « Actions → Allow » procedure in all four end-user
   guides. Code signing remains the definitive fix (to be decided later).
+- **Disclaimer** added (in-app login screen + README): personal project
+  built for fun, best-effort figures, nothing here is professional advice.
+  Translated into the four UI languages; operators can override the text
+  via the `DISCLAIMER` env var.
   Tests: 233/233.
 
 ## [2026.09.070] — 2026-09-10

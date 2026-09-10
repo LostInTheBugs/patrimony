@@ -82,6 +82,15 @@ class DesktopApi:
 
 
 def main() -> None:
+    # Disclaimer par défaut sur l'écran de login (surchargeable par l'env
+    # DISCLAIMER de l'utilisateur ; traduit côté serveur en 4 langues).
+    os.environ.setdefault(
+        "DISCLAIMER",
+        "Projet perso fait pour le plaisir — pas un produit professionnel. "
+        "Les chiffres affichés (estimations fiscales notamment) sont donnés de bonne foi "
+        "mais peuvent contenir des erreurs : vérifiez auprès d'un professionnel avant "
+        "toute décision. Aucune garantie, aucun conseil financier ni fiscal.",
+    )
     base = base_dir()
     os.environ.setdefault("DATA_DIR", str(base / "data"))
     os.environ.setdefault("COOKIE_SECURE", "0")

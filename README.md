@@ -251,6 +251,23 @@ per-session detail):
 | Cache read (reused at reduced price) | 1 048 377 472 | 0 | **1 048 377 472** |
 | **Estimated cost** | **≈ 5.27 USD** | **≈ 0.46 USD** | **≈ 5.73 USD** |
 
+## Disclaimer
+
+Patrimony is a **personal project, built for fun** — not a professional
+product, and it is provided as-is, without warranty of any kind.
+
+- It is **not financial, tax or legal advice**. Figures shown — tax
+  estimates in particular — are best-effort, may contain errors or gaps,
+  and depend on the assumptions displayed next to them. Check with a
+  professional before acting on them.
+- Tax rules are versioned per year and the engine **refuses to compute**
+  years it does not cover — but the grids can still be wrong.
+- The public demo runs on **fictional data only**.
+- Expect rough edges and the occasional breaking change between versions.
+
+The same notice is shown on the app's login screen (in all four UI
+languages).
+
 ## License
 
 MIT — see `LICENSE`.
