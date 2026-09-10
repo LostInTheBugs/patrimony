@@ -73,6 +73,9 @@ jobs:
       - name: Package
         shell: pwsh
         run: |
+          Remove-Item dist\Patrimony\url.txt -ErrorAction SilentlyContinue
+          Remove-Item dist\Patrimony\error.log -ErrorAction SilentlyContinue
+          Remove-Item dist\Patrimony\data -Recurse -Force -ErrorAction SilentlyContinue
           Copy-Item desktop\LISEZ-MOI.txt dist\Patrimony\
           Copy-Item desktop\README.txt dist\Patrimony\
           Copy-Item desktop\LIESMICH.txt dist\Patrimony\
