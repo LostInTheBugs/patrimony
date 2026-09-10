@@ -46,6 +46,9 @@ jobs:
           $resp = Invoke-WebRequest -Uri "$line/api/version" -UseBasicParsing -TimeoutSec 15
           Write-Host "version response: $($resp.Content)"
           if ($resp.StatusCode -ne 200) { throw "API not responding" }
+          $ui = (Invoke-WebRequest -Uri "$line/" -UseBasicParsing -TimeoutSec 15).Content
+          if ($ui -notmatch 'navMore') { throw "UI not served from bundle" }
+          Write-Host "UI check: navMore found in bundle HTML"
           if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
 
       - name: Debug files (always)

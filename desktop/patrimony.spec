@@ -2,13 +2,17 @@
 # Patrimony Desktop — spec PyInstaller (onefile, sans console).
 # Build : pyinstaller --clean --noconfirm desktop/patrimony.spec  (depuis la racine du dépôt)
 
+import os
+
+ROOT = os.path.abspath(os.path.join(SPECPATH, '..'))  # racine du dépôt, absolue
+
 a = Analysis(
     ['launcher.py'],
-    pathex=['..'],
+    pathex=[ROOT],
     binaries=[],
     datas=[
-        ('../public', 'public'),   # UI servie par StaticFiles
-        ('../VERSION', '.'),       # version lue par src/app.py
+        (os.path.join(ROOT, 'public'), 'public'),   # UI servie par StaticFiles
+        (os.path.join(ROOT, 'VERSION'), '.'),       # version lue par src/app.py
     ],
     hiddenimports=[
         # uvicorn importe ses implémentations dynamiquement
