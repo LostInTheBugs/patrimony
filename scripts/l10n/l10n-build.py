@@ -42,7 +42,7 @@ EXTRA = {
 }
 
 msgs = keys["messages"]
-assert len(msgs) == 71, len(msgs)
+assert len(msgs) == 70, len(msgs)
 
 def build(src, extra, tag):
     out = {}
@@ -56,7 +56,7 @@ def build(src, extra, tag):
     return out
 
 EN, DE, LU = build(en, EXTRA, "en"), build(de, EXTRA, "de"), build(lu, EXTRA, "lu")
-assert len(EN) == len(DE) == len(LU) == 77
+assert len(EN) == len(DE) == len(LU) == 76
 
 # en-têtes CSV : les traducteurs ont reçu la clé FR -> sens ; structure {fr: {lang}}
 ERRORS = {m: {"en": EN[m], "de": DE[m], "lu": LU[m]} for m in EN}

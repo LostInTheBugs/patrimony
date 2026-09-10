@@ -40,7 +40,6 @@
   "Montant par action invalide": "Invalid amount per share",
   "Montants invalides (>= 0 attendus)": "Invalid amounts (>= 0 expected)",
   "Mot de passe actuel incorrect": "Incorrect current password",
-  "Mot de passe trop court (8 caractères minimum)": "Password too short (minimum 8 characters)",
   "Nom d'utilisateur invalide (3-32 : a-z 0-9 . _ -)": "Invalid username (3-32: a-z 0-9 . _ -)",
   "Nom requis": "Name required",
   "Non authentifié": "Not authenticated",

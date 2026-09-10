@@ -2,6 +2,21 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.072] — 2026-09-10
+
+### Security
+
+- Encrypted-backup passphrase minimum raised from 8 to **12 characters**
+  (`POST /api/export/encrypted` and `scripts/backup.py`), aligned with
+  `MIN_PASSWORD_LEN` for accounts. The backup artifact carries the whole
+  patrimony and is meant to leave the instance (external drive, cloud) —
+  it deserves the strictest rule, not the loosest (review feedback).
+- Import is deliberately unchanged: existing backups with shorter
+  passphrases (8-11) remain restorable.
+- Front-end: hint + client-side export check updated in the four
+  languages; the now-unused l10n key removed (no dead keys).
+  Tests: 233/233.
+
 ## [2026.09.071] — 2026-09-10
 
 ### Fixed — Desktop POC feedback (tested by Fred on Windows)

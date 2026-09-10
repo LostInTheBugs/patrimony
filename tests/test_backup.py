@@ -176,8 +176,9 @@ def test_encrypted_import_wrong_password_and_tamper_leave_data_intact(admin_c):
     r = c.post("/api/import/encrypted", json={"payload": bytes(b).decode("ascii"), "password": BPWD})
     assert r.status_code == 400
     assert {x["id"] for x in c.get("/api/accounts").json()["accounts"]} == {aid}
-    # mdp trop court pour l'export
+    # mdp trop court pour l'export (min. 12, aligné sur MIN_PASSWORD_LEN)
     assert c.post("/api/export/encrypted", json={"password": "court"}).status_code == 400
+    assert c.post("/api/export/encrypted", json={"password": "11-caracter"}).status_code == 400
 
 
 def test_plain_export_now_contains_tx_and_legacy_import_still_works(admin_c):
@@ -231,7 +232,7 @@ def test_backup_cli_file_round_trip():
     blob = os.urandom(4096) + b"patrimony-data-fin"
     with open(src, "wb") as f:
         f.write(blob)
-    env = dict(os.environ, PATRIMONY_BACKUP_PASS="mdp-cli-ops")
+    env = dict(os.environ, PATRIMONY_BACKUP_PASS="mdp-cli-ops-12+")
     r = subprocess.run([sys.executable, script, "encrypt", src, enc], capture_output=True, text=True, env=env)
     assert r.returncode == 0, r.stderr
     r = subprocess.run([sys.executable, script, "decrypt", enc, dec], capture_output=True, text=True, env=env)

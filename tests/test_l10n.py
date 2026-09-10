@@ -32,9 +32,9 @@ def _login(c, user="admin", pwd="admin-test-2026"):
 
 
 def test_integrite_dictionnaire():
-    # messages : 77 (71 envoyés aux traducteurs + 6 chaînes des helpers),
+    # messages : 76 (70 envoyés aux traducteurs + 6 chaînes des helpers),
     # chacun présent dans les 4 langues (fr = la clé)
-    assert len(l10n.ERRORS) == 77, len(l10n.ERRORS)
+    assert len(l10n.ERRORS) == 76, len(l10n.ERRORS)
     for fr, d in l10n.ERRORS.items():
         for lang in LANGS:
             assert lang in d and d[lang].strip(), (fr, lang)

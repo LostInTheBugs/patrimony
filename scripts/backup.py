@@ -58,8 +58,8 @@ def main() -> int:
     cmd, src, dst = sys.argv[1:]
     pw = _passphrase()
     if cmd == "encrypt":
-        if len(pw) < 8:
-            raise SystemExit("Mot de passe trop court (8 caractères minimum)")
+        if len(pw) < 12:
+            raise SystemExit("Mot de passe trop court (12 caractères minimum)")
         _write(dst, encrypt_bytes(_read(src), pw).encode("ascii"))
     else:
         _write(dst, decrypt_bytes(_read(src).decode("ascii"), pw))

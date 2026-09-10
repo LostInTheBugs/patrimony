@@ -4117,8 +4117,10 @@ async def export_encrypted(body: EncIn, request: Request):
     """Export chiffré (AES-256-GCM + PBKDF2) : le seul artefact à conserver
     hors de l'instance. Le mot de passe n'est jamais stocké."""
     u = _need(request)
-    if len(body.password or "") < 8:
-        return JSONResponse({"detail": "Mot de passe trop court (8 caractères minimum)"}, status_code=400)
+    if len(body.password or "") < MIN_PASSWORD_LEN:
+        return JSONResponse(
+            {"detail": f"Mot de passe trop court (min. {MIN_PASSWORD_LEN} caractères)"}, status_code=400
+        )
     conn = db()
     try:
         data = transfer.export_data(conn, u["username"], VERSION)
