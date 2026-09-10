@@ -2,6 +2,22 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.071] — 2026-09-10
+
+### Fixed — Desktop POC feedback (tested by Fred on Windows)
+
+- **Export buttons in the desktop app**: `<a download>` downloads are
+  silently blocked by the Windows WebView, so Export did nothing (Restore,
+  which uses a file-input dialog, worked). The launcher now exposes a
+  `save_file` API (`window.pywebview.api`) and the front-end routes all
+  three exports (JSON, CSV, encrypted backup) through a native « Save as »
+  dialog when running in the desktop app; browser behaviour unchanged.
+- **Window sizing**: the app window opened at 1240×840 (taller than many
+  screens) — it is now sized from the actual screen (up to 1320×880,
+  minimum 760×540), and the content column was widened (max-width
+  1180→1600) so the layout fills the window when enlarged.
+- i18n ×4 (one new key: `saveOk`). Tests: 233/233.
+
 ## [2026.09.070] — 2026-09-10
 
 ### Added — Patrimony Desktop (proof of concept, Windows)

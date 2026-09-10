@@ -78,7 +78,7 @@
   #sideFoot button{width:100%;text-align:left;display:flex;gap:10px;align-items:center;background:none;border:none;color:var(--muted);padding:9px 12px;border-radius:9px;font-size:13px;font-weight:600}
   #sideFoot button:hover{background:#1a2230;color:var(--text)}
   #sideFoot button.on{background:#2c2a18;color:var(--gold2)}
-  #main{margin-left:210px;flex:1;padding:22px 26px;max-width:1180px;min-width:0} /* min-width:0 : flex item — sinon le contenu (tables…) étire la page en mobile */
+  #main{margin-left:210px;flex:1;padding:22px 26px;max-width:1600px;min-width:0} /* min-width:0 : flex item — sinon le contenu (tables…) étire la page en mobile */
   .page-title{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap}
   .page-title h1{font-size:19px;font-weight:800;letter-spacing:.3px}
   .page-title h1 .gold{color:var(--gold2)}
@@ -1088,7 +1088,7 @@ avNote:'Un compte = un contrat. La classe Épargne = fonds €, la classe Bourse
   lnYear:'Année', lnAmort:'Amorti', lnInterest:'Intérêts', lnLeft:'Restant dû',
   lnEnd:'Fin estimée : {d} (dans {n} ans) · intérêts restants : {i}',
   lnHeroDebt:'Actifs {a} − passifs {d}',
-  navSim:'Simulateurs', navMore:'Plus', simSegProj:'Projection', simSegFire:'FIRE', simSegRente:'Rente', simProjTtl:'Projection — intérêts composés', projPrinc:'Capital de départ', projPmt:'Versement mensuel', projYears:'Horizon (années)', projGo:'Projeter', projFinSub:'≈ {r} en euros actuels (inflation déduite)', projInv:'Total versé', projInt:'Intérêts cumulés', projHint:'nominal · réel (inflation déduite) · versé', projLNom:'capital nominal', projLReel:'réel (€ actuels)', projLInv:'versements cumulés', projNote:'Capitalisation mensuelle, versements en fin de mois (euros courants). La ligne réelle déflate l’inflation : elle montre le pouvoir d’achat.', simRenteTtl:'Rente potentielle', renteCap:'Capital disponible', renteMode:'Type de rente', renteMy:'Rente certaine — le capital s’épuise au terme', renteMl:'À vie — taux de retrait soutenable (règle des 4 %)', renteMp:'Perpétuelle — intérêts seuls, capital intact', renteYears:'Durée de la rente (années)', renteGo:'Calculer la rente', renteMSub:'{y} par an', renteReel:'pouvoir d’achat au terme (€ actuels)', renteCapEnd:'capital restant au terme', rentePay:'rentes cumulées versées', simRenteChart:'Capital restant', renteNote:'Retraits mensuels en fin de mois, euros nominaux. Rente certaine : le capital s’épuise au terme. À vie : taux de retrait fixe — capital non garanti (règle pensée pour ~30 ans). Perpétuelle : seuls les intérêts sont versés, le capital reste intact.', fireHyp:'Hypothèses', firePrinc:'Patrimoine actuel',
+  navSim:'Simulateurs', navMore:'Plus', saveOk:'Enregistré :', simSegProj:'Projection', simSegFire:'FIRE', simSegRente:'Rente', simProjTtl:'Projection — intérêts composés', projPrinc:'Capital de départ', projPmt:'Versement mensuel', projYears:'Horizon (années)', projGo:'Projeter', projFinSub:'≈ {r} en euros actuels (inflation déduite)', projInv:'Total versé', projInt:'Intérêts cumulés', projHint:'nominal · réel (inflation déduite) · versé', projLNom:'capital nominal', projLReel:'réel (€ actuels)', projLInv:'versements cumulés', projNote:'Capitalisation mensuelle, versements en fin de mois (euros courants). La ligne réelle déflate l’inflation : elle montre le pouvoir d’achat.', simRenteTtl:'Rente potentielle', renteCap:'Capital disponible', renteMode:'Type de rente', renteMy:'Rente certaine — le capital s’épuise au terme', renteMl:'À vie — taux de retrait soutenable (règle des 4 %)', renteMp:'Perpétuelle — intérêts seuls, capital intact', renteYears:'Durée de la rente (années)', renteGo:'Calculer la rente', renteMSub:'{y} par an', renteReel:'pouvoir d’achat au terme (€ actuels)', renteCapEnd:'capital restant au terme', rentePay:'rentes cumulées versées', simRenteChart:'Capital restant', renteNote:'Retraits mensuels en fin de mois, euros nominaux. Rente certaine : le capital s’épuise au terme. À vie : taux de retrait fixe — capital non garanti (règle pensée pour ~30 ans). Perpétuelle : seuls les intérêts sont versés, le capital reste intact.', fireHyp:'Hypothèses', firePrinc:'Patrimoine actuel',
   fireSave:'Épargne mensuelle', fireExp:'Dépenses mensuelles', fireRent:'Rentes / pensions mensuelles',
   fireBirth:'Année de naissance', fireRet:'Rendement annuel (%)', fireInfl:'Inflation annuelle (%)',
   fireSwr:'Taux de retrait (%)', fireGo:'Simuler', fireSaveH:'Enregistrer les hypothèses', fireRes:'Résultat',
@@ -1296,7 +1296,7 @@ avNote:'One account = one contract. Savings class = funds €, Stocks class = un
   lnYear:'Year', lnAmort:'Principal paid', lnInterest:'Interest', lnLeft:'Remaining',
   lnEnd:'Estimated end: {d} (in {n} years) · remaining interest: {i}',
   lnHeroDebt:'Assets {a} − liabilities {d}',
-  navSim:'Simulators', navMore:'More', simSegProj:'Projection', simSegFire:'FIRE', simSegRente:'Annuity', simProjTtl:'Projection — compound interest', projPrinc:'Starting capital', projPmt:'Monthly contribution', projYears:'Horizon (years)', projGo:'Project', projFinSub:'≈ {r} in today’s euros (inflation-adjusted)', projInv:'Total contributed', projInt:'Compound interest earned', projHint:'nominal · real (inflation-adjusted) · contributed', projLNom:'nominal capital', projLReel:'real (today’s euros)', projLInv:'cumulated contributions', projNote:'Monthly compounding, contributions at month end (current euros). The real line is inflation-deflated: it shows purchasing power.', simRenteTtl:'Potential annuity', renteCap:'Available capital', renteMode:'Annuity type', renteMy:'Term annuity — capital is exhausted at term', renteMl:'For life — sustainable withdrawal rate (4 % rule)', renteMp:'Perpetual — interest only, capital untouched', renteYears:'Annuity term (years)', renteGo:'Compute the annuity', renteMSub:'{y} per year', renteReel:'purchasing power at term (today’s euros)', renteCapEnd:'capital left at term', rentePay:'cumulated annuity paid out', simRenteChart:'Remaining capital', renteNote:'Monthly withdrawals at month end, nominal euros. Term annuity: capital exhausted at term. For life: fixed withdrawal rate — capital not guaranteed (rule designed for ~30 years). Perpetual: interest only, capital stays intact.', fireHyp:'Assumptions', firePrinc:'Current net worth',
+  navSim:'Simulators', navMore:'More', saveOk:'Saved:', simSegProj:'Projection', simSegFire:'FIRE', simSegRente:'Annuity', simProjTtl:'Projection — compound interest', projPrinc:'Starting capital', projPmt:'Monthly contribution', projYears:'Horizon (years)', projGo:'Project', projFinSub:'≈ {r} in today’s euros (inflation-adjusted)', projInv:'Total contributed', projInt:'Compound interest earned', projHint:'nominal · real (inflation-adjusted) · contributed', projLNom:'nominal capital', projLReel:'real (today’s euros)', projLInv:'cumulated contributions', projNote:'Monthly compounding, contributions at month end (current euros). The real line is inflation-deflated: it shows purchasing power.', simRenteTtl:'Potential annuity', renteCap:'Available capital', renteMode:'Annuity type', renteMy:'Term annuity — capital is exhausted at term', renteMl:'For life — sustainable withdrawal rate (4 % rule)', renteMp:'Perpetual — interest only, capital untouched', renteYears:'Annuity term (years)', renteGo:'Compute the annuity', renteMSub:'{y} per year', renteReel:'purchasing power at term (today’s euros)', renteCapEnd:'capital left at term', rentePay:'cumulated annuity paid out', simRenteChart:'Remaining capital', renteNote:'Monthly withdrawals at month end, nominal euros. Term annuity: capital exhausted at term. For life: fixed withdrawal rate — capital not guaranteed (rule designed for ~30 years). Perpetual: interest only, capital stays intact.', fireHyp:'Assumptions', firePrinc:'Current net worth',
   fireSave:'Monthly savings', fireExp:'Monthly expenses', fireRent:'Monthly annuities / pensions',
   fireBirth:'Birth year', fireRet:'Annual return (%)', fireInfl:'Annual inflation (%)',
   fireSwr:'Withdrawal rate (%)', fireGo:'Simulate', fireSaveH:'Save assumptions', fireRes:'Result',
@@ -1504,7 +1504,7 @@ avNote:'Ein Konto = ein Vertrag. Sparklasse = fonds €, Wertpapierklasse = UC. 
   lnYear:'Jahr', lnAmort:'Getilgt', lnInterest:'Zinsen', lnLeft:'Restbetrag',
   lnEnd:'Voraussichtliches Ende: {d} (in {n} Jahren) · Restzinsen: {i}',
   lnHeroDebt:'Vermögen {a} − Verbindlichkeiten {d}',
-  navSim:'Simulatoren', navMore:'Mehr', simSegProj:'Projektion', simSegFire:'FIRE', simSegRente:'Rente', simProjTtl:'Projektion — Zinseszins', projPrinc:'Startkapital', projPmt:'Monatlicher Beitrag', projYears:'Horizont (Jahre)', projGo:'Projizieren', projFinSub:'≈ {r} in heutigen Euro (nach Inflation)', projInv:'Gesamteinzahlungen', projInt:'Kumulierte Zinsen', projHint:'nominal · real (nach Inflation) · eingezahlt', projLNom:'Kapital nominal', projLReel:'real (heutige Euro)', projLInv:'kumulierte Einzahlungen', projNote:'Monatliche Verzinsung, Einzahlungen am Monatsende (laufende Euro). Die reale Linie ist um die Inflation bereinigt: sie zeigt die Kaufkraft.', simRenteTtl:'Potenzielle Rente', renteCap:'Verfügbares Kapital', renteMode:'Rentenart', renteMy:'Zeitrente — das Kapital ist am Laufzeitende aufgebraucht', renteMl:'Auf Lebenszeit — nachhaltige Entnahmerate (4-%-Regel)', renteMp:'Ewige Rente — nur Zinsen, Kapital bleibt unangetastet', renteYears:'Laufzeit der Rente (Jahre)', renteGo:'Rente berechnen', renteMSub:'{y} pro Jahr', renteReel:'Kaufkraft am Laufzeitende (heutige Euro)', renteCapEnd:'Kapital am Laufzeitende', rentePay:'kumulierte Rentenzahlungen', simRenteChart:'Verbleibendes Kapital', renteNote:'Monatliche Entnahmen am Monatsende, laufende Euro. Zeitrente: Kapital am Laufzeitende aufgebraucht. Auf Lebenszeit: fester Entnahmesatz — Kapital nicht garantiert (Regel für ~30 Jahre gedacht). Ewige Rente: nur Zinsen werden ausgezahlt, Kapital bleibt unangetastet.', fireHyp:'Annahmen', firePrinc:'Aktuelles Vermögen',
+  navSim:'Simulatoren', navMore:'Mehr', saveOk:'Gespeichert:', simSegProj:'Projektion', simSegFire:'FIRE', simSegRente:'Rente', simProjTtl:'Projektion — Zinseszins', projPrinc:'Startkapital', projPmt:'Monatlicher Beitrag', projYears:'Horizont (Jahre)', projGo:'Projizieren', projFinSub:'≈ {r} in heutigen Euro (nach Inflation)', projInv:'Gesamteinzahlungen', projInt:'Kumulierte Zinsen', projHint:'nominal · real (nach Inflation) · eingezahlt', projLNom:'Kapital nominal', projLReel:'real (heutige Euro)', projLInv:'kumulierte Einzahlungen', projNote:'Monatliche Verzinsung, Einzahlungen am Monatsende (laufende Euro). Die reale Linie ist um die Inflation bereinigt: sie zeigt die Kaufkraft.', simRenteTtl:'Potenzielle Rente', renteCap:'Verfügbares Kapital', renteMode:'Rentenart', renteMy:'Zeitrente — das Kapital ist am Laufzeitende aufgebraucht', renteMl:'Auf Lebenszeit — nachhaltige Entnahmerate (4-%-Regel)', renteMp:'Ewige Rente — nur Zinsen, Kapital bleibt unangetastet', renteYears:'Laufzeit der Rente (Jahre)', renteGo:'Rente berechnen', renteMSub:'{y} pro Jahr', renteReel:'Kaufkraft am Laufzeitende (heutige Euro)', renteCapEnd:'Kapital am Laufzeitende', rentePay:'kumulierte Rentenzahlungen', simRenteChart:'Verbleibendes Kapital', renteNote:'Monatliche Entnahmen am Monatsende, laufende Euro. Zeitrente: Kapital am Laufzeitende aufgebraucht. Auf Lebenszeit: fester Entnahmesatz — Kapital nicht garantiert (Regel für ~30 Jahre gedacht). Ewige Rente: nur Zinsen werden ausgezahlt, Kapital bleibt unangetastet.', fireHyp:'Annahmen', firePrinc:'Aktuelles Vermögen',
   fireSave:'Monatliche Sparrate', fireExp:'Monatliche Ausgaben', fireRent:'Monatliche Renten / Pensionen',
   fireBirth:'Geburtsjahr', fireRet:'Jährliche Rendite (%)', fireInfl:'Jährliche Inflation (%)',
   fireSwr:'Entnahmerate (%)', fireGo:'Simulieren', fireSaveH:'Annahmen speichern', fireRes:'Ergebnis',
@@ -1711,7 +1711,7 @@ avNote:'Ee Konto = ee Kontrakt. Spuerklass = fonds €, Bourse-Klass = UC. Erfaa
   lnYear:'Joer', lnAmort:'Getilgt', lnInterest:'Zënssen', lnLeft:'Rescht',
   lnEnd:'Geschate Enn: {d} (an {n} Joer) · Reschtzënssen: {i}',
   lnHeroDebt:'Aktiva {a} − Verbindlechkeeten {d}',
-  navSim:'Simulatoren', navMore:'Méi', simSegProj:'Projektioun', simSegFire:'FIRE', simSegRente:'Rent', simProjTtl:'Projektioun — Zënseszëns', projPrinc:'Startkapital', projPmt:'Monatleche Bäitrag', projYears:'Horizont (Joer)', projGo:'Projizéieren', projFinSub:'≈ {r} an hautdesdaagegen Euro (Inflatioun ofgezunn)', projInv:'Total ageluegt', projInt:'Zënsen total', projHint:'nominal · real (Inflatioun ofgezunn) · ageluegt', projLNom:'Kapital nominal', projLReel:'real (hautdesdaags Euro)', projLInv:'kumuléiert Agëtt', projNote:'Monatlech Kapitaliséierung, Agëtt um Enn vum Mount (aktuell Euro). Déi real Linn ass ëm d’Inflatioun bereinegt: si weist d’Kafkraaft.', simRenteTtl:'Potentiell Rent', renteCap:'Disponibel Kapital', renteMode:'Zort Rent', renteMy:'Zäitrent — d’Kapital ass um Enn vun der Laufzäit opgebraucht', renteMl:'Op Liewenszäit — nohaltege Réckzuchssaz (4-%-Regel)', renteMp:'Éiweg Rent — nëmmen Zënsen, d’Kapital bleift onugetaascht', renteYears:'Dauer vun der Rent (Joer)', renteGo:'Rent berechnen', renteMSub:'{y} pro Joer', renteReel:'Kafkraaft um Enn vun der Laufzäit (hautdesdaags Euro)', renteCapEnd:'Kapital um Enn vun der Laufzäit', rentePay:'kumuléiert Rentzuelungen', simRenteChart:'Verbleiwend Kapital', renteNote:'Monatlech Réckzuch um Enn vum Mount, aktuell Euro. Zäitrent: d’Kapital um Enn vun der Laufzäit opgebraucht. Op Liewenszäit: festen Entnahmesaz — Kapital net garantéiert (Regel fir ~30 Joer geduecht). Éiweg Rent: nëmmen d’Zënse ginn ausbezuelt, d’Kapital bleift onugetaascht.', fireHyp:'Unnerstellungen', firePrinc:'Aktuell Verméigen',
+  navSim:'Simulatoren', navMore:'Méi', saveOk:'Gespäichert:', simSegProj:'Projektioun', simSegFire:'FIRE', simSegRente:'Rent', simProjTtl:'Projektioun — Zënseszëns', projPrinc:'Startkapital', projPmt:'Monatleche Bäitrag', projYears:'Horizont (Joer)', projGo:'Projizéieren', projFinSub:'≈ {r} an hautdesdaagegen Euro (Inflatioun ofgezunn)', projInv:'Total ageluegt', projInt:'Zënsen total', projHint:'nominal · real (Inflatioun ofgezunn) · ageluegt', projLNom:'Kapital nominal', projLReel:'real (hautdesdaags Euro)', projLInv:'kumuléiert Agëtt', projNote:'Monatlech Kapitaliséierung, Agëtt um Enn vum Mount (aktuell Euro). Déi real Linn ass ëm d’Inflatioun bereinegt: si weist d’Kafkraaft.', simRenteTtl:'Potentiell Rent', renteCap:'Disponibel Kapital', renteMode:'Zort Rent', renteMy:'Zäitrent — d’Kapital ass um Enn vun der Laufzäit opgebraucht', renteMl:'Op Liewenszäit — nohaltege Réckzuchssaz (4-%-Regel)', renteMp:'Éiweg Rent — nëmmen Zënsen, d’Kapital bleift onugetaascht', renteYears:'Dauer vun der Rent (Joer)', renteGo:'Rent berechnen', renteMSub:'{y} pro Joer', renteReel:'Kafkraaft um Enn vun der Laufzäit (hautdesdaags Euro)', renteCapEnd:'Kapital um Enn vun der Laufzäit', rentePay:'kumuléiert Rentzuelungen', simRenteChart:'Verbleiwend Kapital', renteNote:'Monatlech Réckzuch um Enn vum Mount, aktuell Euro. Zäitrent: d’Kapital um Enn vun der Laufzäit opgebraucht. Op Liewenszäit: festen Entnahmesaz — Kapital net garantéiert (Regel fir ~30 Joer geduecht). Éiweg Rent: nëmmen d’Zënse ginn ausbezuelt, d’Kapital bleift onugetaascht.', fireHyp:'Unnerstellungen', firePrinc:'Aktuell Verméigen',
   fireSave:'Monatlecht Spueren', fireExp:'Monatlech Ausgaben', fireRent:'Monatlech Renten / Pensiounen',
   fireBirth:'Gebuertsjoer', fireRet:'Jährlech Rendit (%)', fireInfl:'Jährlech Inflatioun (%)',
   fireSwr:'Entnarate (%)', fireGo:'Simuléieren', fireSaveH:'Unnerstellungen späicheren', fireRes:'Resultat',
@@ -3777,13 +3777,9 @@ async function doExportEnc() {
   if (p1 !== p2) return alert(t('encPwdMismatch'));
   try {
     const d = await api('/api/export/encrypted', {method:'POST', body: JSON.stringify({password: p1})});
-    const blob = new Blob([d.payload], {type:'text/plain'});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'patrimony-backup-'+new Date().toISOString().slice(0,10)+'.pat.b64';
-    a.click();
+    saveText('patrimony-backup-'+new Date().toISOString().slice(0,10)+'.pat.b64', d.payload, 'text/plain');
     closeModal();
-    alert('✅ '+t('encOkDl'));
+    if (!isDesktop()) alert('✅ '+t('encOkDl'));
   } catch(e) { alert('❌ '+e.message); }
 }
 async function importEnc(input) {
@@ -3811,24 +3807,36 @@ async function doImportEnc(name) {
     location.reload();
   } catch(e) { alert('❌ '+e.message); }
 }
+function isDesktop(){ return !!(window.pywebview && window.pywebview.api && window.pywebview.api.save_file); }
+function saveText(filename, text, mime){
+  // App desktop (fenêtre native) : « Enregistrer sous » via l'API Python —
+  // les téléchargements <a download> sont bloqués dans la WebView.
+  if (isDesktop()) {
+    window.pywebview.api.save_file(filename, text).then(function(r){
+      if (r && r.ok) alert('✅ '+t('saveOk')+' '+r.path);
+      else if (r && r.cancelled) return;
+      else alert('❌ '+((r && r.error) || 'save'));
+    }).catch(function(e){ alert('❌ '+e); });
+    return;
+  }
+  const blob = new Blob([text], {type: mime});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
 async function exportData() {
   try {
     const d = await api('/api/export');
-    const blob = new Blob([JSON.stringify(d, null, 2)], {type:'application/json'});
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'patrimony-export-'+new Date().toISOString().slice(0,10)+'.json';
-    a.click();
+    saveText('patrimony-export-'+new Date().toISOString().slice(0,10)+'.json', JSON.stringify(d, null, 2), 'application/json');
   } catch(e) { alert(e.message); }
 }
 async function dlCsv(kind) {
   try {
     const r = await fetch('/api/export/csv/'+kind, {credentials:'same-origin', headers:{'Accept-Language':LANG}});
     if (!r.ok) throw new Error((await r.json().catch(()=>({}))).detail || ('HTTP '+r.status));
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(await r.blob());
-    a.download = 'patrimony-'+kind+'-'+new Date().toISOString().slice(0,10)+'.csv';
-    a.click();
+    saveText('patrimony-'+kind+'-'+new Date().toISOString().slice(0,10)+'.csv', await r.text(), 'text/csv');
   } catch(e) { alert('❌ '+e.message); }
 }
 async function loadFx() {

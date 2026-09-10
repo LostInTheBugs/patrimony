@@ -43,6 +43,44 @@ def wait_server(port: int, tries: int = 200) -> bool:
     return False
 
 
+def screen_size() -> tuple:
+    """Taille de l'écran (Windows) pour ne pas ouvrir plus grand que lui."""
+    try:
+        import ctypes
+
+        u = ctypes.windll.user32
+        return int(u.GetSystemMetrics(0)), int(u.GetSystemMetrics(1))
+    except Exception:
+        return 1280, 800
+
+
+class DesktopApi:
+    """API JS → Python exposée à la page (window.pywebview.api.*).
+
+    Les téléchargements <a download> sont silencieusement bloqués dans la
+    WebView Windows : les exports passent donc par « Enregistrer sous » natif
+    (remonté par Fred le 2026-09-10 : « le bouton exporter ne fonctionne pas »).
+    """
+
+    def save_file(self, filename: str, content: str, path=None) -> dict:
+        from pathlib import Path as _Path
+
+        if not path:
+            import webview
+
+            win = webview.windows[0] if webview.windows else None
+            if win is None:
+                return {"ok": False, "error": "no-window"}
+            chosen = win.create_file_dialog(
+                webview.SAVE_DIALOG, save_filename=filename
+            )
+            if not chosen:
+                return {"ok": False, "cancelled": True}
+            path = chosen[0] if isinstance(chosen, (list, tuple)) else chosen
+        _Path(str(path)).write_text(content, encoding="utf-8")
+        return {"ok": True, "path": str(path)}
+
+
 def main() -> None:
     base = base_dir()
     os.environ.setdefault("DATA_DIR", str(base / "data"))
@@ -88,8 +126,16 @@ def main() -> None:
     try:
         import webview  # fenêtre native (WebView2 sous Windows)
 
+        sw, sh = screen_size()
+        w = min(1320, max(900, sw - 80))
+        h = min(880, max(600, sh - 120))
         webview.create_window(
-            "Patrimony", url, width=1240, height=840, min_size=(920, 620)
+            "Patrimony",
+            url,
+            width=w,
+            height=h,
+            min_size=(760, 540),
+            js_api=DesktopApi(),
         )
         webview.start()  # bloque jusqu'à la fermeture de la fenêtre
         return
