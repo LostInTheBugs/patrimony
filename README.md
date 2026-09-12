@@ -138,11 +138,14 @@ SEED_DEMO=1 ADMIN_USER=admin ADMIN_PASSWORD=change-me \
 
 ## Windows desktop build
 
-A standalone **Windows build** is produced by CI (see `desktop/`): a
-`Patrimony.exe` that embeds the whole app — no Python, no Docker, nothing
-to run in a terminal. Your data lives in a `data/` folder created next to
-the executable; exports use a native « Save as » dialog, and the package
-ships with end-user guides in four languages (FR / EN / DE / LU). The
+A standalone **Windows build** is produced by CI (see `desktop/`) and
+attached to the [latest
+release](https://github.com/LostInTheBugs/patrimony/releases/latest) as
+**`Patrimony-Windows.zip`**: a `Patrimony.exe` that embeds the whole app —
+no Python, no Docker, nothing to run in a terminal. Your data lives in a
+`data/` folder created next to the executable; exports use a native
+« Save as » dialog, and the package ships with end-user guides in four
+languages (FR / EN / DE / LU). The
 executable is **unsigned**: if Windows Defender flags it, use
 « Actions → Allow on device » (known false positive — reported to
 Microsoft, cleared in September 2026).
