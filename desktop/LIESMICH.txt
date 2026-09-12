@@ -52,7 +52,8 @@ FEHLERBEHEBUNG
 - "Windows hat Ihren PC geschützt": siehe Schritt 2, das ist normal.
 - Windows Defender blockiert die Datei: Fehlalarm (nicht signiertes
   Programm) → „Aktionen" → „Auf Gerät zulassen". Die Datei wurde bei
-  Microsoft zur Überprüfung eingereicht.
+  Microsoft gemeldet: Fehlalarm bestätigt, Erkennung entfernt
+  (September 2026).
 - Das Fenster öffnet sich nicht: prüfen Sie, ob ein Antivirus
   Patrimony.exe blockiert, und starten Sie erneut.
 - Neu beginnen (alles löschen): den Ordner "data" löschen — beim

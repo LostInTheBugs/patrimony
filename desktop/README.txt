@@ -49,8 +49,8 @@ TROUBLESHOOTING
 ---------------
 - "Windows protected your PC": see step 2, this is normal.
 - Windows Defender blocks the file: false positive (unsigned app) ->
-  "Actions" -> "Allow on device". The file has been submitted to
-  Microsoft for review.
+  "Actions" -> "Allow on device". The file was reported to Microsoft:
+  false positive confirmed, detection removed (September 2026).
 - The window does not open: check that an antivirus is not blocking
   Patrimony.exe, then try again.
 - Start over (erase everything): delete the "data" folder; the next

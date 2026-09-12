@@ -144,8 +144,8 @@ to run in a terminal. Your data lives in a `data/` folder created next to
 the executable; exports use a native « Save as » dialog, and the package
 ships with end-user guides in four languages (FR / EN / DE / LU). The
 executable is **unsigned**: if Windows Defender flags it, use
-« Actions → Allow on device » (known false positive, reported to
-Microsoft).
+« Actions → Allow on device » (known false positive — reported to
+Microsoft, cleared in September 2026).
 
 ## Financial model & limitations
 

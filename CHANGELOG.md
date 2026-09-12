@@ -39,6 +39,9 @@ All notable changes to Patrimony are documented in this file.
   (company/product/version) to the executable, and documented the
   false positive with the « Actions → Allow » procedure in all four end-user
   guides. Code signing remains the definitive fix (to be decided later).
+  **Update (2026-09-12):** the report is resolved — Microsoft confirmed
+  the false positive and removed the detection; the current build is no
+  longer flagged.
 - **Disclaimer** added (in-app login screen + README): personal project
   built for fun, best-effort figures, nothing here is professional advice.
   Translated into the four UI languages; operators can override the text

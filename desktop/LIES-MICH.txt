@@ -53,7 +53,8 @@ WANN ET PROBLEMER GËTT
 - "Windows huet Ären PC geschützt": kuckt Schrëtt 2, dat ass normal.
 - Windows Defender blockéiert de Fichier: falsche Alarm (net signéiert
   Programm) → "Aktiounen" → "Op dem Apparat zouloossen". De Fichier gouf
-  bei Microsoft agereecht fir Iwwerpréiwung.
+  bei Microsoft agereecht: falsche Alarm bestätegt, Detektioun
+  ewechgeholl (September 2026).
 - D'Fënster geet net op: préift, ob en Antivirus Patrimony.exe
   blockéiert, a probéiert nach eng Kéier.
 - Vun Null ufänken (alles läschen): läscht den Dossier "data" — den

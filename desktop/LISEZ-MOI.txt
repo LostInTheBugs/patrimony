@@ -51,7 +51,8 @@ DÉPANNAGE
 - « Windows a protégé votre PC » : voir point 2, c'est normal.
 - Windows Defender bloque le fichier : faux positif (application non
   signée) → « Actions » → « Autoriser sur l'appareil ». Le fichier a été
-  soumis à Microsoft pour analyse.
+  signalé à Microsoft : faux positif confirmé, détection retirée
+  (septembre 2026).
 - La fenêtre ne s'ouvre pas : vérifiez qu'un antivirus ne bloque pas
   Patrimony.exe, et relancez.
 - Réinitialiser (tout effacer) : supprimez le dossier « data »,
