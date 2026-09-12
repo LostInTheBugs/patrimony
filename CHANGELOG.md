@@ -2,6 +2,19 @@
 
 All notable changes to Patrimony are documented in this file.
 
+## [2026.09.073] — 2026-09-12
+
+### Fixed
+
+- Brand logo (`public/logo.png`): removed the baked checkerboard pattern that
+  showed inside the counters of P, A, R and O in the PATRIMONY wordmark —
+  the counters are now truly transparent.
+
+### Added
+
+- "DATA SOVEREIGNTY" tagline under the PATRIMONY wordmark, matching the style
+  used by the other project logos (uppercase, letter-spaced, flanked rules).
+
 ## [2026.09.072] — 2026-09-10
 
 ### Security
