@@ -31,7 +31,7 @@ FROM session_model_usage
 WHERE session_id IN (
   -- interactive dev sessions
   '20260904_172726_2a994788',  -- Patrimony bootstrap, first version (09-04)
-  '20260905_103925_6fca4ce6',  -- LostInTheBugs/patrimony review (09-05)
+  '20260905_103925_6fca4ce6',  -- LostInTheBugs/Patrimony review (09-05)
   '20260906_100900_f2e081d3',  -- dev + demo auto-reset (09-06)
   '20260907_065839_a7915f43',  -- build session (09-07)
   '20260908_101839_0f625177',  -- crowdfunding module integration (09-08)

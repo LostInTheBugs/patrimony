@@ -56,4 +56,4 @@ TROUBLESHOOTING
 - Start over (erase everything): delete the "data" folder; the next
   launch starts fresh.
 
-MIT License — open source: github.com/LostInTheBugs/patrimony
+MIT License — open source: github.com/LostInTheBugs/Patrimony

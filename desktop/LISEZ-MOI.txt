@@ -58,4 +58,4 @@ DÉPANNAGE
 - Réinitialiser (tout effacer) : supprimez le dossier « data »,
   tout recommence à zéro au prochain lancement.
 
-Licence MIT — projet open source : github.com/LostInTheBugs/patrimony
+Licence MIT — projet open source : github.com/LostInTheBugs/Patrimony

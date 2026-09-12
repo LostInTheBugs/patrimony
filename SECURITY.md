@@ -5,7 +5,7 @@
 **Please do not open a public issue for security problems.**
 
 Use GitHub's private vulnerability reporting:
-**[Report a vulnerability](https://github.com/LostInTheBugs/patrimony/security/advisories/new)**
+**[Report a vulnerability](https://github.com/LostInTheBugs/Patrimony/security/advisories/new)**
 (Security tab → "Report a vulnerability").
 
 You can typically expect an acknowledgement within **7 days**. The report

@@ -140,7 +140,7 @@ SEED_DEMO=1 ADMIN_USER=admin ADMIN_PASSWORD=change-me \
 
 A standalone **Windows build** is produced by CI (see `desktop/`) and
 attached to the [latest
-release](https://github.com/LostInTheBugs/patrimony/releases/latest) as
+release](https://github.com/LostInTheBugs/Patrimony/releases/latest) as
 **`Patrimony-Windows.zip`**: a `Patrimony.exe` that embeds the whole app —
 no Python, no Docker, nothing to run in a terminal. Your data lives in a
 `data/` folder created next to the executable; exports use a native

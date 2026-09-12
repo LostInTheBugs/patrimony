@@ -59,4 +59,4 @@ FEHLERBEHEBUNG
 - Neu beginnen (alles löschen): den Ordner "data" löschen — beim
   nächsten Start geht es von vorne los.
 
-MIT-Lizenz — Open Source: github.com/LostInTheBugs/patrimony
+MIT-Lizenz — Open Source: github.com/LostInTheBugs/Patrimony

@@ -25,7 +25,7 @@ with open(_vi, 'w', encoding='utf-8') as f:
       StringStruct('FileDescription', 'Patrimony - personal wealth dashboard'),
       StringStruct('FileVersion', '{_ver}'),
       StringStruct('InternalName', 'Patrimony'),
-      StringStruct('LegalCopyright', 'MIT License - github.com/LostInTheBugs/patrimony'),
+      StringStruct('LegalCopyright', 'MIT License - github.com/LostInTheBugs/Patrimony'),
       StringStruct('OriginalFilename', 'Patrimony.exe'),
       StringStruct('ProductName', 'Patrimony'),
       StringStruct('ProductVersion', '{_ver}')])]),

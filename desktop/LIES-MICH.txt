@@ -60,4 +60,4 @@ WANN ET PROBLEMER GËTT
 - Vun Null ufänken (alles läschen): läscht den Dossier "data" — den
   nächste Start fänkt frësch un.
 
-MIT-Lizenz — Open Source: github.com/LostInTheBugs/patrimony
+MIT-Lizenz — Open Source: github.com/LostInTheBugs/Patrimony
